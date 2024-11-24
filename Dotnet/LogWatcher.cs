@@ -278,8 +278,9 @@ namespace VRCX
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                logger.Warn("Failed to parse log file: {0} {1}", fileInfo.FullName, ex.Message);
             }
         }
 
@@ -405,8 +406,9 @@ namespace VRCX
             // 2021.09.02 00:02:12 Log        -  [Behaviour] Destination set: wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd:15609~private(usr_032383a7-748c-4fb2-94e4-bcb928e5de6b)~nonce(72CC87D420C1D49AEFFBEE8824C84B2DF0E38678E840661E)
             // 2021.09.02 00:49:15 Log        -  [Behaviour] Destination fetching: wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd
             // 2022.08.13 18:57:00 Log        -  [Behaviour] OnLeftRoom
+            // 2024.11.22 15:32:28 Log        -  [Behaviour] Successfully left room
 
-            if (line.Contains("[Behaviour] OnLeftRoom"))
+            if (line.Contains("[Behaviour] Successfully left room"))
             {
                 AppendLog(new[]
                 {
@@ -455,6 +457,8 @@ namespace VRCX
             // 2021.12.12 11:47:22 Log        -  [Behaviour] OnPlayerJoined:Unnamed
             // 2021.12.12 11:53:14 Log        -  [Behaviour] OnPlayerLeftRoom
 
+            // Future logs will be formatted like this: [Behaviour] OnPlayerJoined Natsumi-sama (usr_032383a7-748c-4fb2-94e4-bcb928e5de6b)
+
             if (line.Contains("[Behaviour] OnPlayerJoined") && !line.Contains("] OnPlayerJoined:"))
             {
                 var lineOffset = line.LastIndexOf("] OnPlayerJoined");
@@ -464,14 +468,15 @@ namespace VRCX
                 if (lineOffset > line.Length)
                     return true;
 
-                var userDisplayName = line.Substring(lineOffset);
+                var userInfo = ParseUserInfo(line.Substring(lineOffset));
 
                 AppendLog(new[]
                 {
                     fileInfo.Name,
                     ConvertLogTimeToISO8601(line),
                     "player-joined",
-                    userDisplayName
+                    userInfo.DisplayName,
+                    userInfo.UserId
                 });
 
                 return true;
@@ -486,14 +491,15 @@ namespace VRCX
                 if (lineOffset > line.Length)
                     return true;
 
-                var userDisplayName = line.Substring(lineOffset);
+                var userInfo = ParseUserInfo(line.Substring(lineOffset));
 
                 AppendLog(new[]
                 {
                     fileInfo.Name,
                     ConvertLogTimeToISO8601(line),
                     "player-left",
-                    userDisplayName
+                    userInfo.DisplayName,
+                    userInfo.UserId
                 });
 
                 return true;
@@ -599,15 +605,15 @@ namespace VRCX
                 var data = line.Substring(offset + 24);
                 if (data == logContext.LastVideoError)
                     return true;
-            logContext.LastVideoError = data;
+                logContext.LastVideoError = data;
 
-            AppendLog(new[]
-            {
-                fileInfo.Name,
-                ConvertLogTimeToISO8601(line),
-                "event",
-                "VideoError: " + data
-            });
+                AppendLog(new[]
+                {
+                    fileInfo.Name,
+                    ConvertLogTimeToISO8601(line),
+                    "event",
+                    "VideoError: " + data
+                });
 
                 return true;
             }
@@ -1011,6 +1017,19 @@ namespace VRCX
         {
             // 2022.11.29 04:27:33 Error      -  [UdonBehaviour] An exception occurred during Udon execution, this UdonBehaviour will be halted.
             // VRC.Udon.VM.UdonVMException: An exception occurred in an UdonVM, execution will be halted. --->VRC.Udon.VM.UdonVMException: An exception occurred during EXTERN to 'VRCSDKBaseVRCPlayerApi.__get_displayName__SystemString'. --->System.NullReferenceException: Object reference not set to an instance of an object.
+            
+            if (line.Contains("[PyPyDance]"))
+            {
+                AppendLog(new[]
+                {
+                    fileInfo.Name,
+                    ConvertLogTimeToISO8601(line),
+                    "udon-exception",
+                    line
+                });
+                return true;
+            }
+            
             var lineOffset = line.IndexOf(" ---> VRC.Udon.VM.UdonVMException: ");
             if (lineOffset < 0)
                 return false;
@@ -1031,8 +1050,9 @@ namespace VRCX
         private bool ParseApplicationQuit(FileInfo fileInfo, LogContext logContext, string line, int offset)
         {
             // 2022.06.12 01:51:46 Log        -  VRCApplication: OnApplicationQuit at 1603.499
-
-            if (string.Compare(line, offset, "VRCApplication: OnApplicationQuit at ", 0, 37, StringComparison.Ordinal) != 0)
+            // 2024.10.23 21:18:34 Log        -  VRCApplication: HandleApplicationQuit at 936.5161
+            if (string.Compare(line, offset, "VRCApplication: OnApplicationQuit at ", 0, 37, StringComparison.Ordinal) != 0 &&
+                string.Compare(line, offset, "VRCApplication: HandleApplicationQuit at ", 0, 41, StringComparison.Ordinal) != 0)
                 return false;
 
             AppendLog(new[]
@@ -1188,7 +1208,7 @@ namespace VRCX
                 fileInfo.Name,
                 ConvertLogTimeToISO8601(line),
                 "event",
-                $"VRChat couldn't start OSC server, you may be affected by (https://vrchat.canny.io/bug-reports/p/installexe-breaks-osc-port-binding) \"{line.Substring(offset)}\""
+                $"VRChat couldn't start OSC server, \"{line.Substring(offset)}\""
             });
             return true;
         }
@@ -1283,6 +1303,26 @@ namespace VRCX
             }
 
             return new string[][] { };
+        }
+
+        private static (string DisplayName, string UserId) ParseUserInfo(string userInfo)
+        {
+            string userDisplayName;
+            string userId;
+
+            int pos = userInfo.LastIndexOf(" (");
+            if (pos >= 0)
+            {
+                userDisplayName = userInfo.Substring(0, pos);
+                userId = userInfo.Substring(pos + 2, userInfo.LastIndexOf(')') - (pos + 2));
+            }
+            else
+            {
+                userDisplayName = userInfo;
+                userId = null;
+            }
+
+            return (userDisplayName, userId);
         }
 
         private class LogContext

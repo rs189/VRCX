@@ -22,6 +22,7 @@ namespace VRCX
         public static string Version { get; private set; }
         public static bool LaunchDebug;
         private static readonly NLog.Logger logger = NLog.LogManager.GetLogger("VRCX");
+        public static VRCXVRInterface VRCXVRInstance { get; private set; }
 
         private static void SetProgramDirectories()
         {
@@ -120,7 +121,7 @@ namespace VRCX
                         MessageBox.Show(
                             "vc_redist has finished installing, if the issue persists upon next restart, please reinstall VRCX From GitHub,\nVRCX Will now restart.", "vc_redist installation complete", MessageBoxButtons.OK);
                         Thread.Sleep(5000);
-                        AppApi.Instance.RestartApplication();
+                        AppApi.Instance.RestartApplication(false);
                         break;
 
                     case DialogResult.No:
@@ -187,14 +188,19 @@ namespace VRCX
             WebApi.Instance.Init();
             LogWatcher.Instance.Init();
             AutoAppLaunchManager.Instance.Init();
-
             CefService.Instance.Init();
             IPCServer.Instance.Init();
-            VRCXVR.Instance.Init();
+            
+            if (VRCXStorage.Instance.Get("VRCX_DisableVrOverlayGpuAcceleration") == "true")
+                VRCXVRInstance = new VRCXVRLegacy();
+            else
+                VRCXVRInstance = new VRCXVR();
+            VRCXVRInstance.Init();
+            
             Application.Run(new MainForm());
             logger.Info("{0} Exiting...", Version);
             WebApi.Instance.SaveCookies();
-            VRCXVR.Instance.Exit();
+            VRCXVRInstance.Exit();
             CefService.Instance.Exit();
 
             AutoAppLaunchManager.Instance.Exit();

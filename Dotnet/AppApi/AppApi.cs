@@ -30,7 +30,6 @@ namespace VRCX
 
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private static readonly MD5 _hasher = MD5.Create();
-        private static bool dialogOpen;
 
         static AppApi()
         {
@@ -62,16 +61,17 @@ namespace VRCX
 
         public string ResizeImageToFitLimits(string base64data)
         {
-            return Convert.ToBase64String(ResizeImageToFitLimits(Convert.FromBase64String(base64data)));
+            return Convert.ToBase64String(ResizeImageToFitLimits(Convert.FromBase64String(base64data), false));
         }
 
-        public byte[] ResizeImageToFitLimits(byte[] imageData, int maxWidth = 2000, int maxHeight = 2000, long maxSize = 10_000_000)
+        public byte[] ResizeImageToFitLimits(byte[] imageData, bool matchingDimensions, int maxWidth = 2000, int maxHeight = 2000, long maxSize = 10_000_000)
         {
             using var fileMemoryStream = new MemoryStream(imageData);
             var image = new Bitmap(fileMemoryStream);
             
             // for APNG, check if image is png format and less than maxSize
-            if (image.RawFormat.Equals(System.Drawing.Imaging.ImageFormat.Png) &&
+            if ((!matchingDimensions || image.Width == image.Height) &&
+                image.RawFormat.Equals(System.Drawing.Imaging.ImageFormat.Png) &&
                 imageData.Length < maxSize &&
                 image.Width <= maxWidth &&
                 image.Height <= maxHeight)
@@ -91,7 +91,19 @@ namespace VRCX
                 var newWidth = (int)Math.Round(image.Width / sizingFactor);
                 image = new Bitmap(image, newWidth, maxHeight);
             }
-
+            if (matchingDimensions && image.Width != image.Height)
+            {
+                var newSize = Math.Max(image.Width, image.Height);
+                var newImage = new Bitmap(newSize, newSize);
+                using (var graphics = Graphics.FromImage(newImage))
+                {
+                    graphics.Clear(Color.Transparent);
+                    graphics.DrawImage(image, new Rectangle((newSize - image.Width) / 2, (newSize - image.Height) / 2, image.Width, image.Height));
+                }
+                image.Dispose();
+                image = newImage;
+            }
+            
             SaveToFileToUpload();
             for (int i = 0; i < 250 && imageData.Length > maxSize; i++)
             {
@@ -209,17 +221,17 @@ namespace VRCX
 
         public void SetVR(bool active, bool hmdOverlay, bool wristOverlay, bool menuButton, int overlayHand)
         {
-            VRCXVR.Instance.SetActive(active, hmdOverlay, wristOverlay, menuButton, overlayHand);
+            Program.VRCXVRInstance.SetActive(active, hmdOverlay, wristOverlay, menuButton, overlayHand);
         }
 
         public void RefreshVR()
         {
-            VRCXVR.Instance.Restart();
+            Program.VRCXVRInstance.Restart();
         }
 
         public void RestartVR()
         {
-            VRCXVR.Instance.Restart();
+            Program.VRCXVRInstance.Restart();
         }
 
         public void SetZoom(double zoomLevel)
@@ -278,16 +290,30 @@ namespace VRCX
         }
 
         /// <summary>
-        /// Restarts the VRCX application for an update by launching a new process with the "/Upgrade" argument and exiting the current process.
+        /// Restarts the VRCX application for an update by launching a new process with the upgrade argument and exiting the current process.
         /// </summary>
-        public void RestartApplication()
+        public void RestartApplication(bool isUpgrade)
         {
+            var args = new List<string>();
+            
+            if (isUpgrade)
+                args.Add(StartupArgs.VrcxLaunchArguments.IsUpgradePrefix);
+
+            if (StartupArgs.LaunchArguments.IsDebug)
+                args.Add(StartupArgs.VrcxLaunchArguments.IsDebugPrefix);
+
+            if (!string.IsNullOrWhiteSpace(StartupArgs.LaunchArguments.ConfigDirectory))
+                args.Add($"{StartupArgs.VrcxLaunchArguments.ConfigDirectoryPrefix}={StartupArgs.LaunchArguments.ConfigDirectory}");
+
+            if (!string.IsNullOrWhiteSpace(StartupArgs.LaunchArguments.ProxyUrl))
+                args.Add($"{StartupArgs.VrcxLaunchArguments.ProxyUrlPrefix}={StartupArgs.LaunchArguments.ProxyUrl}");
+
             var vrcxProcess = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = Path.Combine(Program.BaseDirectory, "VRCX.exe"),
-                    Arguments = "/Upgrade",
+                    Arguments = string.Join(' ', args),
                     UseShellExecute = true,
                     WorkingDirectory = Program.BaseDirectory
                 }
@@ -342,18 +368,12 @@ namespace VRCX
 
         public void ExecuteVrFeedFunction(string function, string json)
         {
-            if (VRCXVR._browser1 == null) return;
-            if (VRCXVR._browser1.IsLoading)
-                VRCXVR.Instance.Restart();
-            VRCXVR._browser1.ExecuteScriptAsync($"$app.{function}", json);
+            Program.VRCXVRInstance.ExecuteVrFeedFunction(function, json);
         }
 
         public void ExecuteVrOverlayFunction(string function, string json)
         {
-            if (VRCXVR._browser2 == null) return;
-            if (VRCXVR._browser2.IsLoading)
-                VRCXVR.Instance.Restart();
-            VRCXVR._browser2.ExecuteScriptAsync($"$app.{function}", json);
+            Program.VRCXVRInstance.ExecuteVrOverlayFunction(function, json);
         }
 
         /// <summary>
@@ -362,8 +382,8 @@ namespace VRCX
         /// <returns>The launch command.</returns>
         public string GetLaunchCommand()
         {
-            var command = StartupArgs.LaunchCommand;
-            StartupArgs.LaunchCommand = string.Empty;
+            var command = StartupArgs.LaunchArguments.LaunchCommand;
+            StartupArgs.LaunchArguments.LaunchCommand = string.Empty;
             return command;
         }
 
@@ -560,6 +580,17 @@ namespace VRCX
             }
 
             return null;
+        }
+
+        public async Task<bool> SavePrintToFile(string url, string path, string fileName)
+        {
+            var folder = Path.Combine(GetVRChatPhotosLocation(), "Prints", MakeValidFileName(path));
+            Directory.CreateDirectory(folder);
+            var filePath = Path.Combine(folder, MakeValidFileName(fileName));
+            if (File.Exists(filePath))
+                return false;
+
+            return await ImageCache.SaveImageToFile(url, filePath);
         }
     }
 }
