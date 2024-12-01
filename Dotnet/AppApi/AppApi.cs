@@ -16,7 +16,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+#if LINUX
+#else
 using CefSharp;
+#endif
 using librsync.net;
 using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.Win32;
@@ -38,12 +41,12 @@ namespace VRCX
             ProcessMonitor.Instance.ProcessStarted += Instance.OnProcessStateChanged;
             ProcessMonitor.Instance.ProcessExited += Instance.OnProcessStateChanged;
         }
-        
+
         public void Init()
         {
             // Create Instance before Cef tries to bind it
         }
-        
+
         /// <summary>
         /// Computes the MD5 hash of the file represented by the specified base64-encoded string.
         /// </summary>
@@ -68,7 +71,7 @@ namespace VRCX
         {
             using var fileMemoryStream = new MemoryStream(imageData);
             var image = new Bitmap(fileMemoryStream);
-            
+
             // for APNG, check if image is png format and less than maxSize
             if ((!matchingDimensions || image.Width == image.Height) &&
                 image.RawFormat.Equals(System.Drawing.Imaging.ImageFormat.Png) &&
@@ -78,7 +81,7 @@ namespace VRCX
             {
                 return imageData;
             }
-            
+
             if (image.Width > maxWidth)
             {
                 var sizingFactor = image.Width / (double)maxWidth;
@@ -103,14 +106,14 @@ namespace VRCX
                 image.Dispose();
                 image = newImage;
             }
-            
+
             SaveToFileToUpload();
             for (int i = 0; i < 250 && imageData.Length > maxSize; i++)
             {
                 SaveToFileToUpload();
                 if (imageData.Length < maxSize)
                     break;
-                
+
                 int newWidth;
                 int newHeight;
                 if (image.Width > image.Height)
@@ -174,7 +177,10 @@ namespace VRCX
         /// </summary>
         public void ShowDevTools()
         {
+#if LINUX
+#else
             MainForm.Instance.Browser.ShowDevTools();
+#endif
         }
 
         /// <summary>
@@ -182,7 +188,10 @@ namespace VRCX
         /// </summary>
         public void DeleteAllCookies()
         {
+#if LINUX
+#else
             Cef.GetGlobalCookieManager().DeleteCookies();
+#endif
         }
 
         /// <summary>
@@ -236,12 +245,19 @@ namespace VRCX
 
         public void SetZoom(double zoomLevel)
         {
+#if LINUX
+#else
             MainForm.Instance.Browser.SetZoomLevel(zoomLevel);
+#endif
         }
-        
+
         public async Task<double> GetZoom()
         {
+#if LINUX
+            return -1.0f;
+#else
             return await MainForm.Instance.Browser.GetZoomLevelAsync();
+#endif
         }
 
         /// <summary>
@@ -276,8 +292,10 @@ namespace VRCX
 
                 if (!string.IsNullOrEmpty(Text))
                     builder.AddText(Text);
-
+#if LINUX
+#else
                 builder.Show();
+#endif
             }
             catch (System.AccessViolationException ex)
             {
@@ -295,7 +313,7 @@ namespace VRCX
         public void RestartApplication(bool isUpgrade)
         {
             var args = new List<string>();
-            
+
             if (isUpgrade)
                 args.Add(StartupArgs.VrcxLaunchArguments.IsUpgradePrefix);
 
@@ -362,8 +380,11 @@ namespace VRCX
 
         public void ExecuteAppFunction(string function, string json)
         {
+#if LINUX
+#else
             if (MainForm.Instance?.Browser != null && !MainForm.Instance.Browser.IsLoading && MainForm.Instance.Browser.CanExecuteJavascriptInMainFrame)
                 MainForm.Instance.Browser.ExecuteScriptAsync($"$app.{function}", json);
+#endif
         }
 
         public void ExecuteVrFeedFunction(string function, string json)
@@ -392,7 +413,10 @@ namespace VRCX
         /// </summary>
         public void FocusWindow()
         {
+#if LINUX
+#else
             MainForm.Instance.Invoke(new Action(() => { MainForm.Instance.Focus_Window(); }));
+#endif
         }
 
         /// <summary>
@@ -444,7 +468,8 @@ namespace VRCX
         {
             return LogWatcher.Instance.VrcClosedGracefully;
         }
-
+#if LINUX
+#else
         public void ChangeTheme(int value)
         {
             WinformThemer.SetGlobalTheme(value);
@@ -454,6 +479,7 @@ namespace VRCX
         {
             WinformThemer.DoFunny();
         }
+#endif
 
         /// <summary>
         /// Returns a color value derived from the given user ID.
@@ -490,10 +516,13 @@ namespace VRCX
         public string GetClipboard()
         {
             var clipboard = string.Empty;
+#if LINUX
+#else
             var thread = new Thread(() => clipboard = Clipboard.GetText());
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
             thread.Join();
+#endif
             return clipboard;
         }
 
@@ -509,8 +538,11 @@ namespace VRCX
                 {
                     if (enabled)
                     {
+#if LINUX
+#else
                         var path = Application.ExecutablePath;
                         key.SetValue("VRCX", $"\"{path}\" --startup");
+#endif
                     }
                     else
                     {
@@ -541,6 +573,8 @@ namespace VRCX
             // check if the file exists and is any image file type
             if (File.Exists(path) && (path.EndsWith(".png") || path.EndsWith(".jpg") || path.EndsWith(".jpeg") || path.EndsWith(".gif") || path.EndsWith(".bmp") || path.EndsWith(".webp")))
             {
+#if LINUX
+#else
                 MainForm.Instance.BeginInvoke(new MethodInvoker(() =>
                 {
                     var image = Image.FromFile(path);
@@ -550,15 +584,19 @@ namespace VRCX
                     data.SetFileDropList(new StringCollection { path });
                     Clipboard.SetDataObject(data, true);
                 }));
+#endif
             }
         }
-        
+
         /// <summary>
         /// Flashes the window of the main form.
         /// </summary>
         public void FlashWindow()
         {
+#if LINUX
+#else
             MainForm.Instance.BeginInvoke(new MethodInvoker(() => { WinformThemer.Flash(MainForm.Instance); }));
+#endif
         }
 
         /// <summary>
@@ -566,10 +604,13 @@ namespace VRCX
         /// </summary>
         public void SetUserAgent()
         {
+#if LINUX
+#else
             using (var client = MainForm.Instance.Browser.GetDevToolsClient())
             {
                 _ = client.Network.SetUserAgentOverrideAsync(Program.Version);
             }
+#endif
         }
 
         public string GetFileBase64(string path)
@@ -603,7 +644,7 @@ namespace VRCX
 
             return await ImageCache.SaveImageToFile(url, filePath);
         }
-        
+
         public bool IsRunningUnderWine()
         {
             return Wine.GetIfWine();

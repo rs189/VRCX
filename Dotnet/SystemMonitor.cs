@@ -17,8 +17,11 @@ namespace VRCX
         public float CpuUsage;
         public double UpTime;
         private bool _enabled;
+#if LINUX
+#else
         private PerformanceCounter _performanceCounterCpuUsage;
         private PerformanceCounter _performanceCounterUpTime;
+#endif
         private Thread _thread;
         private static readonly NLog.Logger logger = NLog.LogManager.GetLogger("VRCX");
 
@@ -31,7 +34,7 @@ namespace VRCX
         {
             if (enabled == _enabled)
                 return;
-            
+
             _enabled = enabled;
             if (enabled)
                 StartThread();
@@ -55,19 +58,23 @@ namespace VRCX
             catch (ThreadInterruptedException)
             {
             }
-
+#if LINUX
+#else
             _performanceCounterCpuUsage?.Dispose();
             _performanceCounterCpuUsage = null;
             _performanceCounterUpTime?.Dispose();
             _performanceCounterUpTime = null;
+#endif
         }
-        
+
         private void StartThread()
         {
             Exit();
-            
+#if LINUX
+#else
             try
             {
+
                 _performanceCounterCpuUsage = new PerformanceCounter(
                     "Processor Information",
                     "% Processor Utility",
@@ -99,7 +106,7 @@ namespace VRCX
                     logger.Warn($"Failed to create \"Processor Time\" PerformanceCounter ${ex}");
                 }
             }
-            
+
             try
             {
                 _performanceCounterUpTime = new PerformanceCounter("System", "System Up Time");
@@ -117,16 +124,19 @@ namespace VRCX
                 return;
             }
             logger.Info("SystemMonitor started");
-            
+
             _thread = new Thread(ThreadProc)
             {
                 IsBackground = true
             };
             _thread.Start();
+#endif
         }
-        
+
         private void ThreadProc()
         {
+#if LINUX
+#else
             try
             {
                 while (_enabled)
@@ -136,7 +146,7 @@ namespace VRCX
 
                     if (_performanceCounterUpTime != null)
                         UpTime = TimeSpan.FromSeconds(_performanceCounterUpTime.NextValue()).TotalMilliseconds;
-                    
+
                     Thread.Sleep(1000);
                 }
             }
@@ -144,6 +154,7 @@ namespace VRCX
             {
                 logger.Warn($"SystemMonitor thread exception: {ex}");
             }
+#endif
 
             Exit();
         }

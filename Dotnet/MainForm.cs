@@ -9,11 +9,16 @@ using System.Drawing;
 using System.Net;
 using System.Reflection;
 using System.Windows.Forms;
+#if LINUX
+#else
 using CefSharp;
 using CefSharp.WinForms;
+#endif
 
 namespace VRCX
 {
+#if LINUX
+#else
     public partial class MainForm : WinformBase
     {
         public static MainForm Instance;
@@ -241,4 +246,5 @@ namespace VRCX
             Application.Exit();
         }
     }
+#endif
 }

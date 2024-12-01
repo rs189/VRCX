@@ -3,6 +3,8 @@
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
+#if LINUX
+#else
 using CefSharp;
 
 namespace VRCX
@@ -31,3 +33,4 @@ namespace VRCX
         }
     }
 }
+#endif

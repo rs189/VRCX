@@ -4,7 +4,10 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+#if LINUX
+#else
 using CefSharp;
+#endif
 using Microsoft.Win32;
 
 namespace VRCX
@@ -26,7 +29,7 @@ namespace VRCX
         {
             var isGameRunning = false;
             var isSteamVRRunning = false;
-            
+
             if (ProcessMonitor.Instance.IsProcessRunning("VRChat"))
             {
                 isGameRunning = true;
@@ -51,10 +54,12 @@ namespace VRCX
             }
 
             var isHmdAfk = Program.VRCXVRInstance.IsHmdAfk;
-
+#if LINUX
+#else
             // TODO: fix this throwing an exception for being called before the browser is ready. somehow it gets past the checks
             if (MainForm.Instance?.Browser != null && !MainForm.Instance.Browser.IsLoading && MainForm.Instance.Browser.CanExecuteJavascriptInMainFrame)
                 MainForm.Instance.Browser.ExecuteScriptAsync("$app.updateIsGameRunning", isGameRunning, isSteamVRRunning, isHmdAfk);
+#endif
         }
 
         /// <summary>

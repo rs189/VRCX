@@ -282,6 +282,8 @@ namespace VRCX
 
             var thread = new Thread(() =>
             {
+#if LINUX
+#else
                 using (var openFileDialog = new System.Windows.Forms.OpenFileDialog())
                 {
                     openFileDialog.DefaultExt = ".json";
@@ -305,6 +307,7 @@ namespace VRCX
                     var json = File.ReadAllText(path);
                     ExecuteAppFunction("restoreVrcRegistryFromFile", json);
                 }
+#endif
             });
 
             thread.SetApartmentState(ApartmentState.STA);

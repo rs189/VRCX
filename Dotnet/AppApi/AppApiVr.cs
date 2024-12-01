@@ -2,7 +2,10 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+#if LINUX
+#else
 using CefSharp;
+#endif
 
 namespace VRCX
 {
@@ -19,18 +22,21 @@ namespace VRCX
         {
             // Create Instance before Cef tries to bind it
         }
-        
+
         public void VrInit()
         {
+#if LINUX
+#else
             if (MainForm.Instance?.Browser != null && !MainForm.Instance.Browser.IsLoading && MainForm.Instance.Browser.CanExecuteJavascriptInMainFrame)
                 MainForm.Instance.Browser.ExecuteScriptAsync("$app.vrInit", "");
+#endif
         }
-        
+
         public void ToggleSystemMonitor(bool enabled)
         {
             SystemMonitor.Instance.Start(enabled);
         }
-        
+
         /// <summary>
         /// Returns the current CPU usage as a percentage.
         /// </summary>
@@ -39,7 +45,7 @@ namespace VRCX
         {
             return SystemMonitor.Instance.CpuUsage;
         }
-        
+
         /// <summary>
         /// Returns an array of arrays containing information about the connected VR devices.
         /// Each sub-array contains the type of device and its current state
@@ -49,7 +55,7 @@ namespace VRCX
         {
             return Program.VRCXVRInstance.GetDevices();
         }
-        
+
         /// <summary>
         /// Returns the number of milliseconds that the system has been running.
         /// </summary>
@@ -58,7 +64,7 @@ namespace VRCX
         {
             return SystemMonitor.Instance.UpTime;
         }
-        
+
         /// <summary>
         /// Returns the current language of the operating system.
         /// </summary>
@@ -67,7 +73,7 @@ namespace VRCX
         {
             return CultureInfo.CurrentCulture.ToString();
         }
-        
+
         /// <summary>
         /// Returns the file path of the custom user js file, if it exists.
         /// </summary>
@@ -80,7 +86,7 @@ namespace VRCX
                 output = filePath;
             return output;
         }
-        
+
         public bool IsRunningUnderWine()
         {
             return Wine.GetIfWine();

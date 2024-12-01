@@ -1,4 +1,7 @@
+#if LINUX
+#else
 using CefSharp;
+#endif
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
@@ -40,7 +43,8 @@ namespace VRCX
             m_Connection.Close();
             m_Connection.Dispose();
         }
-
+#if LINUX
+#else
         public void Execute(IJavascriptCallback callback, string sql, IDictionary<string, object> args = null)
         {
             try
@@ -90,7 +94,7 @@ namespace VRCX
 
             callback.Dispose();
         }
-
+#endif
         public void Execute(Action<object[]> callback, string sql, IDictionary<string, object> args = null)
         {
             m_ConnectionLock.EnterReadLock();

@@ -1,3 +1,5 @@
+#if LINUX
+#else
 using CefSharp;
 
 namespace VRCX
@@ -24,3 +26,4 @@ namespace VRCX
         }
     }
 }
+#endif

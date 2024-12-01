@@ -5,6 +5,8 @@
 
 namespace VRCX
 {
+#if LINUX
+#else
     partial class MainForm
     {
         /// <summary>
@@ -114,4 +116,5 @@ namespace VRCX
         private System.Windows.Forms.ToolStripMenuItem TrayMenu_Quit;
         private System.Windows.Forms.NotifyIcon TrayIcon;
     }
+#endif
 }

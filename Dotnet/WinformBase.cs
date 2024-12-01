@@ -8,6 +8,8 @@ using System.Windows.Forms;
 
 namespace VRCX
 {
+#if LINUX
+#else
     public class WinformBase : Form
     {
         protected override void OnHandleCreated(EventArgs e)
@@ -16,4 +18,5 @@ namespace VRCX
             base.OnHandleCreated(e);
         }
     }
+#endif
 }

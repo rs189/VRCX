@@ -7,7 +7,8 @@ namespace VRCX
 {
     //Based off DWMWA_USE_IMMERSIVE_DARK_MODE, documentation: https://docs.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute
     //dwAttribute was 19 before Windows 20H1, 20 after Windows 20H1
-
+#if LINUX
+#else
     internal static class WinformThemer
     {
         /// <summary>
@@ -189,4 +190,5 @@ namespace VRCX
             public uint dwTimeout;
         }
     }
+#endif
 }

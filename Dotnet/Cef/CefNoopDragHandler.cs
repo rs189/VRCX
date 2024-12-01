@@ -5,6 +5,8 @@
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
 using System.Collections.Generic;
+#if LINUX
+#else
 using CefSharp;
 using CefSharp.Enums;
 
@@ -22,3 +24,4 @@ namespace VRCX
         }
     }
 }
+#endif

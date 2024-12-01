@@ -5,11 +5,16 @@
 
 using System.IO;
 using System.Windows.Forms;
+#if LINUX
+#else
 using CefSharp;
 using CefSharp.WinForms;
+#endif
 
 namespace VRCX
 {
+#if LINUX
+#else
     public partial class VRForm : WinformBase
     {
         public static VRForm Instance;
@@ -65,4 +70,5 @@ namespace VRCX
             _browser2.ShowDevTools();
         }
     }
+#endif
 }

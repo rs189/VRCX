@@ -6,6 +6,8 @@
 
 namespace VRCX
 {
+#if LINUX
+#else
     partial class VRForm
     {
         /// <summary>
@@ -107,4 +109,5 @@ namespace VRCX
         private System.Windows.Forms.Button button_refresh;
         private System.Windows.Forms.Button button_devtools;
     }
+#endif
 }

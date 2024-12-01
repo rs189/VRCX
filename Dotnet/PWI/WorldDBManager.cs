@@ -6,7 +6,10 @@ using System.IO;
 using System.Net;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading.Tasks;
+#if LINUX
+#else
 using CefSharp;
+#endif
 using Newtonsoft.Json;
 
 namespace VRCX
@@ -26,7 +29,7 @@ namespace VRCX
         {
             Instance = new WorldDBManager();
         }
-        
+
         public WorldDBManager()
         {
             // http://localhost:22500
@@ -43,7 +46,7 @@ namespace VRCX
                 logger.Info("World database is disabled. Not starting.");
                 return;
             }
-            
+
             Task.Run(Start);
         }
 
@@ -69,6 +72,8 @@ namespace VRCX
 
                 try
                 {
+#if LINUX
+#else
                     if (MainForm.Instance?.Browser == null || MainForm.Instance.Browser.IsLoading || !MainForm.Instance.Browser.CanExecuteJavascriptInMainFrame)
                     {
                         logger.Error("Received a request to {0} while VRCX is still initializing the browser window. Responding with error 503.", request.Url);
@@ -79,6 +84,7 @@ namespace VRCX
                         SendJsonResponse(context.Response, responseData);
                         continue;
                     };
+#endif
 
                     logger.Debug("Received a request to '{0}'", request.Url);
 
@@ -433,12 +439,18 @@ namespace VRCX
         private async Task<string> GetCurrentWorldID()
         {
             if (debugWorld) return "wrld_12345";
-
-            JavascriptResponse funcResult;
+#if LINUX
+#else
+            JavascriptResponse funcResult;       
+#endif
 
             try
             {
-                funcResult = await MainForm.Instance.Browser.EvaluateScriptAsync("$app.API.actuallyGetCurrentLocation();", TimeSpan.FromSeconds(5));
+#if LINUX
+
+#else
+                    funcResult = await MainForm.Instance.Browser.EvaluateScriptAsync("$app.API.actuallyGetCurrentLocation();", TimeSpan.FromSeconds(5));
+#endif
             }
             catch (Exception ex)
             {
@@ -446,7 +458,12 @@ namespace VRCX
                 return null;
             }
 
-            string worldId = funcResult?.Result?.ToString();
+            string worldId;
+#if LINUX
+            worldId = "";
+#else
+            worldId = funcResult?.Result?.ToString();
+#endif
 
             if (string.IsNullOrEmpty(worldId))
             {
@@ -564,7 +581,7 @@ namespace VRCX
 
             // Get the world ID from the connection key
             string worldId = worldDB.GetWorldByConnectionKey(request.ConnectionKey);
-            
+
             // Global override
             if (request.ConnectionKey == "global")
             {

@@ -1,4 +1,7 @@
+#if LINUX
+#else
 using CefSharp;
+#endif
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,11 +20,11 @@ namespace VRCX
     public class WebApi
     {
         public static readonly WebApi Instance;
-        
+
         public static bool ProxySet;
         public static string ProxyUrl = "";
         public static IWebProxy Proxy = WebRequest.DefaultWebProxy;
-        
+
         public CookieContainer _cookieContainer;
         private bool _cookieDirty;
         private Timer _timer;
@@ -80,7 +83,11 @@ namespace VRCX
             catch (UriFormatException)
             {
                 VRCXStorage.Instance.Set("VRCX_ProxyServer", string.Empty);
+#if LINUX
+                Console.WriteLine("The proxy server URI you used is invalid.\nVRCX will close, please correct the proxy URI.");
+#else
                 MessageBox.Show("The proxy server URI you used is invalid.\nVRCX will close, please correct the proxy URI.", "Invalid Proxy URI", MessageBoxButton.OK);
+#endif
                 Environment.Exit(0);
             }
         }
@@ -242,7 +249,7 @@ namespace VRCX
                 sendStream.Close();
             }
         }
-        
+
         private static async Task ImageUpload(HttpWebRequest request, IDictionary<string, object> options)
         {
             if (ProxySet)
@@ -294,7 +301,7 @@ namespace VRCX
             await requestStream.WriteAsync(endBytes, 0, endBytes.Length);
             requestStream.Close();
         }
-        
+
         private static async Task PrintImageUpload(HttpWebRequest request, IDictionary<string, object> options)
         {
             if (ProxySet)
@@ -350,6 +357,8 @@ namespace VRCX
 
 #pragma warning disable CS4014
 
+#if LINUX
+#else
         public async void Execute(IDictionary<string, object> options, IJavascriptCallback callback)
         {
             try
@@ -359,7 +368,7 @@ namespace VRCX
 #pragma warning restore SYSLIB0014 // Type or member is obsolete
                 if (ProxySet)
                     request.Proxy = Proxy;
-                
+
                 request.CookieContainer = _cookieContainer;
                 request.KeepAlive = true;
                 request.UserAgent = Program.Version;
@@ -402,12 +411,12 @@ namespace VRCX
                         }
                     }
                 }
-                
+
                 if (options.TryGetValue("uploadImage", out _))
                 {
                     await ImageUpload(request, options);
                 }
-                
+
                 if (options.TryGetValue("uploadFilePUT", out _))
                 {
                     await UploadFilePut(request, options);
@@ -417,7 +426,7 @@ namespace VRCX
                 {
                     await LegacyImageUpload(request, options);
                 }
-                
+
                 if (options.TryGetValue("uploadImagePrint", out _))
                 {
                     await PrintImageUpload(request, options);
@@ -499,7 +508,7 @@ namespace VRCX
 
             callback.Dispose();
         }
-
+#endif
 #pragma warning restore CS4014
     }
 }

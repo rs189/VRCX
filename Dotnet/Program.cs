@@ -103,6 +103,17 @@ namespace VRCX
         [STAThread]
         private static void Main()
         {
+#if LINUX
+            try
+            {
+                Run();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+                Environment.Exit(0);
+            }
+#else
             try
             {
                 Run();
@@ -111,7 +122,6 @@ namespace VRCX
             catch (FileNotFoundException e)
             {
                 logger.Error(e, "Handled Exception, Missing file found in Handle Cef Explosion.");
-
                 var result = MessageBox.Show("VRCX has encountered an error with the CefSharp backend,\nthis is typically caused by missing files or dependencies.\nWould you like to try autofix by automatically installing vc_redist?.", "VRCX CefSharp not found.", MessageBoxButtons.YesNo, MessageBoxIcon.Error);
                 switch (result)
                 {
@@ -132,7 +142,7 @@ namespace VRCX
                         break;
                 }
             }
-            #endregion
+#endregion
             catch (Exception e)
             {
                 var cpuError = WinApi.GetCpuErrorMessage();
@@ -148,6 +158,7 @@ namespace VRCX
                 MessageBox.Show(e.ToString(), "PLEASE REPORT IN https://vrcx.app/discord", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(0);
             }
+#endif
         }
 
         private static void GetVersion()
@@ -173,13 +184,14 @@ namespace VRCX
             ConfigureLogger();
             Update.Check();
             GetVersion();
-
+#if LINUX
+#else
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-
+#endif
             logger.Info("{0} Starting...", Version);
             logger.Debug("Wine support detection: {0}", Wine.GetIfWine());
-            
+
             ProcessMonitor.Instance.Init();
             SQLiteLegacy.Instance.Init();
             AppApi.Instance.Init();
@@ -189,20 +201,28 @@ namespace VRCX
             WebApi.Instance.Init();
             LogWatcher.Instance.Init();
             AutoAppLaunchManager.Instance.Init();
+#if LINUX
+#else
             CefService.Instance.Init();
+#endif
             IPCServer.Instance.Init();
-            
+
             if (VRCXStorage.Instance.Get("VRCX_DisableVrOverlayGpuAcceleration") == "true")
                 VRCXVRInstance = new VRCXVRLegacy();
             else
                 VRCXVRInstance = new VRCXVR();
             VRCXVRInstance.Init();
-            
+#if LINUX
+#else
             Application.Run(new MainForm());
+#endif
             logger.Info("{0} Exiting...", Version);
             WebApi.Instance.SaveCookies();
             VRCXVRInstance.Exit();
+#if LINUX
+#else
             CefService.Instance.Exit();
+#endif
 
             AutoAppLaunchManager.Instance.Exit();
             LogWatcher.Instance.Exit();

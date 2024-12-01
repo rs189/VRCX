@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Net;
+#if LINUX
+#else
 using CefSharp;
 using CefSharp.SchemeHandler;
 using CefSharp.WinForms;
@@ -88,3 +90,4 @@ namespace VRCX
         }
     }
 }
+#endif

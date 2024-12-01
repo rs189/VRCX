@@ -1,4 +1,7 @@
+#if LINUX
+#else
 using CefSharp.Internals;
+#endif
 using System;
 using System.IO;
 
@@ -22,6 +25,8 @@ public class BrowserSubprocess
     public static void Start()
     {
         var args = Environment.GetCommandLineArgs();
+#if LINUX
+#else
         var type = CommandLineArgsParser.GetArgumentValue(args, CefSharpArguments.SubProcessTypeArgument);
 
         if (string.IsNullOrEmpty(type))
@@ -30,7 +35,7 @@ public class BrowserSubprocess
             // this is the main process (as all subprocesses must have a type param).
             return;
         }
-        
+
         var browserSubprocessDllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CefSharp.BrowserSubprocess.Core.dll");
         if (!File.Exists(browserSubprocessDllPath))
         {
@@ -49,6 +54,7 @@ public class BrowserSubprocess
         var exitCode = mainMethod.Invoke(null, methodArgs);
 
         Environment.Exit((int)exitCode);
+#endif
     }
 }
 

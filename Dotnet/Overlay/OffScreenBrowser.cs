@@ -4,20 +4,28 @@
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
+#if LINUX
+#else
 using CefSharp;
 using CefSharp.Enums;
 using CefSharp.OffScreen;
 using CefSharp.Structs;
+#endif
 using SharpDX.Direct3D11;
 using System;
 using System.Threading;
 using NLog;
 using SharpDX.Direct3D;
 using SharpDX.Mathematics.Interop;
+#if LINUX
+#else
 using Range = CefSharp.Structs.Range;
+#endif
 
 namespace VRCX
 {
+#if LINUX
+#else
     public class OffScreenBrowser : ChromiumWebBrowser, IRenderHandler
     {
         private Device _device;
@@ -25,7 +33,7 @@ namespace VRCX
         private DeviceMultithread _deviceMultithread;
         private Query _query;
         private Texture2D _renderTarget;
-        
+
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public OffScreenBrowser(string address, int width, int height)
@@ -37,18 +45,18 @@ namespace VRCX
             windowInfo.SharedTextureEnabled = true;
             windowInfo.Width = width;
             windowInfo.Height = height;
-            
+
             var browserSettings = new BrowserSettings()
             {
                 DefaultEncoding = "UTF-8",
                 WindowlessFrameRate = 60
             };
-            
+
             CreateBrowser(windowInfo, browserSettings);
 
             Size = new System.Drawing.Size(width, height);
             RenderHandler = this;
-            
+
             JavascriptBindings.ApplyVrJavascriptBindings(JavascriptObjectRepository);
         }
 
@@ -56,13 +64,13 @@ namespace VRCX
         {
             _device = device;
             _device1 = _device.QueryInterface<Device1>();
-            
+
             _deviceMultithread?.Dispose();
             _deviceMultithread = _device.QueryInterfaceOrNull<DeviceMultithread>();
             _deviceMultithread?.SetMultithreadProtected(true);
 
             _renderTarget = renderTarget;
-            
+
             _query?.Dispose();
             _query = new Query(_device, new QueryDescription
             {
@@ -161,4 +169,5 @@ namespace VRCX
         {
         }
     }
+#endif
 }

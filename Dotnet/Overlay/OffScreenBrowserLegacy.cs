@@ -4,18 +4,26 @@
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
+#if LINUX
+#else
 using CefSharp;
 using CefSharp.Enums;
 using CefSharp.OffScreen;
 using CefSharp.Structs;
+#endif
 using SharpDX.Direct3D11;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+#if LINUX
+#else
 using Range = CefSharp.Structs.Range;
+#endif
 
 namespace VRCX
 {
+#if LINUX
+#else
     public class OffScreenBrowserLegacy : ChromiumWebBrowser, IRenderHandler
     {
         private readonly ReaderWriterLockSlim _paintBufferLock;
@@ -66,7 +74,7 @@ namespace VRCX
             // Safeguard against uninitialized texture
             if (texture == null)
                 return;
-            
+
             _paintBufferLock.EnterReadLock();
             try
             {
@@ -203,4 +211,5 @@ namespace VRCX
         {
         }
     }
+#endif
 }

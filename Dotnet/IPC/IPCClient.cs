@@ -10,7 +10,10 @@ using System.IO;
 using System.IO.Pipes;
 using System.Text;
 using System.Threading.Tasks;
+#if LINUX
+#else
 using CefSharp;
+#endif
 using Newtonsoft.Json;
 
 namespace VRCX
@@ -84,8 +87,11 @@ namespace VRCX
                     {
                         if (string.IsNullOrEmpty(packet))
                             continue;
+#if LINUX
+#else
                         if (MainForm.Instance?.Browser != null && !MainForm.Instance.Browser.IsLoading && MainForm.Instance.Browser.CanExecuteJavascriptInMainFrame)
                             MainForm.Instance.Browser.ExecuteScriptAsync("$app.ipcEvent", packet);
+#endif 
                     }
 
                     _currentPacket = string.Empty;
