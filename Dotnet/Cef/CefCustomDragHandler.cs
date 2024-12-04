@@ -1,5 +1,8 @@
-﻿using CefSharp.Enums;
+﻿#if LINUX
+#else
+using CefSharp.Enums;
 using CefSharp;
+#endif
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +11,8 @@ using System.Threading.Tasks;
 
 namespace VRCX
 {
+#if LINUX
+#else
     /// <summary>
     /// This class is used to 'handle' drag and drop events.
     /// All it does is call a function in the app with the file name of the file being dragged into the window, since chromium doesn't have access to the full file path on regular drop events.
@@ -40,4 +45,5 @@ namespace VRCX
 
         }
     }
+#endif
 }

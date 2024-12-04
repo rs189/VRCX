@@ -24,6 +24,21 @@ namespace VRCX
             Instance = new VRCXStorage();
         }
 
+#if LINUX
+        public void Load()
+        {
+            m_Lock.EnterWriteLock();
+            try
+            {
+                JsonSerializer.Deserialize(m_JsonPath, ref m_Storage);
+                m_Dirty = false;
+            }
+            finally
+            {
+                m_Lock.ExitWriteLock();
+            }
+        }
+#else
         public static void Load()
         {
             m_Lock.EnterWriteLock();
@@ -37,7 +52,7 @@ namespace VRCX
                 m_Lock.ExitWriteLock();
             }
         }
-
+#endif
         public static void Save()
         {
             m_Lock.EnterReadLock();

@@ -181,7 +181,7 @@ namespace VRCX
                     {
                         pids.Add((int)procEntry.th32ProcessID);
 
-                        if(recursive) // Recursively find child processes
+                        if (recursive) // Recursively find child processes
                             pids.AddRange(FindChildProcesses((int)procEntry.th32ProcessID));
                     }
                 }
@@ -299,7 +299,7 @@ namespace VRCX
             {
                 timerTicks++;
 
-                if(timerTicks == 5)
+                if (timerTicks == 5)
                     childUpdateTimer.Interval = 60000;
             }
         }

@@ -53,12 +53,21 @@ namespace VRCX
             }
         }
 
+#if LINUX
+        public void Init()
+        {
+            SetProxy();
+            LoadCookies();
+            _timer.Change(1000, 1000);
+        }
+#else
         internal void Init()
         {
             SetProxy();
             LoadCookies();
             _timer.Change(1000, 1000);
         }
+#endif
 
         private void SetProxy()
         {

@@ -1,5 +1,8 @@
 // requires binding of WebApi
 
+import InteropApi from '../ipc/interopApi.js';
+const WebApi = InteropApi.WebApi;
+
 class WebApiService {
     clearCookies() {
         return WebApi.ClearCookies();

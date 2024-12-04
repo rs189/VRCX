@@ -61,9 +61,20 @@ import _config from './classes/API/config.js';
 // some workaround for failing to get voice list first run
 speechSynthesis.getVoices();
 
+import InteropApi from './ipc/interopApi.js';
+const AppApi = InteropApi.AppApi;
+const WebApi = InteropApi.WebApi;
+const SharedVariable = InteropApi.SharedVariable;
+const VRCXStorage = InteropApi.VRCXStorage;
+const SQLite = InteropApi.SQLite;
+const LogWatcher = InteropApi.LogWatcher;
+const Discord = InteropApi.Discord;
+const AssetBundleCacher = InteropApi.AssetBundleCacher;
+
 // #region | Hey look it's most of VRCX!
 (async function () {
     // #region | Init Cef C# bindings
+    /*
     await CefSharp.BindObjectAsync(
         'AppApi',
         'WebApi',
@@ -74,6 +85,7 @@ speechSynthesis.getVoices();
         'Discord',
         'AssetBundleCacher'
     );
+    */
 
     // #region | localization
     Vue.use(VueI18n);

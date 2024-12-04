@@ -22,6 +22,8 @@ using Device = SharpDX.Direct3D11.Device;
 
 namespace VRCX
 {
+#if LINUX
+#else
     public class VRCXVRLegacy : VRCXVRInterface
     {
         public static VRCXVRInterface Instance;
@@ -806,4 +808,5 @@ namespace VRCX
 #endif
         }
     }
+#endif
 }

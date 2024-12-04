@@ -230,17 +230,26 @@ namespace VRCX
 
         public void SetVR(bool active, bool hmdOverlay, bool wristOverlay, bool menuButton, int overlayHand)
         {
+#if LINUX
+#else
             Program.VRCXVRInstance.SetActive(active, hmdOverlay, wristOverlay, menuButton, overlayHand);
+#endif
         }
 
         public void RefreshVR()
         {
+#if LINUX
+#else
             Program.VRCXVRInstance.Restart();
+#endif
         }
 
         public void RestartVR()
         {
+#if LINUX
+#else
             Program.VRCXVRInstance.Restart();
+#endif
         }
 
         public void SetZoom(double zoomLevel)
@@ -389,12 +398,18 @@ namespace VRCX
 
         public void ExecuteVrFeedFunction(string function, string json)
         {
+#if LINUX
+#else
             Program.VRCXVRInstance.ExecuteVrFeedFunction(function, json);
+#endif
         }
 
         public void ExecuteVrOverlayFunction(string function, string json)
         {
+#if LINUX
+#else
             Program.VRCXVRInstance.ExecuteVrOverlayFunction(function, json);
+#endif
         }
 
         /// <summary>

@@ -2,7 +2,7 @@
   "private": true,
   "main": "main.js",
   "scripts": {
-    "develectron": "electron .",
+    "start": "electron .",
     "dev": "webpack --config webpack.config.js --mode development",
     "watch": "webpack --config webpack.config.js --mode development --watch",
     "prod": "webpack --config webpack.config.js --mode production",
@@ -64,5 +64,10 @@
     "webpack-cli": "^5.1.4",
     "worker-timers": "^8.0.11",
     "yargs": "^17.7.2"
+  },
+  "babel": {
+    "presets": [
+      "@babel/preset-env"
+    ]
   }
 }

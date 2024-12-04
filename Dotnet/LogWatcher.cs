@@ -42,7 +42,11 @@ namespace VRCX
             Instance = new LogWatcher();
         }
 
+#if LINUX
+        public LogWatcher()
+#else
         private LogWatcher()
+#endif
         {
             var logPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"Low\VRChat\VRChat";
             m_LogDirectoryInfo = new DirectoryInfo(logPath);
@@ -54,12 +58,17 @@ namespace VRCX
                 IsBackground = true
             };
         }
-
+#if LINUX
+        public void Init()
+        {
+            m_Thread.Start();
+        }
+#else
         internal void Init()
         {
             m_Thread.Start();
         }
-
+#endif
         internal void Exit()
         {
             var thread = m_Thread;

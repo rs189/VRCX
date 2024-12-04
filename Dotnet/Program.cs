@@ -14,6 +14,23 @@ using System.Windows.Forms;
 
 namespace VRCX
 {
+    public class DynamicProgram
+    {
+        public DynamicProgram()
+        {
+        }
+
+        public void PreInit()
+        {
+            Program.PreInit();
+        }
+
+        public void Init()
+        {
+            Program.Init();
+        }
+    }
+
     public static class Program
     {
         public static string BaseDirectory { get; private set; }
@@ -22,7 +39,10 @@ namespace VRCX
         public static string Version { get; private set; }
         public static bool LaunchDebug;
         private static readonly NLog.Logger logger = NLog.LogManager.GetLogger("VRCX");
+#if LINUX
+#else
         public static VRCXVRInterface VRCXVRInstance { get; private set; }
+#endif
 
         private static void SetProgramDirectories()
         {
@@ -100,10 +120,12 @@ namespace VRCX
             });
         }
 
+#if LINUX
+#else
         [STAThread]
         private static void Main()
         {
-#if LINUX
+
             try
             {
                 Run();
@@ -113,7 +135,7 @@ namespace VRCX
                 Console.WriteLine(e.ToString());
                 Environment.Exit(0);
             }
-#else
+
             try
             {
                 Run();
@@ -158,9 +180,8 @@ namespace VRCX
                 MessageBox.Show(e.ToString(), "PLEASE REPORT IN https://vrcx.app/discord", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(0);
             }
-#endif
         }
-
+#endif
         private static void GetVersion()
         {
             var buildName = "VRCX";
@@ -175,6 +196,30 @@ namespace VRCX
             Version = Version.Replace("\r", "").Replace("\n", "");
         }
 
+#if LINUX
+        public static void PreInit()
+        {
+            StartupArgs.ArgsCheck();
+            SetProgramDirectories();
+        }
+
+        public static void Init()
+        {
+            //VRCXStorage.Load();
+            //BrowserSubprocess.Start();
+            ConfigureLogger();
+            Update.Check();
+            GetVersion();
+
+            logger.Info("{0} Starting...", Version);
+
+            ProcessMonitor.Instance.Init();
+        }
+#else
+#endif
+
+#if LINUX
+#else
         private static void Run()
         {
             StartupArgs.ArgsCheck();
@@ -184,14 +229,13 @@ namespace VRCX
             ConfigureLogger();
             Update.Check();
             GetVersion();
-#if LINUX
-#else
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-#endif
+
             logger.Info("{0} Starting...", Version);
             logger.Debug("Wine support detection: {0}", Wine.GetIfWine());
-
+            
             ProcessMonitor.Instance.Init();
             SQLiteLegacy.Instance.Init();
             AppApi.Instance.Init();
@@ -201,28 +245,20 @@ namespace VRCX
             WebApi.Instance.Init();
             LogWatcher.Instance.Init();
             AutoAppLaunchManager.Instance.Init();
-#if LINUX
-#else
             CefService.Instance.Init();
-#endif
             IPCServer.Instance.Init();
-
+            
             if (VRCXStorage.Instance.Get("VRCX_DisableVrOverlayGpuAcceleration") == "true")
                 VRCXVRInstance = new VRCXVRLegacy();
             else
                 VRCXVRInstance = new VRCXVR();
             VRCXVRInstance.Init();
-#if LINUX
-#else
+            
             Application.Run(new MainForm());
-#endif
             logger.Info("{0} Exiting...", Version);
             WebApi.Instance.SaveCookies();
             VRCXVRInstance.Exit();
-#if LINUX
-#else
             CefService.Instance.Exit();
-#endif
 
             AutoAppLaunchManager.Instance.Exit();
             LogWatcher.Instance.Exit();
@@ -235,5 +271,6 @@ namespace VRCX
             SQLiteLegacy.Instance.Exit();
             ProcessMonitor.Instance.Exit();
         }
+#endif
     }
 }

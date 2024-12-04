@@ -32,10 +32,17 @@ namespace VRCX
             m_Timer = new Timer(TimerCallback, null, -1, -1);
         }
 
+#if LINUX
+        public void Init()
+        {
+            m_Timer.Change(0, 1000);
+        }
+#else
         internal void Init()
         {
             m_Timer.Change(0, 1000);
         }
+#endif
 
         internal void Exit()
         {
@@ -119,7 +126,7 @@ namespace VRCX
         {
             if (m_Client == null || m_Lock.IsReadLockHeld)
                 return;
-            
+
             m_Lock.EnterWriteLock();
             try
             {
@@ -179,7 +186,7 @@ namespace VRCX
                 m_Lock.ExitWriteLock();
             }
         }
-        
+
         public void SetTimestamps(double startUnixMilliseconds, double endUnixMilliseconds)
         {
             var _startUnixMilliseconds = (ulong)startUnixMilliseconds;

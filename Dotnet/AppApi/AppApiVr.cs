@@ -53,7 +53,11 @@ namespace VRCX
         /// <returns>An array of arrays containing information about the connected VR devices.</returns>
         public string[][] GetVRDevices()
         {
+#if LINUX
+            return null;
+#else
             return Program.VRCXVRInstance.GetDevices();
+#endif
         }
 
         /// <summary>

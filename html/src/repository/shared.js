@@ -1,5 +1,8 @@
 // requires binding of SharedVariable
 
+import InteropApi from '../ipc/interopApi.js';
+const SharedVariable = InteropApi.SharedVariable;
+
 function transformKey(key) {
     return String(key).toLowerCase();
 }

@@ -2,6 +2,27 @@
 const { app, BrowserWindow } = require('electron')
 const path = require('node:path')
 
+const dotnet = require('node-api-dotnet');
+require('../bin/x64/Debug/VRCX.cjs');
+
+const InteropApi = require('./InteropApi');
+const interopApi = new InteropApi();
+
+interopApi.getDotNetObject('DynamicProgram').PreInit();
+interopApi.getDotNetObject('VRCXStorage').Load();
+interopApi.getDotNetObject('DynamicProgram').Init();
+interopApi.getDotNetObject('SQLiteLegacy').Init();
+interopApi.getDotNetObject('AppApi').Init();
+interopApi.getDotNetObject('Discord').Init();
+interopApi.getDotNetObject('WebApi').Init();
+interopApi.getDotNetObject('LogWatcher').Init();
+interopApi.getDotNetObject('AutoAppLaunchManager').Init();
+
+ipcMain.handle('callDotNetMethod', (event, className, methodName, args) => {
+  console.log(`Invoking ${className}.${methodName} with args:`, args);
+  return interopApi.callMethod(className, methodName, args);
+});
+
 function createWindow () {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -13,10 +34,10 @@ function createWindow () {
   })
 
   // and load the index.html of the app.
-  mainWindow.loadFile('index.html')
+  mainWindow.loadFile('dist/index.html')
 
   // Open the DevTools.
-  // mainWindow.webContents.openDevTools()
+  mainWindow.webContents.openDevTools()
 }
 
 // This method will be called when Electron has finished
