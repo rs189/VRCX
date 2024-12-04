@@ -1,9 +1,7 @@
-// Modules to control application life and create native browser window
-const { app, BrowserWindow } = require('electron')
-const path = require('node:path')
+const { app, BrowserWindow, ipcMain } = require('electron');
 
 const dotnet = require('node-api-dotnet');
-require('../bin/AnyCPU/Debug/VRCX.cjs');
+require('./bin/AnyCPU/Debug/VRCX.cjs');
 
 const InteropApi = require('./InteropApi');
 const interopApi = new InteropApi();
@@ -29,7 +27,7 @@ function createWindow () {
     width: 800,
     height: 600,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: __dirname + "/preload.js",
     }
   })
 

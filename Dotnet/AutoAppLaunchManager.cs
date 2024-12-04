@@ -274,7 +274,11 @@ namespace VRCX
             return startedProcesses.ContainsKey(path);
         }
 
+#if LINUX
+        public void Init()
+#else
         internal void Init()
+#endif
         {
             // What are you lookin at? :eyes:
         }
