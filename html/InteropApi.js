@@ -1,5 +1,5 @@
 const dotnet = require('node-api-dotnet');
-require('../bin/x64/Debug/VRCX.cjs');
+require('../bin/AnyCPU/Debug/VRCX.cjs');
 
 class InteropApi {
     constructor() {
