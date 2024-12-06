@@ -62,6 +62,9 @@ import _config from './classes/API/config.js';
 speechSynthesis.getVoices();
 
 import InteropApi from './ipc/interopApi.js';
+
+const platform = navigator.platform.toLowerCase();
+
 const AppApi = InteropApi.AppApi;
 const WebApi = InteropApi.WebApi;
 const SharedVariable = InteropApi.SharedVariable;
@@ -74,18 +77,18 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
 // #region | Hey look it's most of VRCX!
 (async function () {
     // #region | Init Cef C# bindings
-    /*
-    await CefSharp.BindObjectAsync(
-        'AppApi',
-        'WebApi',
-        'SharedVariable',
-        'VRCXStorage',
-        'SQLite',
-        'LogWatcher',
-        'Discord',
-        'AssetBundleCacher'
-    );
-    */
+    if (platform.includes('win')) {
+        await CefSharp.BindObjectAsync(
+            'AppApi',
+            'WebApi',
+            'SharedVariable',
+            'VRCXStorage',
+            'SQLite',
+            'LogWatcher',
+            'Discord',
+            'AssetBundleCacher'
+        );
+    }
 
     // #region | localization
     Vue.use(VueI18n);

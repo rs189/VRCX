@@ -9,7 +9,7 @@
     <AssemblyTitle>VRCX</AssemblyTitle>
     <Product>VRCX</Product>
     <Copyright>vrcx-team, pypy, natsumi</Copyright>
-    <OutputPath>..\bin\$(Platform)\$(Configuration)\</OutputPath>
+    <OutputPath>..\build\bin\$(Platform)\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <Title>VRCX</Title>

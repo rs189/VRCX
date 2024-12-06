@@ -1,7 +1,19 @@
+const path = require('path');
 const { app, BrowserWindow, ipcMain } = require('electron');
 
+console.log('app.getAppPath():', app.getAppPath());
+console.log('process.cwd():', process.cwd());
+console.log('__dirname:', __dirname);
+
+// Use __dirname to correctly resolve the path to the unpacked folder
 const dotnet = require('node-api-dotnet');
-require('./bin/AnyCPU/Debug/VRCX.cjs');
+
+console.log('dotnet:', dotnet);
+// Resolve the VRCX.cjs path from the unpacked folder
+const VRCXPath = path.join(__dirname, 'build/bin/AnyCPU/Debug/VRCX.cjs');
+//console.log('VRCXPath:', VRCXPath);
+//
+require(VRCXPath);
 
 const InteropApi = require('./InteropApi');
 const interopApi = new InteropApi();
@@ -17,25 +29,27 @@ interopApi.getDotNetObject('LogWatcher').Init();
 interopApi.getDotNetObject('AutoAppLaunchManager').Init();
 
 ipcMain.handle('callDotNetMethod', (event, className, methodName, args) => {
-  console.log(`Invoking ${className}.${methodName} with args:`, args);
   return interopApi.callMethod(className, methodName, args);
 });
 
 function createWindow () {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1024,
+    height: 768,
+    icon: path.join(__dirname, 'VRCX.png'),
     webPreferences: {
-      preload: __dirname + "/preload.js",
+      preload: path.join(__dirname, 'preload.js'),
     }
   })
 
   // and load the index.html of the app.
-  mainWindow.loadFile('dist/index.html')
+  //mainWindow.loadFile('html/index.html')
+  const indexPath = path.join(app.getAppPath(), 'build/html/index.html');
+  mainWindow.loadFile(indexPath);
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools()
+  //mainWindow.webContents.openDevTools()
 }
 
 // This method will be called when Electron has finished

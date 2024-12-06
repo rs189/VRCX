@@ -205,8 +205,6 @@ namespace VRCX
 
         public static void Init()
         {
-            //VRCXStorage.Load();
-            //BrowserSubprocess.Start();
             ConfigureLogger();
             Update.Check();
             GetVersion();

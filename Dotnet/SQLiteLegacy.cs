@@ -1,4 +1,6 @@
 #if LINUX
+using Microsoft.JavaScript.NodeApi;
+using Newtonsoft.Json;
 #else
 using CefSharp;
 #endif
@@ -9,8 +11,6 @@ using System.Data.SQLite;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-
-using Microsoft.JavaScript.NodeApi;
 
 namespace VRCX
 {
@@ -66,65 +66,78 @@ namespace VRCX
             m_Connection.Close();
             m_Connection.Dispose();
         }
-#if LINUX  
-        public async Task<object[]> ExecuteTest(string sql, IDictionary<string, object> args = null)
+#if LINUX 
+        public string Execute(string sql, string jsonOptions = null)
         {
-            Console.WriteLine("SQLiteLegacy.ExecuteTest: " + sql);
-
-            return await Task.Run(() =>
+            try
             {
-                Console.WriteLine("SQLiteLegacy.ExecuteTest: Task.Run");
-
                 m_ConnectionLock.EnterReadLock();
                 try
                 {
-                    Console.WriteLine("SQLiteLegacy.ExecuteTest: Try Task.Run");
+                    IDictionary<string, object> options = null;
+
+                    if (!string.IsNullOrEmpty(jsonOptions))
+                    {
+                        try
+                        {
+                            options = JsonConvert.DeserializeObject<IDictionary<string, object>>(jsonOptions);
+                        }
+                        catch (JsonException ex)
+                        {
+                            return JsonConvert.SerializeObject(new
+                            {
+                                status = "error",
+                                message = "Invalid JSON format for options",
+                                error = ex.Message
+                            });
+                        }
+                    }
 
                     using (var command = new SQLiteCommand(sql, m_Connection))
                     {
-                        Console.WriteLine("SQLiteLegacy.ExecuteTest: new SQLiteCommand");
-
-                        if (args != null)
+                        if (options != null)
                         {
-                            foreach (var arg in args)
+                            foreach (var arg in options)
                             {
                                 command.Parameters.Add(new SQLiteParameter(arg.Key, arg.Value));
                             }
                         }
+
+                        var results = new List<Dictionary<string, object>>();
+
                         using (var reader = command.ExecuteReader())
                         {
-                            Console.WriteLine("SQLiteLegacy.ExecuteTest: command.ExecuteReader()");
-
-                            if (reader.HasRows)
+                            while (reader.Read())
                             {
-                                Console.WriteLine("SQLiteLegacy.ExecuteTest: reader has rows");
-
-                                while (reader.Read())
+                                var row = new Dictionary<string, object>();
+                                for (var i = 0; i < reader.FieldCount; i++)
                                 {
-                                    Console.WriteLine("SQLiteLegacy.ExecuteTest: reader.Read() == true");
-                                    var values = new object[reader.FieldCount];
-                                    reader.GetValues(values);
-                                    return values;
+                                    row[reader.GetName(i)] = reader.GetValue(i);
                                 }
-                            }
-                            else
-                            {
-                                Console.WriteLine("SQLiteLegacy.ExecuteTest: No rows found");
+                                results.Add(row);
                             }
                         }
+
+                        return JsonConvert.SerializeObject(new
+                        {
+                            status = "success",
+                            rows = results
+                        });
                     }
                 }
                 finally
                 {
-                    Console.WriteLine("SQLiteLegacy.ExecuteTest: finally");
-
                     m_ConnectionLock.ExitReadLock();
                 }
-
-                Console.WriteLine("SQLiteLegacy.ExecuteTest: null");
-
-                return null;
-            });
+            }
+            catch (Exception e)
+            {
+                return JsonConvert.SerializeObject(new
+                {
+                    status = "error",
+                    message = e.Message
+                });
+            }
         }
 #else
         public void Execute(IJavascriptCallback callback, string sql, IDictionary<string, object> args = null)

@@ -367,6 +367,153 @@ namespace VRCX
 #pragma warning disable CS4014
 
 #if LINUX
+        public async Task<string> ExecuteAsync(string jsonOptions)
+        {
+            IDictionary<string, object> options;
+
+            try
+            {
+                options = JsonConvert.DeserializeObject<IDictionary<string, object>>(jsonOptions);
+            }
+            catch (JsonException ex)
+            {
+                throw new ArgumentException("Invalid JSON format", ex);
+            }
+
+            try
+            {
+#pragma warning disable SYSLIB0014 // Type or member is obsolete
+                var request = WebRequest.CreateHttp((string)options["url"]);
+#pragma warning restore SYSLIB0014 // Type or member is obsolete
+
+                if (ProxySet)
+                    request.Proxy = Proxy;
+
+                request.CookieContainer = _cookieContainer;
+                request.KeepAlive = true;
+                request.UserAgent = Program.Version;
+                request.AutomaticDecompression = DecompressionMethods.All;
+
+                if (options.TryGetValue("headers", out object headers))
+                {
+                    if (headers is JObject headersJObject)
+                    {
+                        var headersDict = headersJObject.ToObject<Dictionary<string, object>>();
+                        foreach (var header in headersDict)
+                        {
+                            var key = header.Key;
+                            var value = header.Value?.ToString();
+
+                            if (string.Compare(key, "Content-Type", StringComparison.OrdinalIgnoreCase) == 0)
+                            {
+                                request.ContentType = value;
+                            }
+                            else if (string.Compare(key, "Referer", StringComparison.OrdinalIgnoreCase) == 0)
+                            {
+                                request.Referer = value;
+                            }
+                            else
+                            {
+                                request.Headers.Add(key, value);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Headers is not in the expected format.");
+                    }
+                }
+
+                if (options.TryGetValue("method", out object method))
+                {
+                    var _method = (string)method;
+                    request.Method = _method;
+
+                    if (string.Compare(_method, "GET", StringComparison.OrdinalIgnoreCase) != 0 &&
+                        options.TryGetValue("body", out object body))
+                    {
+                        using (var stream = await request.GetRequestStreamAsync())
+                        using (var streamWriter = new StreamWriter(stream))
+                        {
+                            await streamWriter.WriteAsync((string)body);
+                        }
+                    }
+                }
+
+                if (options.TryGetValue("uploadImage", out _))
+                {
+                    await ImageUpload(request, options);
+                }
+
+                if (options.TryGetValue("uploadFilePUT", out _))
+                {
+                    await UploadFilePut(request, options);
+                }
+
+                if (options.TryGetValue("uploadImageLegacy", out _))
+                {
+                    await LegacyImageUpload(request, options);
+                }
+
+                if (options.TryGetValue("uploadImagePrint", out _))
+                {
+                    await PrintImageUpload(request, options);
+                }
+
+                using (var response = await request.GetResponseAsync() as HttpWebResponse)
+                {
+                    if (response.Headers["Set-Cookie"] != null)
+                    {
+                        _cookieDirty = true;
+                    }
+
+                    using (var stream = response.GetResponseStream())
+                    using (var streamReader = new StreamReader(stream))
+                    {
+                        if (response.ContentType.Contains("image/") || response.ContentType.Contains("application/octet-stream"))
+                        {
+                            using (var memoryStream = new MemoryStream())
+                            {
+                                await stream.CopyToAsync(memoryStream);
+                                var responseJson = new
+                                {
+                                    data = $"data:image/png;base64,{Convert.ToBase64String(memoryStream.ToArray())}",
+                                    status = response.StatusCode
+                                };
+                                return JsonConvert.SerializeObject(responseJson);
+                            }
+                        }
+                        else
+                        {
+                            var responseJson = new
+                            {
+                                data = await streamReader.ReadToEndAsync(),
+                                status = response.StatusCode
+                            };
+                            return JsonConvert.SerializeObject(responseJson);
+                        }
+                    }
+                }
+            }
+            catch (WebException webException) when (webException.Response is HttpWebResponse response)
+            {
+                using (var stream = response.GetResponseStream())
+                using (var streamReader = new StreamReader(stream))
+                {
+                    var responseJson = new
+                    {
+                        data = await streamReader.ReadToEndAsync(),
+                        status = response.StatusCode
+                    };
+                    return JsonConvert.SerializeObject(responseJson);
+                }
+            }
+            catch (Exception e)
+            {
+                var responseJson = new { error = e.Message };
+                return JsonConvert.SerializeObject(responseJson);
+            }
+        }
 #else
         public async void Execute(IDictionary<string, object> options, IJavascriptCallback callback)
         {

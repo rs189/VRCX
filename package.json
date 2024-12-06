@@ -1,15 +1,19 @@
 {
+  "name": "VRCX",
+  "version": "2024.12.03",
+  "private": true,
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "teststart": "node main.js",
     "dev": "webpack --config webpack.config.js --mode development",
     "watch": "webpack --config webpack.config.js --mode development --watch",
     "prod": "webpack --config webpack.config.js --mode production",
     "lint": "eslint --ext .js src/ && prettier --check src/",
     "development": "npm run dev",
     "production": "npm run prod",
-    "localization": "node ./src/localization/localizationHelperCLI.js"
+    "localization": "node ./src/localization/localizationHelperCLI.js",
+    "start": "electron .",
+    "build": "electron-builder",
+    "postinstall": "electron-rebuild"
   },
   "repository": {
     "type": "git",
@@ -45,6 +49,7 @@
     "eslint-config-prettier": "^9.1.0",
     "html-webpack-plugin": "^5.6.3",
     "mini-css-extract-plugin": "^2.9.2",
+    "node-api-dotnet": "^0.8.19",
     "normalize.css": "^8.0.1",
     "noty": "^3.2.0-beta-deprecated",
     "prettier": "^3.3.3",
@@ -62,12 +67,36 @@
     "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4",
     "worker-timers": "^8.0.11",
-    "yargs": "^17.7.2",
-    "node-api-dotnet": "^0.8.19"
+    "yargs": "^17.7.2"
   },
-  "babel": {
-    "presets": [
-      "@babel/preset-env"
-    ]
+  "build": {
+    "appId": "com.pypy.vrcx", 
+    "productName": "VRCX", 
+    "icon": "VRCX.png",
+    "files": [
+      "build/bin/**/*",
+      "html/**/*",
+      "main.js",
+      "preload.js",
+      "VRCX.png"
+    ],
+    "extraResources": [
+      {
+        "from": "build/bin/AnyCPU/Debug/",
+        "to": "build/bin/AnyCPU/Debug/"
+      }
+    ],
+    "directories": {
+      "output": "build"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "icon": "VRCX.png",
+      "maintainer": "rs189 <35667100+rs189@users.noreply.github.com>",
+      "description": "Friendship management tool for VRChat"
+    }
   }
 }

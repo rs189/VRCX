@@ -31,6 +31,7 @@ module.exports = {
         }
     },
     output: {
+        path: path.resolve(__dirname, 'build/html'),
         filename: '[name].js',
         library: {
             type: 'window'

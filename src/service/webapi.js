@@ -1,11 +1,13 @@
 // requires binding of WebApi
 
+const platform = navigator.platform.toLowerCase();
+
 import InteropApi from '../ipc/interopApi.js';
 const WebApi = InteropApi.WebApi;
 
 class WebApiService {
     clearCookies() {
-        return WebApi.ClearCookies();
+        WebApi.ClearCookies();
     }
 
     getCookies() {
@@ -18,13 +20,25 @@ class WebApiService {
 
     execute(options) {
         return new Promise((resolve, reject) => {
-            WebApi.Execute(options, (err, response) => {
-                if (err !== null) {
-                    reject(err);
-                    return;
-                }
-                resolve(response);
-            });
+            if (platform.includes('linux')) {
+                WebApi.ExecuteAsync(JSON.stringify(options))
+                    .then(response => {
+                        if (response.error) {
+                            reject(response.error);
+                        } else {
+                            resolve(JSON.parse(response));
+                        }
+                    })
+                    .catch(err => reject(err));
+            } else {
+                WebApi.Execute(options, (err, response) => {
+                    if (err !== null) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(response);
+                });
+            }
         });
     }
 }

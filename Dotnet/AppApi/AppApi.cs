@@ -483,18 +483,22 @@ namespace VRCX
         {
             return LogWatcher.Instance.VrcClosedGracefully;
         }
-#if LINUX
-#else
+
         public void ChangeTheme(int value)
         {
+#if LINUX
+#else
             WinformThemer.SetGlobalTheme(value);
+#endif
         }
 
         public void DoFunny()
         {
+#if LINUX
+#else
             WinformThemer.DoFunny();
-        }
 #endif
+        }
 
         /// <summary>
         /// Returns a color value derived from the given user ID.

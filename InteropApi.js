@@ -1,21 +1,18 @@
+const path = require('path');
 const dotnet = require('node-api-dotnet');
-require('./bin/AnyCPU/Debug/VRCX.cjs');
+//require('./build/bin/AnyCPU/Debug/VRCX.cjs');
+const VRCXPath = path.join(__dirname, './build/bin/AnyCPU/Debug/VRCX.cjs');
 
 class InteropApi {
     constructor() {
-        this.createdObjects = {}; // Cache for .NET objects
+        // Cache for .NET objects, might be problematic if we require a new instance every time
+        this.createdObjects = {};
     }
 
     getDotNetObject(className) {
         if (!this.createdObjects[className]) {
-            console.log("[Node] Creating new .NET object: " + className);
             this.createdObjects[className] = new dotnet.VRCX[className]();
-            console.log("[Node] Created new .NET object: " + className);
         }
-        // Log created objects
-        console.log("[Node] Created objects: ", this.createdObjects);
-        console.log(this.createdObjects);
-
         return this.createdObjects[className];
     }
 

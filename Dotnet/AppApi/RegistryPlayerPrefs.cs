@@ -48,8 +48,17 @@ namespace VRCX
         /// </summary>
         /// <param name="key">The name of the key to retrieve.</param>
         /// <returns>The value of the specified key, or null if the key does not exist.</returns>
+#if LINUX
+        public void GetVRChatRegistryKey(string key)
+        {
+            return;
+        }
+#else
         public object GetVRChatRegistryKey(string key)
         {
+
+            return null;
+
             var keyName = AddHashToKeyName(key);
             using (var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat"))
             {
@@ -76,7 +85,7 @@ namespace VRCX
 
             return null;
         }
-
+#endif
         /// <summary>
         /// Sets the value of the specified key in the VRChat group in the windows registry.
         /// </summary>
@@ -86,6 +95,9 @@ namespace VRCX
         /// <returns>True if the key was successfully set, false otherwise.</returns>
         public bool SetVRChatRegistryKey(string key, object value, int typeInt)
         {
+#if LINUX
+            return false;
+#else
             var type = (RegistryValueKind)typeInt;
             var keyName = AddHashToKeyName(key);
             using (var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat", true))
@@ -112,6 +124,7 @@ namespace VRCX
             }
 
             return true;
+#endif
         }
 
         /// <summary>
@@ -121,6 +134,8 @@ namespace VRCX
         /// <param name="value">The value to set for the specified key.</param>
         public void SetVRChatRegistryKey(string key, byte[] value)
         {
+#if LINUX
+#else
             var keyName = AddHashToKeyName(key);
             var hKey = (UIntPtr)0x80000001; // HKEY_LOCAL_MACHINE
             const int keyWrite = 0x20006;
@@ -134,11 +149,15 @@ namespace VRCX
                 throw new Exception("Error setting registry value. Error code: " + setKeyResult);
 
             RegCloseKey(hKey);
+#endif
         }
 
         public Dictionary<string, Dictionary<string, object>> GetVRChatRegistry()
         {
             var output = new Dictionary<string, Dictionary<string, object>>();
+#if LINUX
+            return output;
+#else
             using (var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat"))
             {
                 if (regKey == null)
@@ -201,6 +220,7 @@ namespace VRCX
                 }
             }
             return output;
+#endif
         }
 
         public void SetVRChatRegistry(string json)
@@ -243,6 +263,9 @@ namespace VRCX
 
         public bool HasVRChatRegistryFolder()
         {
+#if LINUX
+            return false;
+#endif
             using (var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat"))
             {
                 return regKey != null;
@@ -251,6 +274,9 @@ namespace VRCX
 
         public void CreateVRChatRegistryFolder()
         {
+#if LINUX
+            return;
+#endif
             if (HasVRChatRegistryFolder())
                 return;
 
@@ -263,6 +289,9 @@ namespace VRCX
 
         public void DeleteVRChatRegistryFolder()
         {
+#if LINUX
+            return;
+#endif
             using (var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat"))
             {
                 if (regKey == null)
