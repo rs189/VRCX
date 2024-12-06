@@ -62,8 +62,7 @@ namespace VRCX
         private ulong _wristOverlayHandle;
         private bool _wristOverlayActive;
         private bool _wristOverlayWasActive;
-
-        public bool IsHmdAfk { get; private set; }
+        
 
         static VRCXVR()
         {

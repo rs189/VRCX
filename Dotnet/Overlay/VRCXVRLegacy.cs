@@ -51,7 +51,6 @@ namespace VRCX
         private Thread _thread;
         private bool _wristOverlayActive;
         private DateTime _nextOverlayUpdate;
-        public bool IsHmdAfk { get; private set; }
 
         static VRCXVRLegacy()
         {

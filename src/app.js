@@ -157,7 +157,11 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
         el: '#x-app',
         async mounted() {
             await this.initLanguage();
-            this.isRunningUnderWine = await AppApi.IsRunningUnderWine();
+            try {
+                this.isRunningUnderWine = await AppApi.IsRunningUnderWine();
+            } catch (err) {
+                console.error(err);
+            }
             await this.changeThemeMode();
             await AppApi.SetUserAgent();
             this.appVersion = await AppApi.GetVersion();
@@ -698,6 +702,22 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
                     }
                 }
             }
+        }
+        if (
+            ref.$isVRCPlus &&
+            ref.badges &&
+            ref.badges.every((x) => x.badgeName !== 'Supporter')
+        ) {
+            // I doubt this will last long
+            ref.badges.unshift({
+                badgeId: 'bdg_system_supporter',
+                badgeName: 'Supporter',
+                badgeDescription: 'Supports VRChat through VRC+',
+                badgeImageUrl:
+                    'https://assets.vrchat.com/badges/fa/bdgai_8c9cf371-ffd2-4177-9894-1093e2e34bf7.png',
+                hidden: true,
+                showcased: false
+            });
         }
         var friendCtx = $app.friends.get(ref.id);
         if (friendCtx) {
@@ -1384,6 +1404,10 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
 
     API.$on('FRIEND:LIST', function (args) {
         for (var json of args.json) {
+            if (!json.displayName) {
+                console.error('/friends gave us garbage', json);
+                continue;
+            }
             this.$emit('USER', {
                 json,
                 params: {
@@ -3916,6 +3940,7 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
             )}</strong>!`
         }).show();
         $app.$refs.menu.activeIndex = 'feed';
+        $app.updateStoredUser(this.currentUser);
     });
 
     API.$on('LOGOUT', async function () {
@@ -7047,7 +7072,11 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
     };
 
     $app.methods.addFriendship = function (id) {
-        if (!this.friendLogInitStatus || this.friendLog.has(id)) {
+        if (
+            !this.friendLogInitStatus ||
+            this.friendLog.has(id) ||
+            id === API.currentUser.id
+        ) {
             return;
         }
         var ref = API.cachedUsers.get(id);
@@ -7122,7 +7151,7 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
                     created_at: new Date().toJSON(),
                     type: 'Unfriend',
                     userId: id,
-                    displayName: ctx.displayName
+                    displayName: ctx.displayName || id
                 };
                 this.friendLogTable.data.push(friendLogHistory);
                 database.addFriendLogHistory(friendLogHistory);
@@ -12682,6 +12711,14 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
         D.visible = true;
     };
 
+    $app.methods.newInstanceTabClick = function (tab) {
+        if (tab === '1') {
+            this.buildInstance();
+        } else {
+            this.buildLegacyInstance();
+        }
+    };
+
     $app.methods.makeHome = function (tag) {
         this.$confirm('Continue? Make Home', 'Confirm', {
             confirmButtonText: 'Confirm',
@@ -13329,7 +13366,9 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
             L.instanceType !== 'public' &&
             L.groupAccessType !== 'public'
         ) {
-            args.push(`vrchat://launch?id=${location}&shortName=${shortName}`);
+            args.push(
+                `vrchat://launch?ref=vrcx.app&id=${location}&shortName=${shortName}`
+            );
         } else {
             // fetch shortName
             var newShortName = '';
@@ -13346,10 +13385,10 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
             }
             if (newShortName) {
                 args.push(
-                    `vrchat://launch?id=${location}&shortName=${newShortName}`
+                    `vrchat://launch?ref=vrcx.app&id=${location}&shortName=${newShortName}`
                 );
             } else {
-                args.push(`vrchat://launch?id=${location}`);
+                args.push(`vrchat://launch?ref=vrcx.app&id=${location}`);
             }
         }
         var { launchArguments, vrcLaunchPathOverride } =
@@ -20800,7 +20839,7 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
         $app.localAvatarFavoriteGroups = [];
         $app.localAvatarFavoritesList = [];
         $app.localAvatarFavorites = {};
-        workerTimers.setTimeout($app.getLocalAvatarFavorites(), 100);
+        workerTimers.setTimeout(() => $app.getLocalAvatarFavorites(), 100);
     });
 
     $app.methods.getLocalAvatarFavorites = async function () {
@@ -22210,6 +22249,63 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
     };
 
     $app.data.ossDialog = false;
+
+    // #region | App: Badges
+
+    API.updateBadge = function (params) {
+        return this.call(
+            `users/${API.currentUser.id}/badges/${params.badgeId}`,
+            {
+                method: 'PUT',
+                params: {
+                    userId: API.currentUser.id,
+                    badgeId: params.badgeId,
+                    hidden: params.hidden,
+                    showcased: params.showcased
+                }
+            }
+        ).then((json) => {
+            var args = {
+                json,
+                params
+            };
+            this.$emit('BADGE:UPDATE', args);
+            return args;
+        });
+    };
+
+    API.$on('BADGE:UPDATE', function (args) {
+        if (args.json) {
+            $app.$message({
+                message: 'Badge updated',
+                type: 'success'
+            });
+        }
+    });
+
+    $app.methods.toggleBadgeVisibility = function (badge) {
+        if (badge.hidden) {
+            badge.showcased = false;
+        }
+        API.updateBadge({
+            badgeId: badge.badgeId,
+            hidden: badge.hidden,
+            showcased: badge.showcased
+        });
+    };
+
+    $app.methods.toggleBadgeShowcased = function (badge) {
+        if (badge.showcased) {
+            badge.hidden = false;
+        }
+        API.updateBadge({
+            badgeId: badge.badgeId,
+            hidden: badge.hidden,
+            showcased: badge.showcased
+        });
+    };
+
+    // #endregion
 
     // "$app" is being replaced by Vue, update references inside all the classes
     $app = new Vue($app);
