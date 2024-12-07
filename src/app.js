@@ -4995,6 +4995,11 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
         return compareByActivityField(a, b, 'last_activity');
     };
 
+    // last seen
+    var compareByLastSeen = function (a, b) {
+        return compareByActivityField(a, b, '$lastSeen');
+    };
+
     var getFriendsSortFunction = function (sortMethods) {
         const sorts = [];
         for (const sortMethod of sortMethods) {
@@ -5010,6 +5015,9 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
                     break;
                 case 'Sort by Last Active':
                     sorts.push(compareByLastActive);
+                    break;
+                case 'Sort by Last Seen':
+                    sorts.push(compareByLastSeen);
                     break;
                 case 'Sort by Time in Instance':
                     sorts.push((a, b) => {
@@ -5406,7 +5414,7 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
         );
         // eslint-disable-next-line require-atomic-updates
         $app.feedSessionTable = await database.getFeedDatabase();
-        $app.feedTableLookup();
+        await $app.feedTableLookup();
         // eslint-disable-next-line require-atomic-updates
         $app.notificationTable.data = await database.getNotifications();
         await this.refreshNotifications();
@@ -5433,18 +5441,19 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
                 throw err;
             }
         }
-        $app.sortVIPFriends = true;
-        $app.sortOnlineFriends = true;
-        $app.sortActiveFriends = true;
-        $app.sortOfflineFriends = true;
-        $app.getAvatarHistory();
-        $app.getAllUserMemos();
+        await $app.getAvatarHistory();
+        await $app.getAllUserMemos();
         if ($app.randomUserColours) {
             $app.getNameColour(this.currentUser.id).then((colour) => {
                 this.currentUser.$userColour = colour;
             });
-            $app.userColourInit();
+            await $app.userColourInit();
         }
+        await $app.getAllUserStats();
+        $app.sortVIPFriends = true;
+        $app.sortOnlineFriends = true;
+        $app.sortActiveFriends = true;
+        $app.sortOfflineFriends = true;
         this.getAuth();
         $app.updateSharedFeed(true);
         if ($app.isGameRunning) {
@@ -6196,9 +6205,20 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
         return length;
     };
 
+    $app.data.instanceTypes = [
+        'invite',
+        'invite+',
+        'friends',
+        'friends+',
+        'public',
+        'groupPublic',
+        'groupPlus',
+        'groupOnly'
+    ];
+
     $app.methods.updateAutoStateChange = function () {
         if (
-            this.autoStateChange === 'Off' ||
+            !this.autoStateChangeEnabled ||
             !this.isGameRunning ||
             !this.lastLocation.playerList.size ||
             this.lastLocation.location === '' ||
@@ -6207,38 +6227,50 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
             return;
         }
 
-        const otherPeopleExists = this.lastLocation.playerList.size > 1;
-        const prevStatus = API.currentUser.status;
-        let nextStatus = prevStatus;
-
-        switch (this.autoStateChange) {
-            case 'Active or Ask Me':
-                nextStatus = otherPeopleExists ? 'ask me' : 'active';
-                break;
-
-            case 'Active or Busy':
-                nextStatus = otherPeopleExists ? 'busy' : 'active';
-                break;
-
-            case 'Join Me or Ask Me':
-                nextStatus = otherPeopleExists ? 'ask me' : 'join me';
-                break;
-
-            case 'Join Me or Busy':
-                nextStatus = otherPeopleExists ? 'busy' : 'join me';
-                break;
-
-            case 'Ask Me or Busy':
-                nextStatus = otherPeopleExists ? 'ask me' : 'busy';
-                break;
+        var $location = $utils.parseLocation(this.lastLocation.location);
+        var instanceType = $location.accessType;
+        if (instanceType === 'group') {
+            if ($location.groupAccessType === 'members') {
+                instanceType = 'groupOnly';
+            } else if ($location.groupAccessType === 'plus') {
+                instanceType = 'groupPlus';
+            } else {
+                instanceType = 'groupPublic';
+            }
+        }
+        if (
+            this.autoStateChangeInstanceTypes.length > 0 &&
+            !this.autoStateChangeInstanceTypes.includes(instanceType)
+        ) {
+            return;
         }
 
-        if (prevStatus === nextStatus) {
+        var withCompany = this.lastLocation.playerList.size > 1;
+        if (this.autoStateChangeNoFriends) {
+            withCompany = this.lastLocation.friendList.size > 1;
+        }
+
+        var currentStatus = API.currentUser.status;
+        var newStatus = withCompany
+            ? this.autoStateChangeCompanyStatus
+            : this.autoStateChangeAloneStatus;
+
+        if (currentStatus === newStatus) {
             return;
         }
 
         API.saveCurrentUser({
-            status: nextStatus
+            status: newStatus
+        }).then(() => {
+            var text = `Status automaticly changed to ${newStatus}`;
+            if (this.errorNoty) {
+                this.errorNoty.close();
+            }
+            this.errorNoty = new Noty({
+                type: 'info',
+                text
+            }).show();
+            console.log(text);
         });
     };
 
@@ -7439,7 +7471,15 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
                 ref.senderUserId
             )
                 .then((_args) => {
-                    $app.$message(`Auto invite sent to ${ref.senderUsername}`);
+                    var text = `Auto invite sent to ${ref.senderUsername}`;
+                    if (this.errorNoty) {
+                        this.errorNoty.close();
+                    }
+                    this.errorNoty = new Noty({
+                        type: 'info',
+                        text
+                    }).show();
+                    console.log(text);
                     API.hideNotification({
                         notificationId: ref.id
                     });
@@ -8114,6 +8154,7 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
         );
         this.friendLogTable.filters[2].value = this.hideUnfriends;
     };
+    $app.data.notificationTTSTest = '';
     $app.data.TTSvoices = speechSynthesis.getVoices();
     $app.methods.saveNotificationTTS = async function () {
         speechSynthesis.cancel();
@@ -8129,6 +8170,10 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
             this.notificationTTS
         );
         this.updateVRConfigVars();
+    };
+    $app.methods.testNotificationTTS = function () {
+        speechSynthesis.cancel();
+        this.speak(this.notificationTTSTest);
     };
     $app.data.themeMode = await configRepository.getString(
         'VRCX_ThemeMode',
@@ -8371,18 +8416,52 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
             this.logEmptyAvatars
         );
     };
-    $app.data.autoStateChange = await configRepository.getString(
-        'VRCX_autoStateChange',
-        'Off'
+    $app.data.autoStateChangeEnabled = await configRepository.getBool(
+        'VRCX_autoStateChangeEnabled',
+        false
+    );
+    $app.data.autoStateChangeNoFriends = await configRepository.getBool(
+        'VRCX_autoStateChangeNoFriends',
+        false
+    );
+    $app.data.autoStateChangeInstanceTypes = JSON.parse(
+        await configRepository.getString(
+            'VRCX_autoStateChangeInstanceTypes',
+            '[]'
+        )
+    );
+    $app.data.autoStateChangeAloneStatus = await configRepository.getString(
+        'VRCX_autoStateChangeAloneStatus',
+        'join me'
+    );
+    $app.data.autoStateChangeCompanyStatus = await configRepository.getString(
+        'VRCX_autoStateChangeCompanyStatus',
+        'busy'
     );
     $app.data.autoAcceptInviteRequests = await configRepository.getString(
         'VRCX_autoAcceptInviteRequests',
         'Off'
     );
     $app.methods.saveAutomationOptions = async function () {
+        await configRepository.setBool(
+            'VRCX_autoStateChangeEnabled',
+            this.autoStateChangeEnabled
+        );
+        await configRepository.setBool(
+            'VRCX_autoStateChangeNoFriends',
+            this.autoStateChangeNoFriends
+        );
         await configRepository.setString(
-            'VRCX_autoStateChange',
-            this.autoStateChange
+            'VRCX_autoStateChangeInstanceTypes',
+            JSON.stringify(this.autoStateChangeInstanceTypes)
+        );
+        await configRepository.setString(
+            'VRCX_autoStateChangeAloneStatus',
+            this.autoStateChangeAloneStatus
+        );
+        await configRepository.setString(
+            'VRCX_autoStateChangeCompanyStatus',
+            this.autoStateChangeCompanyStatus
         );
         await configRepository.setString(
             'VRCX_autoAcceptInviteRequests',
@@ -11936,10 +12015,15 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
             if (!avatarId) {
                 if (avatarInfo.ownerId === refUserId) {
                     this.$message({
-                        message: "It's personal (own) avatar",
+                        message:
+                            "It's personal (own) avatar or not found in avatar database",
                         type: 'warning'
                     });
                 } else {
+                    this.$message({
+                        message: 'Avatar not found in avatar database',
+                        type: 'warning'
+                    });
                     this.showUserDialog(avatarInfo.ownerId);
                 }
             }
@@ -14704,7 +14788,7 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
         this.friendsListTable.data = results;
     };
 
-    $app.methods.getAllUserStats = function () {
+    $app.methods.getAllUserStats = async function () {
         var userIds = [];
         var displayNames = [];
         for (var ctx of this.friends.values()) {
@@ -14714,55 +14798,54 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
             }
         }
 
-        database.getAllUserStats(userIds, displayNames).then((data) => {
-            var friendListMap = new Map();
-            for (var item of data) {
-                if (!item.userId) {
-                    // find userId from previous data with matching displayName
-                    for (var ref of data) {
-                        if (
-                            ref.displayName === item.displayName &&
-                            ref.userId
-                        ) {
-                            item.userId = ref.userId;
-                        }
-                    }
-                    // if still no userId, find userId from friends list
-                    if (!item.userId) {
-                        for (var ref of this.friends.values()) {
-                            if (
-                                ref?.ref?.id &&
-                                ref.ref.displayName === item.displayName
-                            ) {
-                                item.userId = ref.id;
-                            }
-                        }
-                    }
-                    // if still no userId, skip
-                    if (!item.userId) {
-                        continue;
+        var data = await database.getAllUserStats(userIds, displayNames);
+        var friendListMap = new Map();
+        for (var item of data) {
+            if (!item.userId) {
+                // find userId from previous data with matching displayName
+                for (var ref of data) {
+                    if (ref.displayName === item.displayName && ref.userId) {
+                        item.userId = ref.userId;
                     }
                 }
-
-                var friend = friendListMap.get(item.userId);
-                if (!friend) {
-                    friendListMap.set(item.userId, item);
+                // if still no userId, find userId from friends list
+                if (!item.userId) {
+                    for (var ref of this.friends.values()) {
+                        if (
+                            ref?.ref?.id &&
+                            ref.ref.displayName === item.displayName
+                        ) {
+                            item.userId = ref.id;
+                        }
+                    }
+                }
+                // if still no userId, skip
+                if (!item.userId) {
                     continue;
                 }
-                friend.timeSpent += item.timeSpent;
-                friend.joinCount += item.joinCount;
-                friend.displayName = item.displayName;
-                friendListMap.set(item.userId, friend);
             }
-            for (var item of friendListMap.values()) {
-                var ref = this.friends.get(item.userId);
-                if (ref?.ref) {
-                    ref.ref.$joinCount = item.joinCount;
-                    ref.ref.$lastSeen = item.created_at;
-                    ref.ref.$timeSpent = item.timeSpent;
-                }
+
+            var friend = friendListMap.get(item.userId);
+            if (!friend) {
+                friendListMap.set(item.userId, item);
+                continue;
             }
-        });
+            if (Date.parse(item.lastSeen) > Date.parse(friend.lastSeen)) {
+                friend.lastSeen = item.lastSeen;
+            }
+            friend.timeSpent += item.timeSpent;
+            friend.joinCount += item.joinCount;
+            friend.displayName = item.displayName;
+            friendListMap.set(item.userId, friend);
+        }
+        for (var item of friendListMap.values()) {
+            var ref = this.friends.get(item.userId);
+            if (ref?.ref) {
+                ref.ref.$joinCount = item.joinCount;
+                ref.ref.$lastSeen = item.lastSeen;
+                ref.ref.$timeSpent = item.timeSpent;
+            }
+        }
     };
 
     $app.methods.getUserStats = async function (ctx) {
