@@ -35,7 +35,7 @@ jobs:
       - name: Restore dependencies
         run: npm ci
       - name: Build
-        run: npm run production
+        run: npm run prod
       - name: Fix folder structure
         id: fix-folders
         run: |

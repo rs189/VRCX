@@ -4,14 +4,13 @@
   "private": true,
   "main": "main.js",
   "scripts": {
-    "dev": "webpack --config webpack.config.js --mode development",
-    "watch": "webpack --config webpack.config.js --mode development --watch",
-    "prod": "webpack --config webpack.config.js --mode production",
-    "lint": "eslint --ext .js src/ && prettier --check src/",
-    "development": "npm run dev",
-    "production": "npm run prod",
-    "localization": "node ./src/localization/localizationHelperCLI.js",
+    "dev": "cross-env PLATFORM=windows webpack --config webpack.config.js --mode development",
+    "watch": "cross-env PLATFORM=windows webpack --config webpack.config.js --mode development --watch",
     "start": "electron .",
+    "lint": "eslint --ext .js src/ && prettier --check src/",
+    "localization": "node ./src/localization/localizationHelperCLI.js",
+    "prod": "cross-env PLATFORM=windows webpack --config webpack.config.js --mode production",
+    "prod-linux": "cross-env PLATFORM=linux webpack --config webpack.config.js --mode production",
     "build": "electron-builder",
     "postinstall": "electron-rebuild"
   },
@@ -40,6 +39,7 @@
     "@infolektuell/noto-color-emoji": "^0.2.0",
     "animate.css": "^4.1.1",
     "copy-webpack-plugin": "^12.0.2",
+    "cross-env": "^7.0.3",
     "css-loader": "^7.1.2",
     "default-passive-events": "^2.0.0",
     "electron": "^33.2.1",
@@ -70,8 +70,8 @@
     "yargs": "^17.7.2"
   },
   "build": {
-    "appId": "com.pypy.vrcx", 
-    "productName": "VRCX", 
+    "appId": "com.pypy.vrcx",
+    "productName": "VRCX",
     "icon": "VRCX.png",
     "files": [
       "build/bin/**/*",

@@ -1,7 +1,4 @@
-const path = require('path');
 const dotnet = require('node-api-dotnet');
-//require('./build/bin/AnyCPU/Debug/VRCX.cjs');
-const VRCXPath = path.join(__dirname, './build/bin/AnyCPU/Debug/VRCX.cjs');
 
 class InteropApi {
     constructor() {

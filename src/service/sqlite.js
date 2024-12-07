@@ -1,14 +1,12 @@
 // requires binding of SQLite
 
-const platform = navigator.platform.toLowerCase();
-
 import InteropApi from '../ipc/interopApi.js';
-const SQLite = InteropApi.SQLiteLegacy;
+const SQLiteDotnet = InteropApi.SQLiteLegacy;
 
 class SQLiteService {
     execute(callback, sql, args = null) {
         return new Promise((resolve, reject) => {
-            if (platform.includes('linux')) {
+            if (LINUX) {
                 try {
                     let options = null;
                     if (args && typeof args === 'string') {
@@ -21,7 +19,7 @@ class SQLiteService {
                         options = args;
                     }                
 
-                    const data = SQLite.Execute(sql, options);
+                    const data = SQLiteDotnet.Execute(sql, options);
 
                     if (data.rows && data.rows.length > 0) {
                         for (const row of data.rows) {
@@ -52,10 +50,9 @@ class SQLiteService {
     }    
     
     executeNonQuery(sql, args = null) {
-        const platform = navigator.platform.toLowerCase();
-        if (platform.includes('linux')) {
-            args = new Map(args ? Object.entries(args) : []);
-        }
+        if (LINUX) {
+            return SQLiteDotnet.ExecuteNonQuery(sql, new Map(args ? Object.entries(args) : []));
+        } 
         return SQLite.ExecuteNonQuery(sql, args);
     }
 }

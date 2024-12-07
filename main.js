@@ -1,19 +1,8 @@
 const path = require('path');
 const { app, BrowserWindow, ipcMain } = require('electron');
 
-console.log('app.getAppPath():', app.getAppPath());
-console.log('process.cwd():', process.cwd());
-console.log('__dirname:', __dirname);
-
-// Use __dirname to correctly resolve the path to the unpacked folder
 const dotnet = require('node-api-dotnet');
-
-console.log('dotnet:', dotnet);
-// Resolve the VRCX.cjs path from the unpacked folder
-const VRCXPath = path.join(__dirname, 'build/bin/AnyCPU/Debug/VRCX.cjs');
-//console.log('VRCXPath:', VRCXPath);
-//
-require(VRCXPath);
+require(path.join(__dirname, 'build/bin/AnyCPU/Debug/VRCX.cjs'));
 
 const InteropApi = require('./InteropApi');
 const interopApi = new InteropApi();

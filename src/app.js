@@ -63,8 +63,6 @@ speechSynthesis.getVoices();
 
 import InteropApi from './ipc/interopApi.js';
 
-const platform = navigator.platform.toLowerCase();
-
 const AppApi = InteropApi.AppApi;
 const WebApi = InteropApi.WebApi;
 const SharedVariable = InteropApi.SharedVariable;
@@ -77,7 +75,8 @@ const AssetBundleCacher = InteropApi.AssetBundleCacher;
 // #region | Hey look it's most of VRCX!
 (async function () {
     // #region | Init Cef C# bindings
-    if (platform.includes('win')) {
+    if (LINUX) {
+    } else {
         await CefSharp.BindObjectAsync(
             'AppApi',
             'WebApi',
