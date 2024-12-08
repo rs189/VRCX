@@ -66,64 +66,79 @@ namespace VRCX
             m_Connection.Close();
             m_Connection.Dispose();
         }
-#if LINUX 
-        public string Execute(string sql, string jsonOptions = null)
+#if LINUX
+        public string Execute(string sql, IDictionary<string, object> args = null)
         {
+            // If sql has FROM configs
+            if (sql.Contains("FROM configs"))
+            {
+                Console.WriteLine("final SQL: " + sql);
+                Console.WriteLine("final ARGS: " + args);
+            }
+
             try
             {
                 m_ConnectionLock.EnterReadLock();
                 try
                 {
-                    IDictionary<string, object> options = null;
-
-                    if (!string.IsNullOrEmpty(jsonOptions))
-                    {
-                        try
-                        {
-                            options = JsonConvert.DeserializeObject<IDictionary<string, object>>(jsonOptions);
-                        }
-                        catch (JsonException ex)
-                        {
-                            return JsonConvert.SerializeObject(new
-                            {
-                                status = "error",
-                                message = "Invalid JSON format for options",
-                                error = ex.Message
-                            });
-                        }
-                    }
-
                     using (var command = new SQLiteCommand(sql, m_Connection))
                     {
-                        if (options != null)
+                        if (sql.Contains("FROM configs"))
                         {
-                            foreach (var arg in options)
+                            Console.WriteLine("final pre-args: " + sql);
+                        }
+
+                        if (args != null)
+                        {
+                            foreach (var arg in args)
                             {
+                                //if (sql.Contains("FROM configs"))
+                                //{
+                                Console.WriteLine("arg.Key: " + arg.Key);
+                                Console.WriteLine("arg.Value: " + arg.Value);
+                                //}
+
                                 command.Parameters.Add(new SQLiteParameter(arg.Key, arg.Value));
                             }
                         }
 
-                        var results = new List<Dictionary<string, object>>();
+                        if (sql.Contains("FROM configs"))
+                        {
+                            Console.WriteLine("final post-args: " + sql);
+                        }
 
                         using (var reader = command.ExecuteReader())
                         {
-                            while (reader.Read())
+                            while (reader.Read() == true)
                             {
-                                var row = new Dictionary<string, object>();
-                                for (var i = 0; i < reader.FieldCount; i++)
+                                var values = new object[reader.FieldCount];
+                                reader.GetValues(values);
+                                if (sql.Contains("FROM configs"))
                                 {
-                                    row[reader.GetName(i)] = reader.GetValue(i);
+                                    Console.WriteLine("final values: " + values);
+                                    Console.WriteLine("final values.Length: " + values.Length);
+                                    for (int i = 0; i < values.Length; i++)
+                                    {
+                                        Console.WriteLine("values[" + i + "]: " + values[i]);
+                                    }
                                 }
-                                results.Add(row);
+                                return JsonConvert.SerializeObject(new
+                                {
+                                    status = "success",
+                                    data = values
+                                });
                             }
                         }
-
-                        return JsonConvert.SerializeObject(new
-                        {
-                            status = "success",
-                            rows = results
-                        });
                     }
+                    if (sql.Contains("FROM configs"))
+                    {
+                        Console.WriteLine("final values null: ");
+                    }
+                    return JsonConvert.SerializeObject(new
+                    {
+                        status = "success",
+                        data = (object)null
+                    });
                 }
                 finally
                 {

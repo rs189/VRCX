@@ -1,36 +1,29 @@
 // requires binding of SQLite
 
 import InteropApi from '../ipc/interopApi.js';
-const SQLiteDotnet = InteropApi.SQLiteLegacy;
+const SQLite = InteropApi.SQLiteLegacy;
 
 class SQLiteService {
     execute(callback, sql, args = null) {
         return new Promise((resolve, reject) => {
             if (LINUX) {
-                try {
-                    let options = null;
-                    if (args && typeof args === 'string') {
-                        try {
-                            options = JSON.parse(args);
-                        } catch (err) {
-                            return reject('Invalid JSON format for options');
-                        }
-                    } else if (args && typeof args === 'object') {
-                        options = args;
-                    }                
-
-                    const data = SQLiteDotnet.Execute(sql, options);
-
-                    if (data.rows && data.rows.length > 0) {
-                        for (const row of data.rows) {
-                            callback(row);
-                        }
+                SQLite.Execute(
+                    sql,
+                    new Map(args ? Object.entries(args) : [])
+                ).then((data) => {
+                    const status = JSON.parse(data).status;
+                    data = JSON.parse(data).data;
+                    if (status !== "success") {
+                        reject(new Error("SQL execution failed"));
+                    } else if (data === null) {
+                        resolve(null);
+                    } else {
+                        callback(data);
+                        resolve(data);
                     }
-
-                    resolve(data);
-                } catch (err) {
-                    reject(err);
-                }
+                }).catch((error) => {
+                    console.error("SQL execution failed:", error);
+                });
             } else {
                 SQLite.Execute(
                     (err, data) => {
@@ -51,7 +44,7 @@ class SQLiteService {
     
     executeNonQuery(sql, args = null) {
         if (LINUX) {
-            return SQLiteDotnet.ExecuteNonQuery(sql, new Map(args ? Object.entries(args) : []));
+            return SQLite.ExecuteNonQuery(sql, new Map(args ? Object.entries(args) : []));
         } 
         return SQLite.ExecuteNonQuery(sql, args);
     }

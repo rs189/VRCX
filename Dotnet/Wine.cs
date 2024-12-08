@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 
 namespace VRCX
 {
+#if LINUX
+#else
     public static class Wine
     {
         [DllImport("ntdll.dll")]
@@ -20,4 +22,5 @@ namespace VRCX
             catch { return false; }
         }
     }
+#endif
 }

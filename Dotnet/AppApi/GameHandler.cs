@@ -35,6 +35,8 @@ namespace VRCX
                 isGameRunning = true;
             }
 
+#if LINUX
+#else
             if (Wine.GetIfWine())
             {
                 var wineTmpPath = Path.Combine(Program.AppDataDirectory, "wine.tmp");
@@ -47,6 +49,7 @@ namespace VRCX
                     }
                 }
             }
+#endif
 
             if (ProcessMonitor.Instance.IsProcessRunning("vrserver"))
             {

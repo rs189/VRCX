@@ -666,7 +666,11 @@ namespace VRCX
 
         public bool IsRunningUnderWine()
         {
+#if LINUX
+            return false;
+#else
             return Wine.GetIfWine();
+#endif
         }
     }
 }

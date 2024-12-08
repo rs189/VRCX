@@ -2591,6 +2591,9 @@ class Database {
                     `SELECT group_name FROM ${tableName} LIMIT 1`
                 );
             } catch (e) {
+                if (LINUX) {
+                    e = e.toString();
+                }
                 if (e.indexOf('no such column') === -1) {
                     throw e;
                 }
@@ -2608,6 +2611,9 @@ class Database {
                 `ALTER TABLE gamelog_location DROP COLUMN groupName`
             );
         } catch (e) {
+            if (LINUX) {
+                e = e.toString();
+            }
             if (e.indexOf('no such column') === -1) {
                 throw e;
             }
