@@ -33,6 +33,10 @@ namespace VRCX
         private Thread m_Thread;
         private DateTime tillDate = DateTime.UtcNow;
         public bool VrcClosedGracefully;
+#if LINUX
+        private static string m_SteamUserDataPath;
+        private static string m_VrcPrefixPath;
+#endif
 
         // NOTE
         // FileSystemWatcher() is unreliable
@@ -48,7 +52,23 @@ namespace VRCX
         private LogWatcher()
 #endif
         {
-            var logPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"Low\VRChat\VRChat";
+            string logPath;
+            string steamAppsPath;
+
+#if LINUX
+            string homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            steamAppsPath = Path.Combine(homeDirectory, ".local", "share", "Steam", "steamapps");
+            if (!Directory.Exists(steamAppsPath) && Directory.Exists(Path.Combine(homeDirectory, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam", "steamapps", "compatdata")))
+            {
+                Console.WriteLine("Flatpak Steam detected.");
+                steamAppsPath = Path.Combine(homeDirectory, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam", "steamapps", "compatdata");
+            }
+            m_SteamUserDataPath = Path.Combine(homeDirectory, ".steam", "steam", "userdata");
+            logPath = Path.Combine(steamAppsPath, "compatdata", "438100", "pfx", "drive_c", "users", "steamuser", "AppData", "LocalLow", "VRChat", "VRChat");
+            m_VrcPrefixPath = Path.Combine(steamAppsPath, "compatdata", "438100", "pfx");
+#else
+            logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Low", "VRChat", "VRChat");
+#endif    
             m_LogDirectoryInfo = new DirectoryInfo(logPath);
             m_LogContextMap = new Dictionary<string, LogContext>();
             m_LogListLock = new ReaderWriterLockSlim();
@@ -1378,5 +1398,16 @@ namespace VRCX
             public string RecentWorldName;
             public bool ShaderKeywordsLimitReached;
         }
+#if LINUX
+        public static string GetSteamUserDataPath()
+        {
+            return m_SteamUserDataPath;
+        }
+
+        public static string GetVrcPrefixPath()
+        {
+            return m_VrcPrefixPath;
+        }
+#endif
     }
 }

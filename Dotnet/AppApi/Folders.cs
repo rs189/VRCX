@@ -31,10 +31,13 @@ namespace VRCX
                     }
                 }
             }
-
+#if LINUX
+            return Path.Combine(LogWatcher.GetVrcPrefixPath(), "drive_c", "users", "steamuser", "AppData", "LocalLow", "VRChat", "VRChat");
+#else
             return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"Low\VRChat\VRChat";
+#endif
         }
-        
+
         public string GetVRChatPhotosLocation()
         {
             var json = ReadConfigFile();
@@ -50,13 +53,29 @@ namespace VRCX
                     }
                 }
             }
-            
+#if LINUX
+            return Path.Combine(LogWatcher.GetVrcPrefixPath(), "drive_c", "users", "steamuser", "Pictures", "VRChat");
+#else
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "VRChat");
+#endif
         }
-        
+
         private string GetSteamUserdataPathFromRegistry()
         {
-            string steamUserdataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Steam\userdata");
+            string steamUserdataPath;
+#if LINUX
+            steamUserdataPath = LogWatcher.GetSteamUserDataPath();
+            // TODO: Fix Steam userdata path, for now just get the first folder
+            if (Directory.Exists(steamUserdataPath))
+            {
+                var steamUserDirs = Directory.GetDirectories(steamUserdataPath);
+                if (steamUserDirs.Length > 0)
+                {
+                    steamUserdataPath = steamUserDirs[0];
+                }
+            }
+#else
+            steamUserdataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Steam\userdata");
 
             try
             {
@@ -75,7 +94,7 @@ namespace VRCX
             catch
             {
             }
-
+#endif
             return steamUserdataPath;
         }
 
@@ -85,20 +104,24 @@ namespace VRCX
             var steamUserdataPath = GetSteamUserdataPathFromRegistry();
             var screenshotPath = string.Empty;
             var latestWriteTime = DateTime.MinValue;
-            if (!Directory.Exists(steamUserdataPath)) 
+            if (!Directory.Exists(steamUserdataPath))
                 return screenshotPath;
-            
+#if LINUX
+            return Path.Combine(steamUserdataPath, "760/remote/438100/screenshots");
+#endif
             var steamUserDirs = Directory.GetDirectories(steamUserdataPath);
             foreach (var steamUserDir in steamUserDirs)
             {
-                var screenshotDir = Path.Combine(steamUserDir, @"760\remote\438100\screenshots");
+                string screenshotDir;
+                screenshotDir = Path.Combine(steamUserDir, @"760\remote\438100\screenshots");
+
                 if (!Directory.Exists(screenshotDir))
                     continue;
-                    
+
                 var lastWriteTime = File.GetLastWriteTime(screenshotDir);
                 if (lastWriteTime <= latestWriteTime)
                     continue;
-                        
+
                 latestWriteTime = lastWriteTime;
                 screenshotPath = screenshotDir;
             }
@@ -114,53 +137,63 @@ namespace VRCX
         {
             return Path.Combine(GetVRChatAppDataLocation(), "Cache-WindowsPlayer");
         }
-        
+
         public bool OpenVrcxAppDataFolder()
         {
             var path = Program.AppDataDirectory;
             if (!Directory.Exists(path))
                 return false;
-            
+
             OpenFolderAndSelectItem(path, true);
             return true;
         }
 
         public bool OpenVrcAppDataFolder()
         {
-            var path = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"Low\VRChat\VRChat";
+            string path;
+#if LINUX
+            path = Path.Combine(LogWatcher.GetVrcPrefixPath(), "drive_c", "users", "steamuser", "AppData", "LocalLow", "VRChat", "VRChat");
+#else
+            path = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"Low\VRChat\VRChat";
+#endif
             if (!Directory.Exists(path))
                 return false;
-            
+
             OpenFolderAndSelectItem(path, true);
             return true;
         }
-        
+
         public bool OpenVrcPhotosFolder()
         {
             var path = GetVRChatPhotosLocation();
             if (!Directory.Exists(path))
                 return false;
-            
+
             OpenFolderAndSelectItem(path, true);
             return true;
         }
-        
+
         public bool OpenVrcScreenshotsFolder()
         {
             var path = GetVRChatScreenshotsLocation();
             if (!Directory.Exists(path))
                 return false;
-            
+
             OpenFolderAndSelectItem(path, true);
             return true;
         }
 
         public bool OpenCrashVrcCrashDumps()
         {
-            var path = Path.Combine(Path.GetTempPath(), "VRChat", "VRChat", "Crashes");
+            string path;
+#if LINUX
+            path = ""; // TODO: Fix crash dumps path
+#else
+            path = Path.Combine(Path.GetTempPath(), "VRChat", "VRChat", "Crashes");
+#endif
             if (!Directory.Exists(path))
                 return false;
-            
+
             OpenFolderAndSelectItem(path, true);
             return true;
         }
@@ -196,6 +229,8 @@ namespace VRCX
 
             // Convert our managed strings to PIDLs. PIDLs are essentially pointers to the actual file system objects, separate from the "display name", which is the human-readable path to the file/folder. We're parsing the display name into a PIDL here.
             // The windows shell uses PIDLs to identify objects in winapi calls, so we'll need to use them to open the folder and select the file. Cool stuff!
+#if LINUX
+#else
             var result = WinApi.SHParseDisplayName(folderPath, IntPtr.Zero, out pidlFolder, 0, out psfgaoOut);
             if (result != 0)
             {
@@ -213,12 +248,17 @@ namespace VRCX
             }
 
             IntPtr[] files = { pidlFile };
+#endif
 
             try
             {
                 // Open the containing folder and select our file. SHOpenFolderAndSelectItems will respect existing explorer instances, open a new one if none exist, will properly handle paths > 120 chars, and work with third-party filesystem viewers that hook into winapi calls.
                 // It can select multiple items, but we only need to select one. 
+#if LINUX
+                OpenFolderAndSelectItemFallback(path);
+#else
                 WinApi.SHOpenFolderAndSelectItems(pidlFolder, (uint)files.Length, files, 0);
+#endif
             }
             catch
             {
@@ -226,12 +266,15 @@ namespace VRCX
             }
             finally
             {
+#if LINUX
+#else
                 // Free the PIDLs we allocated earlier
                 Marshal.FreeCoTaskMem(pidlFolder);
                 Marshal.FreeCoTaskMem(pidlFile);
+#endif
             }
         }
-        
+
         public void OpenFolderAndSelectItemFallback(string path)
         {
             if (!File.Exists(path) && !Directory.Exists(path))
@@ -239,15 +282,23 @@ namespace VRCX
 
             if (Directory.Exists(path))
             {
+#if LINUX
+                Process.Start("xdg-open", path);
+#else
                 Process.Start("explorer.exe", path);
+#endif
             }
             else
             {
                 // open folder with file highlighted
+#if LINUX
+                Process.Start("xdg-open", $"--select {path}");
+#else
                 Process.Start("explorer.exe", $"/select,\"{path}\"");
+#endif
             }
         }
-        
+
         private static readonly Regex _folderRegex = new Regex(string.Format(@"([{0}]*\.+$)|([{0}]+)",
             Regex.Escape(new string(Path.GetInvalidPathChars()))));
 
@@ -260,7 +311,7 @@ namespace VRCX
             name = name.Replace("\\", "");
             name = _folderRegex.Replace(name, "");
             name = _fileRegex.Replace(name, "");
-    
+
             return name;
         }
     }
