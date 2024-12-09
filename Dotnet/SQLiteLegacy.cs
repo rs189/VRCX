@@ -69,13 +69,6 @@ namespace VRCX
 #if LINUX
         public string Execute(string sql, IDictionary<string, object> args = null)
         {
-            // If sql has FROM configs
-            if (sql.Contains("FROM configs"))
-            {
-                Console.WriteLine("final SQL: " + sql);
-                Console.WriteLine("final ARGS: " + args);
-            }
-
             try
             {
                 m_ConnectionLock.EnterReadLock();
@@ -83,62 +76,37 @@ namespace VRCX
                 {
                     using (var command = new SQLiteCommand(sql, m_Connection))
                     {
-                        if (sql.Contains("FROM configs"))
-                        {
-                            Console.WriteLine("final pre-args: " + sql);
-                        }
-
                         if (args != null)
                         {
                             foreach (var arg in args)
                             {
-                                //if (sql.Contains("FROM configs"))
-                                //{
-                                Console.WriteLine("arg.Key: " + arg.Key);
-                                Console.WriteLine("arg.Value: " + arg.Value);
-                                //}
-
                                 command.Parameters.Add(new SQLiteParameter(arg.Key, arg.Value));
                             }
                         }
 
-                        if (sql.Contains("FROM configs"))
-                        {
-                            Console.WriteLine("final post-args: " + sql);
-                        }
-
                         using (var reader = command.ExecuteReader())
                         {
+                            var result = new List<object[]>();
+
                             while (reader.Read() == true)
                             {
                                 var values = new object[reader.FieldCount];
-                                reader.GetValues(values);
-                                if (sql.Contains("FROM configs"))
+
+                                for (int i = 0; i < reader.FieldCount; i++)
                                 {
-                                    Console.WriteLine("final values: " + values);
-                                    Console.WriteLine("final values.Length: " + values.Length);
-                                    for (int i = 0; i < values.Length; i++)
-                                    {
-                                        Console.WriteLine("values[" + i + "]: " + values[i]);
-                                    }
+                                    values[i] = reader.GetValue(i);
                                 }
-                                return JsonConvert.SerializeObject(new
-                                {
-                                    status = "success",
-                                    data = values
-                                });
+
+                                result.Add(values);
                             }
+
+                            return JsonConvert.SerializeObject(new
+                            {
+                                status = "success",
+                                data = result
+                            });
                         }
                     }
-                    if (sql.Contains("FROM configs"))
-                    {
-                        Console.WriteLine("final values null: ");
-                    }
-                    return JsonConvert.SerializeObject(new
-                    {
-                        status = "success",
-                        data = (object)null
-                    });
                 }
                 finally
                 {

@@ -48,9 +48,14 @@ class ConfigRepository extends SharedRepository {
             'CREATE TABLE IF NOT EXISTS configs (`key` TEXT PRIMARY KEY, `value` TEXT)'
         );
         await sqliteService.execute(
-            ([key, value]) => sharedRepository.setString(key, value),
+            (data) => {
+                for (var [key, value] of data) {
+                    sharedRepository.setString(key, value);
+                }
+            },
             'SELECT `key`, `value` FROM configs'
         );
+
         syncLoop();
     }
 
