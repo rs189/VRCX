@@ -343,13 +343,16 @@ namespace VRCX
             }
         }
 #if LINUX
-        public string GetLogLine()
+        public List<string> GetLogLines()
         {
-            if (m_LogQueue.TryDequeue(out var logLine))
+            var logLines = new List<string>();
+
+            while (m_LogQueue.TryDequeue(out var logLine))
             {
-                return logLine;
+                logLines.Add(logLine);
             }
-            return null;
+
+            return logLines;
         }
 #endif
         private string ConvertLogTimeToISO8601(string line)

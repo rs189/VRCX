@@ -942,12 +942,6 @@ export default class extends baseClass {
         },
 
         async addGameLogEvent(json) {
-            if (LINUX) {
-                json = await json;
-                if (!json) {
-                    return;
-                }
-            }
             var rawLogs = JSON.parse(json);
             var gameLog = gameLogService.parseRawGameLog(
                 rawLogs[1],
