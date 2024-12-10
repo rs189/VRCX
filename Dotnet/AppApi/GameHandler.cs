@@ -50,7 +50,6 @@ namespace VRCX
                 }
             }
 #endif
-
             if (ProcessMonitor.Instance.IsProcessRunning("vrserver"))
             {
                 isSteamVRRunning = true;
@@ -65,6 +64,22 @@ namespace VRCX
                 MainForm.Instance.Browser.ExecuteScriptAsync("$app.updateIsGameRunning", isGameRunning, isSteamVRRunning, isHmdAfk);
 #endif
         }
+#if LINUX
+        public bool IsGameRunning()
+        {
+            var isGameRunning = false;
+            var processes = Process.GetProcesses();
+            foreach (var process in processes)
+            {
+                if (process.ProcessName == "VRChat.exe")
+                {
+                    isGameRunning = true;
+                    break;
+                }
+            }
+            return isGameRunning;
+        }
+#endif
 
         /// <summary>
         /// Kills the VRChat process if it is currently running.

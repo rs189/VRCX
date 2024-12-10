@@ -49,14 +49,14 @@ namespace VRCX
         /// <param name="key">The name of the key to retrieve.</param>
         /// <returns>The value of the specified key, or null if the key does not exist.</returns>
 #if LINUX
-        public void GetVRChatRegistryKey(string key)
+        public int GetVRChatRegistryKey(string key)
         {
-            return;
+            // TODO: Fix by using wine regedit or other method.
+            return 1;
         }
 #else
         public object GetVRChatRegistryKey(string key)
         {
-
             return null;
 
             var keyName = AddHashToKeyName(key);
@@ -96,7 +96,8 @@ namespace VRCX
         public bool SetVRChatRegistryKey(string key, object value, int typeInt)
         {
 #if LINUX
-            return false;
+            // TODO: Fix by using wine regedit or other method.
+            return true;
 #else
             var type = (RegistryValueKind)typeInt;
             var keyName = AddHashToKeyName(key);

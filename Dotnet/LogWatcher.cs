@@ -11,6 +11,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 #if LINUX
+using System.Collections.Concurrent;
 #else
 using CefSharp;
 #endif
@@ -34,6 +35,7 @@ namespace VRCX
         private DateTime tillDate = DateTime.UtcNow;
         public bool VrcClosedGracefully;
 #if LINUX
+        private readonly ConcurrentQueue<string> m_LogQueue = new ConcurrentQueue<string>();
         private static string m_SteamUserDataPath;
         private static string m_VrcPrefixPath;
 #endif
@@ -326,6 +328,7 @@ namespace VRCX
                 {
                     var logLine = System.Text.Json.JsonSerializer.Serialize(item);
 #if LINUX
+                    m_LogQueue.Enqueue(logLine);
 #else
                     if (MainForm.Instance != null && MainForm.Instance.Browser != null)
                         MainForm.Instance.Browser.ExecuteScriptAsync("$app.addGameLogEvent", logLine);
@@ -339,7 +342,16 @@ namespace VRCX
                 m_LogListLock.ExitWriteLock();
             }
         }
-
+#if LINUX
+        public string GetLogLine()
+        {
+            if (m_LogQueue.TryDequeue(out var logLine))
+            {
+                return logLine;
+            }
+            return null;
+        }
+#endif
         private string ConvertLogTimeToISO8601(string line)
         {
             // 2020.10.31 23:36:22

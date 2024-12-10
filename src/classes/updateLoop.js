@@ -3,6 +3,7 @@ import { baseClass, $app, API, $t, $utils } from './baseClass.js';
 
 import InteropApi from '../ipc/interopApi.js';
 const AppApi = InteropApi.AppApi;
+const LogWatcher = InteropApi.LogWatcher;
 
 export default class extends baseClass {
     constructor(_app, _API, _t) {
@@ -80,11 +81,17 @@ export default class extends baseClass {
                         this.updateAutoStateChange();
                     }
                     if (
-                        this.isRunningUnderWine &&
+                        (this.isRunningUnderWine || LINUX) &&
                         --this.nextGameRunningCheck <= 0
                     ) {
-                        this.nextGameRunningCheck = 3;
-                        AppApi.CheckGameRunning();
+                        if (LINUX) {
+                            this.nextGameRunningCheck = 1;
+                            $app.updateIsGameRunning(AppApi.IsGameRunning(), false, false);
+                            $app.addGameLogEvent(LogWatcher.GetLogLine())
+                        } else {
+                            this.nextGameRunningCheck = 3;
+                            AppApi.CheckGameRunning();
+                        }
                     }
                 }
             } catch (err) {
