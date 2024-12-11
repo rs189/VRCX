@@ -12,7 +12,7 @@
     "prod": "cross-env PLATFORM=windows webpack --config webpack.config.js --mode production",
     "prod-linux": "cross-env PLATFORM=linux webpack --config webpack.config.js --mode production",
     "build": "electron-builder",
-    "postinstall": "electron-rebuild"
+    "postbuild": "node patch-node-api-dotnet.js"
   },
   "repository": {
     "type": "git",
@@ -49,7 +49,6 @@
     "eslint-config-prettier": "^9.1.0",
     "html-webpack-plugin": "^5.6.3",
     "mini-css-extract-plugin": "^2.9.2",
-    "node-api-dotnet": "^0.8.19",
     "normalize.css": "^8.0.1",
     "noty": "^3.2.0-beta-deprecated",
     "prettier": "^3.3.3",
@@ -74,16 +73,32 @@
     "productName": "VRCX",
     "icon": "VRCX.png",
     "files": [
-      "build/bin/**/*",
-      "html/**/*",
+      "build/html/**/*",
       "main.js",
       "preload.js",
-      "VRCX.png"
+      "InteropApi.js",
+      "VRCX.png",
+      "images/tray.png",
+      "!build/bin/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/node-api-dotnet/**/*",
+      "node_modules/node-api-dotnet/net8.0/**/*",
+      "build/bin/AnyCPU/Debug/*",
+      "build/bin/AnyCPU/Debug/**"
     ],
     "extraResources": [
       {
         "from": "build/bin/AnyCPU/Debug/",
-        "to": "build/bin/AnyCPU/Debug/"
+        "to": "app.asar.unpacked/build/bin/AnyCPU/Debug/"
+      },
+      {
+        "from": "node_modules/node-api-dotnet/net8.0/Microsoft.JavaScript.NodeApi.dll",
+        "to": "app.asar.unpacked/node_modules/node-api-dotnet/net8.0/Microsoft.JavaScript.NodeApi.dll"
+      },
+      {
+        "from": "node_modules/node-api-dotnet/net8.0/Microsoft.JavaScript.NodeApi.DotNetHost.dll",
+        "to": "app.asar.unpacked/node_modules/node-api-dotnet/net8.0/Microsoft.JavaScript.NodeApi.DotNetHost.dll"
       }
     ],
     "directories": {
@@ -98,5 +113,9 @@
       "maintainer": "rs189 <35667100+rs189@users.noreply.github.com>",
       "description": "Friendship management tool for VRChat"
     }
+  },
+  "dependencies": {
+    "hazardous": "^0.3.0",
+    "node-api-dotnet": "^0.8.19"
   }
 }

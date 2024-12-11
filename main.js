@@ -1,7 +1,8 @@
+require('hazardous');
 const path = require('path');
 const { app, BrowserWindow, ipcMain, Menu, Tray } = require('electron');
 
-const dotnet = require('node-api-dotnet');
+const dotnet = require('node-api-dotnet/net8.0');
 require(path.join(__dirname, 'build/bin/AnyCPU/Debug/VRCX.cjs'));
 
 const InteropApi = require('./InteropApi');

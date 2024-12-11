@@ -88,7 +88,6 @@ export default class extends baseClass {
                         this.nextGetLogCheck = 0.5;
                         const logLines = await LogWatcher.GetLogLines();
                         if (logLines) {
-                            console.log(logLines);
                             logLines.forEach((logLine) => {
                                 $app.addGameLogEvent(logLine);
                             });
