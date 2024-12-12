@@ -1,7 +1,9 @@
 // requires binding of SQLite
 
 import InteropApi from '../ipc/interopApi.js';
-const SQLite = InteropApi.SQLiteLegacy;
+if (LINUX) {
+    var SQLite = InteropApi.SQLiteLegacy;
+}
 
 class SQLiteService {
     execute(callback, sql, args = null) {

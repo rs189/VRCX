@@ -62,21 +62,30 @@ import _config from './classes/API/config.js';
 speechSynthesis.getVoices();
 
 import InteropApi from './ipc/interopApi.js';
-
-const AppApi = InteropApi.AppApi;
-const WebApi = InteropApi.WebApi;
-const SharedVariable = InteropApi.SharedVariable;
-const VRCXStorage = InteropApi.VRCXStorage;
-const SQLite = InteropApi.SQLite;
-const LogWatcher = InteropApi.LogWatcher;
-const Discord = InteropApi.Discord;
-const AssetBundleCacher = InteropApi.AssetBundleCacher;
+if (LINUX) {
+    var AppApi = InteropApi.AppApi;
+    var WebApi = InteropApi.WebApi;
+    var SharedVariable = InteropApi.SharedVariable;
+    var VRCXStorage = InteropApi.VRCXStorage;
+    var SQLite = InteropApi.SQLite;
+    var LogWatcher = InteropApi.LogWatcher;
+    var Discord = InteropApi.Discord;
+    var AssetBundleCacher = InteropApi.AssetBundleCacher;
+}
 
 // #region | Hey look it's most of VRCX!
 (async function () {
     // #region | Init Cef C# bindings
     if (LINUX) {
     } else {
+        delete window.AppApi;
+        delete window.WebApi;
+        delete window.SharedVariable;
+        delete window.VRCXStorage;
+        delete window.SQLite;
+        delete window.LogWatcher;
+        delete window.Discord;
+        delete window.AssetBundleCacher;
         await CefSharp.BindObjectAsync(
             'AppApi',
             'WebApi',

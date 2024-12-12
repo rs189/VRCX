@@ -4,7 +4,9 @@ import database from '../repository/database.js';
 import { baseClass, $app, API, $t, $utils } from './baseClass.js';
 
 import InteropApi from '../ipc/interopApi.js';
-const AppApi = InteropApi.AppApi;
+if (LINUX) {
+    var AppApi = InteropApi.AppApi;
+}
 
 export default class extends baseClass {
     constructor(_app, _API, _t) {

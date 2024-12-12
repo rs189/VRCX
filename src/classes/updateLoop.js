@@ -2,8 +2,10 @@ import * as workerTimers from 'worker-timers';
 import { baseClass, $app, API, $t, $utils } from './baseClass.js';
 
 import InteropApi from '../ipc/interopApi.js';
-const AppApi = InteropApi.AppApi;
-const LogWatcher = InteropApi.LogWatcher;
+if (LINUX) {
+    var AppApi = InteropApi.AppApi;
+    var LogWatcher = InteropApi.LogWatcher;
+}
 
 export default class extends baseClass {
     constructor(_app, _API, _t) {

@@ -141,17 +141,27 @@ namespace VRCX
                         }
                         using (var reader = command.ExecuteReader())
                         {
+                            var result = new List<object[]>();
+
                             while (reader.Read() == true)
                             {
                                 var values = new object[reader.FieldCount];
-                                reader.GetValues(values);
-                                if (callback.CanExecute == true)
+
+                                for (int i = 0; i < reader.FieldCount; i++)
                                 {
-                                    callback.ExecuteAsync(null, values);
+                                    values[i] = reader.GetValue(i);
                                 }
+
+                                result.Add(values);
+                            }
+
+                            if (callback.CanExecute == true)
+                            {
+                                callback.ExecuteAsync(null, result);
                             }
                         }
                     }
+
                     if (callback.CanExecute == true)
                     {
                         callback.ExecuteAsync(null, null);

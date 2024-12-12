@@ -1,7 +1,9 @@
 // requires binding of LogWatcher
 
 import InteropApi from '../ipc/interopApi.js';
-const LogWatcher = InteropApi.LogWatcher;
+if (LINUX) {
+    var LogWatcher = InteropApi.LogWatcher;
+}
 
 class GameLogService {
     parseRawGameLog(dt, type, args) {
