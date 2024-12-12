@@ -62,6 +62,7 @@ import _config from './classes/API/config.js';
 speechSynthesis.getVoices();
 
 import InteropApi from './ipc/interopApi.js';
+console.log(`isLinux: ${LINUX}`);
 if (LINUX) {
     var AppApi = InteropApi.AppApi;
     var WebApi = InteropApi.WebApi;

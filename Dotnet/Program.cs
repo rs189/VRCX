@@ -214,6 +214,15 @@ namespace VRCX
             ProcessMonitor.Instance.Init();
         }
 #else
+        public static void PreInit()
+        {
+
+        }
+
+        public static void Init()
+        {
+
+        }
 #endif
 
 #if LINUX
