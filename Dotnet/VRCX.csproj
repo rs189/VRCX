@@ -9,7 +9,7 @@
     <AssemblyTitle>VRCX</AssemblyTitle>
     <Product>VRCX</Product>
     <Copyright>vrcx-team, pypy, natsumi</Copyright>
-    <OutputPath>..\build\bin\$(Platform)\$(Configuration)\</OutputPath>
+    <OutputPath>..\build\bin\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <Title>VRCX</Title>
@@ -21,6 +21,7 @@
     <!--<EnableWindowsTargeting>true</EnableWindowsTargeting>-->
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <PropertyGroup>
