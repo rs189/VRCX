@@ -10,7 +10,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VRCX-Cef", "VRCX-Cef.csproj", "{42A3FA0E-7185-412A-8886-28815A1E64B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VRCX", "Dotnet\VRCX.csproj", "{BC6CFAFE-8A3E-4352-ABCB-12188B6539AC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VRCX-Linux", "Dotnet\VRCX-Linux.csproj", "{BC6CFAFE-8A3E-4352-ABCB-12188B6539AC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

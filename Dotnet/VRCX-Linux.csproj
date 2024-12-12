@@ -75,6 +75,14 @@
 		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		  <TargetPath>openvr_api.dll</TargetPath>
 	  </None>
+    <None Include="..\libs\linux\SQLite.Interop.dll">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		  <TargetPath>SQLite.Interop.dll</TargetPath>
+	  </None>
+    <None Include="..\libs\linux\System.Data.SQLite.dll">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		  <TargetPath>System.Data.SQLite.dll</TargetPath>
+	  </None>
     <Content Include="..\VRCX.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
