@@ -34,6 +34,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <DebugType>pdbonly</DebugType>
   </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyName>VRCX</AssemblyName>
+  </PropertyGroup>
 
   <PropertyGroup>
     <ApplicationIcon>..\VRCX.ico</ApplicationIcon>
