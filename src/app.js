@@ -21576,7 +21576,7 @@ if (LINUX) {
                 break;
         }
     };
-
+    
     $app.methods.checkVRChatDebugLogging = async function () {
         if (this.gameLogDisabled) {
             return;
@@ -21588,7 +21588,7 @@ if (LINUX) {
                 // key not found
                 return;
             }
-            if (loggingEnabled === 1) {
+            if (loggingEnabled === 1 || loggingEnabled === '1') {
                 // already enabled
                 return;
             }

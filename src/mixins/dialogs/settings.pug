@@ -145,7 +145,7 @@ mixin settings()
                     span.name {{ $t('dialog.registry_backup.auto_backup') }}
                     el-switch(v-model="vrcRegistryAutoBackup" @change="saveVrcRegistryAutoBackup")
             el-button(@click="promptVrcRegistryBackupName" size="small") {{ $t('dialog.registry_backup.backup') }}
-            el-button(@click="AppApi.OpenVrcRegJsonFileDialog()" size="small") {{ $t('dialog.registry_backup.restore_from_file') }}
+            el-button(@click="openVrcRegJsonFileDialog" size="small") {{ $t('dialog.registry_backup.restore_from_file') }}
             el-button(@click="deleteVrcRegistry" size="small") {{ $t('dialog.registry_backup.reset') }}
             data-tables(v-bind="registryBackupTable" style="margin-top:10px")
                 el-table-column(:label="$t('dialog.registry_backup.name')" prop="name")

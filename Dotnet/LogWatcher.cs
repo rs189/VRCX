@@ -36,6 +36,7 @@ namespace VRCX
         public bool VrcClosedGracefully;
 #if LINUX
         private readonly ConcurrentQueue<string> m_LogQueue = new ConcurrentQueue<string>();
+        private static string m_SteamPath;
         private static string m_SteamUserDataPath;
         private static string m_VrcPrefixPath;
 #endif
@@ -55,19 +56,20 @@ namespace VRCX
 #endif
         {
             string logPath;
-            string steamAppsPath;
-
+            string steamPath;
 #if LINUX
             string homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            steamAppsPath = Path.Combine(homeDirectory, ".local", "share", "Steam", "steamapps");
-            if (!Directory.Exists(steamAppsPath) && Directory.Exists(Path.Combine(homeDirectory, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam", "steamapps", "compatdata")))
+            steamPath = Path.Combine(homeDirectory, ".local", "share", "Steam");
+            if (!Directory.Exists(steamPath) && Directory.Exists(Path.Combine(homeDirectory, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam")))
             {
                 Console.WriteLine("Flatpak Steam detected.");
-                steamAppsPath = Path.Combine(homeDirectory, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam", "steamapps", "compatdata");
+                steamPath = Path.Combine(homeDirectory, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam");
             }
+            m_SteamPath = steamPath;
+
             m_SteamUserDataPath = Path.Combine(homeDirectory, ".steam", "steam", "userdata");
-            logPath = Path.Combine(steamAppsPath, "compatdata", "438100", "pfx", "drive_c", "users", "steamuser", "AppData", "LocalLow", "VRChat", "VRChat");
-            m_VrcPrefixPath = Path.Combine(steamAppsPath, "compatdata", "438100", "pfx");
+            logPath = Path.Combine(steamPath, "steamapps", "compatdata", "438100", "pfx", "drive_c", "users", "steamuser", "AppData", "LocalLow", "VRChat", "VRChat");
+            m_VrcPrefixPath = Path.Combine(steamPath, "steamapps",  "compatdata", "438100", "pfx");
 #else
             logPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Low", "VRChat", "VRChat");
 #endif    
@@ -1414,6 +1416,11 @@ namespace VRCX
             public bool ShaderKeywordsLimitReached;
         }
 #if LINUX
+        public static string GetSteamPath()
+        {
+            return m_SteamPath;
+        }
+
         public static string GetSteamUserDataPath()
         {
             return m_SteamUserDataPath;

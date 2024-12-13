@@ -76,6 +76,9 @@ export default class extends baseClass {
 
         async backupVrcRegistry(name) {
             var regJson = await AppApi.GetVRChatRegistry();
+            if (LINUX) {
+                regJson = JSON.parse(regJson);
+            }
             var newBackup = {
                 name,
                 date: new Date().toJSON(),
@@ -174,6 +177,31 @@ export default class extends baseClass {
                     message: 'Invalid JSON',
                     type: 'error'
                 });
+            }
+        },
+
+        openVrcRegJsonFileDialog() {
+            if (LINUX) {
+                var fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.json';
+                fileInput.style.display = 'none';
+                document.body.appendChild(fileInput);
+                fileInput.click();
+                fileInput.onchange = function (event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function () {
+                            this.restoreVrcRegistryFromFile(reader.result);
+                        }.bind(this);
+                        reader.readAsText(file);
+                    }
+                }.bind(this);
+                fileInput.remove();
+            } else {
+                AppApi.OpenVrcRegJsonFileDialog();
+                return;
             }
         },
 
