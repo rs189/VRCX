@@ -25,6 +25,8 @@ ipcMain.handle('callDotNetMethod', (event, className, methodName, args) => {
 });
 
 function createWindow() {
+    app.commandLine.appendSwitch('enable-speech-dispatcher')
+    
     const mainWindow = new BrowserWindow({
         width: 1024,
         height: 768,

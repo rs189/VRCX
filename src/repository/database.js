@@ -2796,6 +2796,9 @@ class Database {
                     `ALTER TABLE ${tableName} ADD friend_number INTEGER DEFAULT 0`
                 );
             } catch (e) {
+                if (LINUX) {
+                    e = e.toString();
+                }
                 if (e.indexOf('duplicate column name') === -1) {
                     console.error(e);
                 }
@@ -2816,6 +2819,9 @@ class Database {
                     `ALTER TABLE ${tableName} ADD group_name TEXT DEFAULT ''`
                 );
             } catch (e) {
+                if (LINUX) {
+                    e = e.toString();
+                }
                 if (e.indexOf('duplicate column name') === -1) {
                     console.error(e);
                 }

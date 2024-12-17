@@ -252,6 +252,11 @@ if (LINUX) {
                     this.loginForm.loading = false;
                 }
             });
+            if (LINUX) {
+                setTimeout(() => {
+                    this.updateTTSVoices();
+                }, 5000);
+            }
         }
     };
     for (let value of Object.values(vrcxClasses)) {
@@ -7903,6 +7908,10 @@ if (LINUX) {
         'VRCX_xsNotifications',
         true
     );
+    $app.data.wlxNotifications = await configRepository.getBool(
+        'VRCX_wlxNotifications',
+        true
+    );
     $app.data.ovrtHudNotifications = await configRepository.getBool(
         'VRCX_ovrtHudNotifications',
         true
@@ -8207,6 +8216,20 @@ if (LINUX) {
     };
     $app.data.notificationTTSTest = '';
     $app.data.TTSvoices = speechSynthesis.getVoices();
+    $app.methods.updateTTSVoices = function () {
+        $app.$data.TTSvoices = speechSynthesis.getVoices();
+        if (LINUX) {
+            let voices = speechSynthesis.getVoices();
+            let uniqueVoices = [];
+            voices.forEach(voice => {
+                if (!uniqueVoices.some(v => v.lang === voice.lang)) {
+                    uniqueVoices.push(voice);
+                }
+            });
+            uniqueVoices = uniqueVoices.filter(v => v.lang.startsWith('en'));
+            $app.$data.TTSvoices = uniqueVoices;
+        }
+    }
     $app.methods.saveNotificationTTS = async function () {
         speechSynthesis.cancel();
         if (
@@ -9068,7 +9091,12 @@ if (LINUX) {
     };
 
     $app.methods.getTTSVoiceName = function () {
-        var voices = speechSynthesis.getVoices();
+        var voices;
+        if (LINUX) {
+            voices = $app.$data.TTSvoices;
+        } else {
+            voices = speechSynthesis.getVoices();
+        }
         if (voices.length === 0) {
             return '';
         }
@@ -9088,7 +9116,12 @@ if (LINUX) {
             'VRCX_notificationTTSVoice',
             this.notificationTTSVoice
         );
-        var voices = speechSynthesis.getVoices();
+        var voices;
+        if (LINUX) {
+            voices = $app.$data.TTSvoices;
+        } else {
+            voices = speechSynthesis.getVoices();
+        }
         if (voices.length === 0) {
             return;
         }
@@ -22520,6 +22553,10 @@ if (LINUX) {
             showcased: badge.showcased
         });
     };
+
+    $app.methods.isLinux = function () {
+        return LINUX;
+    }
 
     // #endregion
 

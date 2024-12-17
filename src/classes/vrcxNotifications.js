@@ -221,6 +221,8 @@ export default class extends baseClass {
                 playDesktopToast = true;
             }
             var playXSNotification = this.xsNotifications;
+            if (!playXSNotification && this.wlxNotifications)
+                playXSNotification = true;
             var playOvrtHudNotifications = this.ovrtHudNotifications;
             var playOvrtWristNotifications = this.ovrtWristNotifications;
             var playOverlayNotification = false;
