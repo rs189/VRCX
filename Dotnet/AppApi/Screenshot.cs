@@ -23,6 +23,11 @@ namespace VRCX
         /// <param name="changeFilename">Whether or not to rename the screenshot file to include the world ID.</param>
         public string AddScreenshotMetadata(string path, string metadataString, string worldId, bool changeFilename = false)
         {
+#if LINUX
+            string winePrefix = LogWatcher.GetVrcPrefixPath() + "/drive_c/";
+            string winePath = path.Substring(3).Replace("\\", "/");
+            path = winePrefix + winePath;
+#endif
             var fileName = Path.GetFileNameWithoutExtension(path);
             if (!File.Exists(path) || !path.EndsWith(".png") || !fileName.StartsWith("VRChat_"))
                 return string.Empty;

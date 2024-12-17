@@ -638,6 +638,24 @@ namespace VRCX
             if (File.Exists(path) && (path.EndsWith(".png") || path.EndsWith(".jpg") || path.EndsWith(".jpeg") || path.EndsWith(".gif") || path.EndsWith(".bmp") || path.EndsWith(".webp")))
             {
 #if LINUX
+                Process process = new Process();
+                process.StartInfo = new ProcessStartInfo
+                {
+                    FileName = "xclip",
+                    Arguments = $"-selection clipboard -t image/png -i \"{path}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                try 
+                {
+                    process.Start();
+                    process.WaitForExit();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to copy image to clipboard: {ex.Message}");
+                }
 #else
                 MainForm.Instance.BeginInvoke(new MethodInvoker(() =>
                 {

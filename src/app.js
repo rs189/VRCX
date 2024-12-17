@@ -16359,9 +16359,24 @@ if (LINUX) {
         path,
         needsCarouselFiles = true
     ) {
+        console.log('path screenshot', path) 
+
         AppApi.GetScreenshotMetadata(path).then((metadata) =>
             this.displayScreenshotMetadata(metadata, needsCarouselFiles)
         );
+    };
+
+    $app.methods.openScreenshotFileDialog = async function () {
+        if (LINUX) {
+            const filePath = await window.electron.openFileDialog();
+            if (filePath) {
+                console.log('Full file path:', filePath);
+                this.screenshotMetadataResetSearch();
+                this.getAndDisplayScreenshot(filePath);  // Use filePath instead of file.path
+            }
+        } else {
+            AppApi.OpenScreenshotFileDialog();
+        }
     };
 
     $app.methods.getAndDisplayLastScreenshot = function () {

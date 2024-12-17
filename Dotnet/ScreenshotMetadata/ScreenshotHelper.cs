@@ -14,7 +14,10 @@ namespace VRCX
     internal static class ScreenshotHelper
     {
         private static readonly ILogger logger = LogManager.GetCurrentClassLogger();
+#if LINUX
+#else
         private static readonly byte[] pngSignatureBytes = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+#endif
         private static readonly ScreenshotMetadataDatabase cacheDatabase = new ScreenshotMetadataDatabase(Path.Combine(Program.AppDataDirectory, "metadataCache.db"));
         private static readonly Dictionary<string, ScreenshotMetadata> metadataCache = new Dictionary<string, ScreenshotMetadata>();
 
@@ -333,6 +336,9 @@ namespace VRCX
         /// <returns></returns>
         public static bool IsPNGFile(string path)
         {
+#if LINUX
+            var pngSignatureBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+#endif
             // Read only the first 8 bytes of the file to check if it's a PNG file instead of reading the entire thing into memory just to see check a couple bytes.
             using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
@@ -343,7 +349,7 @@ namespace VRCX
                 return signature.SequenceEqual(pngSignatureBytes);
             }
         }
-
+        
         /// <summary>
         ///     Finds the index of the first of a specified chunk type in the specified PNG file.
         /// </summary>

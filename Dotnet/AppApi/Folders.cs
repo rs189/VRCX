@@ -292,7 +292,7 @@ namespace VRCX
             {
                 // open folder with file highlighted
 #if LINUX
-                Process.Start("xdg-open", $"--select {path}");
+                Process.Start("xdg-open", $"{path}");
 #else
                 Process.Start("explorer.exe", $"/select,\"{path}\"");
 #endif

@@ -24,10 +24,24 @@ ipcMain.handle('callDotNetMethod', (event, className, methodName, args) => {
     return interopApi.callMethod(className, methodName, args);
 });
 
+var mainWindow = undefined;
+
+ipcMain.handle('dialog:openFile', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: [{ name: 'Images', extensions: ['png'] }]
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+    }
+    return null;
+});
+
 function createWindow() {
     app.commandLine.appendSwitch('enable-speech-dispatcher')
-    
-    const mainWindow = new BrowserWindow({
+
+    mainWindow = new BrowserWindow({
         width: 1024,
         height: 768,
         icon: path.join(__dirname, 'VRCX.png'),

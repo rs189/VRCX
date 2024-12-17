@@ -13,3 +13,7 @@ contextBridge.exposeInMainWorld("interopApi", {
         return ipcRenderer.invoke("callDotNetMethod", className, methodName, args);
     }
 });
+
+contextBridge.exposeInMainWorld('electron', {
+    openFileDialog: () => ipcRenderer.invoke('dialog:openFile')
+});
