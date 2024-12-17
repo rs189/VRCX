@@ -52,6 +52,7 @@ import _memos from './classes/memos.js';
 import _languages from './classes/languages.js';
 import _groups from './classes/groups.js';
 import _vrcRegistry from './classes/vrcRegistry.js';
+import _restoreFriendOrder from './classes/restoreFriendOrder.js';
 
 // API classes
 import _config from './classes/API/config.js';
@@ -140,7 +141,8 @@ if (LINUX) {
         config: new _config($app, API, $t),
         languages: new _languages($app, API, $t),
         groups: new _groups($app, API, $t),
-        vrcRegistry: new _vrcRegistry($app, API, $t)
+        vrcRegistry: new _vrcRegistry($app, API, $t),
+        restoreFriendOrder: new _restoreFriendOrder($app, API, $t)
     };
 
     await configRepository.init();
@@ -594,6 +596,7 @@ if (LINUX) {
                 $previousLocation: '',
                 $customTag: '',
                 $customTagColour: '',
+                $friendNumber: 0,
                 //
                 ...json
             };
@@ -715,11 +718,13 @@ if (LINUX) {
         if (
             ref.$isVRCPlus &&
             ref.badges &&
-            ref.badges.every((x) => x.badgeName !== 'Supporter')
+            ref.badges.every(
+                (x) => x.badgeId !== 'bdg_754f9935-0f97-49d8-b857-95afb9b673fa'
+            )
         ) {
             // I doubt this will last long
             ref.badges.unshift({
-                badgeId: 'bdg_system_supporter',
+                badgeId: 'bdg_754f9935-0f97-49d8-b857-95afb9b673fa',
                 badgeName: 'Supporter',
                 badgeDescription: 'Supports VRChat through VRC+',
                 badgeImageUrl:
@@ -1301,7 +1306,7 @@ if (LINUX) {
                     throw err;
                 }
                 $app.$message({
-                    message: "you're not allowed to access this instance.",
+                    message: $t('message.instance.not_allowed'),
                     type: 'error'
                 });
                 throw err;
@@ -1713,6 +1718,7 @@ if (LINUX) {
                 imageUrl: '',
                 thumbnailImageUrl: '',
                 releaseStatus: '',
+                styles: [],
                 version: 0,
                 unityPackages: [],
                 unityPackageUrl: '',
@@ -1998,6 +2004,12 @@ if (LINUX) {
                 break;
             }
         }
+        // delete any null in json
+        for (var key in json) {
+            if (json[key] === null) {
+                delete json[key];
+            }
+        }
         if (typeof ref === 'undefined') {
             ref = {
                 id: '',
@@ -2247,6 +2259,21 @@ if (LINUX) {
         }
     });
 
+    API.hideNotificationV2 = function (notificationId) {
+        return this.call(`notifications/${notificationId}`, {
+            method: 'DELETE'
+        }).then((json) => {
+            var args = {
+                json,
+                params: {
+                    notificationId
+                }
+            };
+            this.$emit('NOTIFICATION:V2:HIDE', args);
+            return args;
+        });
+    };
+
     /**
     * @param {{
             notificationId: string,
@@ -2271,6 +2298,7 @@ if (LINUX) {
             .catch((err) => {
                 // something went wrong, lets assume it's already expired
                 this.$emit('NOTIFICATION:HIDE', { params });
+                API.hideNotificationV2(params.notificationId);
                 throw err;
             });
     };
@@ -2413,20 +2441,27 @@ if (LINUX) {
      * @param {{ notificationId: string }} params
      * @return { Promise<{json: any, params}> }
      */
-    API.acceptNotification = function (params) {
+    API.acceptFriendRequestNotification = function (params) {
         return this.call(
             `auth/user/notifications/${params.notificationId}/accept`,
             {
                 method: 'PUT'
             }
-        ).then((json) => {
-            var args = {
-                json,
-                params
-            };
-            this.$emit('NOTIFICATION:ACCEPT', args);
-            return args;
-        });
+        )
+            .then((json) => {
+                var args = {
+                    json,
+                    params
+                };
+                this.$emit('NOTIFICATION:ACCEPT', args);
+                return args;
+            })
+            .catch((err) => {
+                // if friend request could not be found, delete it
+                if (err && err.message && err.message.includes('404')) {
+                    this.$emit('NOTIFICATION:HIDE', { params });
+                }
+            });
     };
 
     /**
@@ -4136,7 +4171,7 @@ if (LINUX) {
 
     $app.data.friends = new Map();
     $app.data.pendingActiveFriends = new Set();
-    $app.data.friendsNo = 0;
+    $app.data.friendNumber = 0;
     $app.data.isFriendsGroupMe = true;
     $app.data.isVIPFriends = true;
     $app.data.isOnlineFriends = true;
@@ -4243,7 +4278,7 @@ if (LINUX) {
     API.$on('LOGIN', function () {
         $app.friends.clear();
         $app.pendingActiveFriends.clear();
-        $app.friendsNo = 0;
+        $app.friendNumber = 0;
         $app.isVIPFriends = true;
         $app.isOnlineFriends = true;
         $app.isActiveFriends = true;
@@ -4334,40 +4369,6 @@ if (LINUX) {
                 this.deleteFriend(id);
             }
         }
-
-        this.saveFriendOrder();
-    };
-
-    $app.methods.saveFriendOrder = async function () {
-        var currentTime = Date.now();
-        var lastStoreTime = await configRepository.getString(
-            `VRCX_lastStoreTime_${API.currentUser.id}`,
-            ''
-        );
-        // store once every week
-        if (lastStoreTime && currentTime - lastStoreTime < 604800000) {
-            return;
-        }
-        var storedData = {};
-        try {
-            var data = await configRepository.getString(
-                `VRCX_friendOrder_${API.currentUser.id}`
-            );
-            if (data) {
-                var storedData = JSON.parse(data);
-            }
-        } catch (err) {
-            console.error(err);
-        }
-        storedData[currentTime] = Array.from(this.friends.keys());
-        await configRepository.setString(
-            `VRCX_friendOrder_${API.currentUser.id}`,
-            JSON.stringify(storedData)
-        );
-        await configRepository.setString(
-            `VRCX_lastStoreTime_${API.currentUser.id}`,
-            currentTime
-        );
     };
 
     $app.methods.addFriend = function (id, state) {
@@ -4387,7 +4388,6 @@ if (LINUX) {
             isVIP,
             ref,
             name,
-            no: ++this.friendsNo,
             memo: '',
             pendingOffline: false,
             pendingOfflineTime: '',
@@ -5444,7 +5444,7 @@ if (LINUX) {
         } catch (err) {
             if (!$app.dontLogMeOut) {
                 $app.$message({
-                    message: 'Failed to load friends list, logging out',
+                    message: $t('message.friend.load_failed'),
                     type: 'error'
                 });
                 this.logout();
@@ -6105,6 +6105,14 @@ if (LINUX) {
 
     $app.methods.setNowPlaying = function (ctx) {
         if (this.nowPlaying.url !== ctx.videoUrl) {
+            if (!ctx.userId && ctx.displayName) {
+                for (var ref of API.cachedUsers.values()) {
+                    if (ref.displayName === ctx.displayName) {
+                        ctx.userId = ref.id;
+                        break;
+                    }
+                }
+            }
             this.queueGameLogNoty(ctx);
             this.addGameLog(ctx);
             database.addGamelogVideoPlayToDatabase(ctx);
@@ -6890,19 +6898,22 @@ if (LINUX) {
     };
 
     $app.methods.deleteFavorite = function (objectId) {
-        // FIXME: 메시지 수정
-        this.$confirm('Continue? Delete Favorite', 'Confirm', {
-            confirmButtonText: 'Confirm',
-            cancelButtonText: 'Cancel',
-            type: 'info',
-            callback: (action) => {
-                if (action === 'confirm') {
-                    API.deleteFavorite({
-                        objectId
-                    });
-                }
-            }
+        API.deleteFavorite({
+            objectId
         });
+        // FIXME: 메시지 수정
+        // this.$confirm('Continue? Delete Favorite', 'Confirm', {
+        //     confirmButtonText: 'Confirm',
+        //     cancelButtonText: 'Cancel',
+        //     type: 'info',
+        //     callback: (action) => {
+        //         if (action === 'confirm') {
+        //             API.deleteFavorite({
+        //                 objectId
+        //             });
+        //         }
+        //     }
+        // });
     };
 
     $app.methods.deleteFavoriteNoConfirm = function (objectId) {
@@ -7069,7 +7080,8 @@ if (LINUX) {
             var row = {
                 userId: ref.id,
                 displayName: ref.displayName,
-                trustLevel: ref.$trustLevel
+                trustLevel: ref.$trustLevel,
+                friendNumber: 0
             };
             this.friendLog.set(friend.id, row);
             sqlValues.unshift(row);
@@ -7091,6 +7103,11 @@ if (LINUX) {
     };
 
     $app.methods.getFriendLog = async function (currentUser) {
+        this.friendNumber = await configRepository.getInt(
+            `VRCX_friendNumber_${currentUser.id}`,
+            0
+        );
+
         var friendLogCurrentArray = await database.getFriendLogCurrent();
         for (var friend of friendLogCurrentArray) {
             this.friendLog.set(friend.userId, friend);
@@ -7099,7 +7116,9 @@ if (LINUX) {
         this.friendLogTable.data = await database.getFriendLogHistory();
         this.refreshFriends(currentUser, true);
         await API.refreshFriends();
+        await this.tryRestoreFriendNumber();
         this.friendLogInitStatus = true;
+
         // check for friend/name/rank change AFTER friendLogInitStatus is set
         for (var friend of friendLogCurrentArray) {
             var ref = API.cachedUsers.get(friend.userId);
@@ -7135,12 +7154,21 @@ if (LINUX) {
             userId: id
         }).then((args) => {
             if (args.json.isFriend && !this.friendLog.has(id)) {
+                if (this.friendNumber === 0) {
+                    this.friendNumber = this.friends.size;
+                }
+                ref.$friendNumber = ++this.friendNumber;
+                configRepository.setInt(
+                    `VRCX_friendNumber_${API.currentUser.id}`,
+                    this.friendNumber
+                );
                 this.addFriend(id, ref.state);
                 var friendLogHistory = {
                     created_at: new Date().toJSON(),
                     type: 'Friend',
                     userId: id,
-                    displayName: ref.displayName
+                    displayName: ref.displayName,
+                    friendNumber: ref.$friendNumber
                 };
                 this.friendLogTable.data.push(friendLogHistory);
                 database.addFriendLogHistory(friendLogHistory);
@@ -7148,7 +7176,8 @@ if (LINUX) {
                 var friendLogCurrent = {
                     userId: id,
                     displayName: ref.displayName,
-                    trustLevel: ref.$trustLevel
+                    trustLevel: ref.$trustLevel,
+                    friendNumber: ref.$friendNumber
                 };
                 this.friendLog.set(id, friendLogCurrent);
                 database.setFriendLogCurrent(friendLogCurrent);
@@ -7236,7 +7265,8 @@ if (LINUX) {
                     type: 'DisplayName',
                     userId: ref.id,
                     displayName: ref.displayName,
-                    previousDisplayName: ctx.displayName
+                    previousDisplayName: ctx.displayName,
+                    friendNumber: ref.$friendNumber
                 };
                 this.friendLogTable.data.push(friendLogHistoryDisplayName);
                 database.addFriendLogHistory(friendLogHistoryDisplayName);
@@ -7244,7 +7274,8 @@ if (LINUX) {
                 var friendLogCurrent = {
                     userId: ref.id,
                     displayName: ref.displayName,
-                    trustLevel: ref.$trustLevel
+                    trustLevel: ref.$trustLevel,
+                    friendNumber: ref.$friendNumber
                 };
                 this.friendLog.set(ref.id, friendLogCurrent);
                 database.setFriendLogCurrent(friendLogCurrent);
@@ -7267,7 +7298,8 @@ if (LINUX) {
                 var friendLogCurrent3 = {
                     userId: ref.id,
                     displayName: ref.displayName,
-                    trustLevel: ref.$trustLevel
+                    trustLevel: ref.$trustLevel,
+                    friendNumber: ref.$friendNumber
                 };
                 this.friendLog.set(ref.id, friendLogCurrent3);
                 database.setFriendLogCurrent(friendLogCurrent3);
@@ -7279,7 +7311,8 @@ if (LINUX) {
                 userId: ref.id,
                 displayName: ref.displayName,
                 trustLevel: ref.$trustLevel,
-                previousTrustLevel: ctx.trustLevel
+                previousTrustLevel: ctx.trustLevel,
+                friendNumber: ref.$friendNumber
             };
             this.friendLogTable.data.push(friendLogHistoryTrustLevel);
             database.addFriendLogHistory(friendLogHistoryTrustLevel);
@@ -7287,7 +7320,8 @@ if (LINUX) {
             var friendLogCurrent2 = {
                 userId: ref.id,
                 displayName: ref.displayName,
-                trustLevel: ref.$trustLevel
+                trustLevel: ref.$trustLevel,
+                friendNumber: ref.$friendNumber
             };
             this.friendLog.set(ref.id, friendLogCurrent2);
             database.setFriendLogCurrent(friendLogCurrent2);
@@ -7295,6 +7329,9 @@ if (LINUX) {
             this.updateSharedFeed(true);
         }
         ctx.trustLevel = ref.$trustLevel;
+        if (ctx.friendNumber) {
+            ref.$friendNumber = ctx.friendNumber;
+        }
     };
 
     $app.methods.deleteFriendLog = function (row) {
@@ -7544,7 +7581,7 @@ if (LINUX) {
         }
     });
 
-    $app.methods.acceptNotification = function (row) {
+    $app.methods.acceptFriendRequestNotification = function (row) {
         // FIXME: 메시지 수정
         this.$confirm('Continue? Accept Friend Request', 'Confirm', {
             confirmButtonText: 'Confirm',
@@ -7552,7 +7589,7 @@ if (LINUX) {
             type: 'info',
             callback: (action) => {
                 if (action === 'confirm') {
-                    API.acceptNotification({
+                    API.acceptFriendRequestNotification({
                         notificationId: row.id
                     });
                 }
@@ -7670,6 +7707,10 @@ if (LINUX) {
         'VRCX_feedTableVIPFilter',
         false
     );
+    $app.data.gameLogTable.vip = await configRepository.getBool(
+        'VRCX_gameLogTableVIPFilter',
+        false
+    );
     $app.data.gameLogTable.filter = JSON.parse(
         await configRepository.getString('VRCX_gameLogTableFilters', '[]')
     );
@@ -7764,7 +7805,7 @@ if (LINUX) {
             stripe: true,
             size: 'mini',
             defaultSort: {
-                prop: '$friendNum',
+                prop: '$friendNumber',
                 order: 'descending'
             }
         },
@@ -7984,7 +8025,7 @@ if (LINUX) {
             '[ "https://avtr.just-h.party/vrcx_search.php" ]'
         )
     );
-    $app.data.pendingOfflineDelay = 110000;
+    $app.data.pendingOfflineDelay = 130000;
     if (await configRepository.getString('VRCX_avatarRemoteDatabaseProvider')) {
         // move existing provider to new list
         var avatarRemoteDatabaseProvider = await configRepository.getString(
@@ -9492,7 +9533,7 @@ if (LINUX) {
             D.isMuteChat = true;
         }
         $app.$message({
-            message: 'User moderated',
+            message: $t('message.user.moderated'),
             type: 'success'
         });
     });
@@ -9716,7 +9757,7 @@ if (LINUX) {
                             .getUserStats(D.ref, inCurrentWorld)
                             .then((ref1) => {
                                 if (ref1.userId === D.id) {
-                                    D.lastSeen = ref1.created_at;
+                                    D.lastSeen = ref1.lastSeen;
                                     D.joinCount = ref1.joinCount;
                                     D.timeSpent = ref1.timeSpent;
                                 }
@@ -9777,7 +9818,7 @@ if (LINUX) {
                             .getUserStats(D.ref, inCurrentWorld)
                             .then((ref1) => {
                                 if (ref1.userId === D.id) {
-                                    D.lastSeen = ref1.created_at;
+                                    D.lastSeen = ref1.lastSeen;
                                     D.joinCount = ref1.joinCount;
                                     D.timeSpent = ref1.timeSpent;
                                 }
@@ -10615,7 +10656,7 @@ if (LINUX) {
                         userId
                     });
                 } else {
-                    API.acceptNotification({
+                    API.acceptFriendRequestNotification({
                         notificationId: key
                     });
                 }
@@ -10642,49 +10683,49 @@ if (LINUX) {
                     userId
                 });
                 break;
-            case 'Unblock':
+            case 'Moderation Unblock':
                 API.deletePlayerModeration({
                     moderated: userId,
                     type: 'block'
                 });
                 break;
-            case 'Block':
+            case 'Moderation Block':
                 API.sendPlayerModeration({
                     moderated: userId,
                     type: 'block'
                 });
                 break;
-            case 'Unmute':
+            case 'Moderation Unmute':
                 API.deletePlayerModeration({
                     moderated: userId,
                     type: 'mute'
                 });
                 break;
-            case 'Mute':
+            case 'Moderation Mute':
                 API.sendPlayerModeration({
                     moderated: userId,
                     type: 'mute'
                 });
                 break;
-            case 'Enable Avatar Interaction':
+            case 'Moderation Enable Avatar Interaction':
                 API.deletePlayerModeration({
                     moderated: userId,
                     type: 'interactOff'
                 });
                 break;
-            case 'Disable Avatar Interaction':
+            case 'Moderation Disable Avatar Interaction':
                 API.sendPlayerModeration({
                     moderated: userId,
                     type: 'interactOff'
                 });
                 break;
-            case 'Unmute Chatbox':
+            case 'Moderation Enable Chatbox':
                 API.deletePlayerModeration({
                     moderated: userId,
                     type: 'muteChat'
                 });
                 break;
-            case 'Mute Chatbox':
+            case 'Moderation Disable Chatbox':
                 API.sendPlayerModeration({
                     moderated: userId,
                     type: 'muteChat'
@@ -10708,6 +10749,8 @@ if (LINUX) {
         }
         if (command === 'Refresh') {
             this.showUserDialog(D.id);
+        } else if (command === 'Share') {
+            this.copyUserURL(D.id);
         } else if (command === 'Add Favorite') {
             this.showFavoriteDialog('friend', D.id);
         } else if (command === 'Edit Social Status') {
@@ -10812,16 +10855,30 @@ if (LINUX) {
                 this.setPlayerModeration(D.id, 5);
             }
         } else {
-            this.$confirm(`Continue? ${command}`, 'Confirm', {
-                confirmButtonText: 'Confirm',
-                cancelButtonText: 'Cancel',
-                type: 'info',
-                callback: (action) => {
-                    if (action === 'confirm') {
-                        performUserDialogCommand(command, D.id);
+            const i18nPreFix = 'dialog.user.actions.';
+            const formattedCommand = command.toLowerCase().replace(/ /g, '_');
+            const displayCommandText = $t(
+                `${i18nPreFix}${formattedCommand}`
+            ).includes('i18nPreFix')
+                ? command
+                : $t(`${i18nPreFix}${formattedCommand}`);
+
+            this.$confirm(
+                $t('confirm.message', {
+                    command: displayCommandText
+                }),
+                $t('confirm.title'),
+                {
+                    confirmButtonText: $t('confirm.confirm_button'),
+                    cancelButtonText: $t('confirm.cancel_button'),
+                    type: 'info',
+                    callback: (action) => {
+                        if (action === 'confirm') {
+                            performUserDialogCommand(command, D.id);
+                        }
                     }
                 }
-            });
+            );
         }
     };
 
@@ -11488,21 +11545,14 @@ if (LINUX) {
             case 'Refresh':
                 this.showWorldDialog(D.id);
                 break;
+            case 'Share':
+                this.copyWorldUrl(D.id);
+                break;
             case 'New Instance':
                 this.showNewInstanceDialog(D.$location.tag);
                 break;
             case 'New Instance and Self Invite':
-                this.newInstanceDialog.worldId = D.id;
-                this.createNewInstance().then((args) => {
-                    if (!args?.json?.location) {
-                        this.$message({
-                            message: 'Failed to create instance',
-                            type: 'error'
-                        });
-                        return;
-                    }
-                    this.selfInvite(args.json.location);
-                });
+                this.newInstanceSelfInvite(D.id);
                 break;
             case 'Add Favorite':
                 this.showFavoriteDialog('world', D.id);
@@ -11632,6 +11682,20 @@ if (LINUX) {
                 });
                 break;
         }
+    };
+
+    $app.methods.newInstanceSelfInvite = function (worldId) {
+        this.newInstanceDialog.worldId = worldId;
+        this.createNewInstance().then((args) => {
+            if (!args?.json?.location) {
+                this.$message({
+                    message: 'Failed to create instance',
+                    type: 'error'
+                });
+                return;
+            }
+            this.selfInvite(args.json.location);
+        });
     };
 
     $app.methods.refreshWorldDialogTreeData = function () {
@@ -13799,7 +13863,7 @@ if (LINUX) {
         if (files[0].size >= 100000000) {
             // 100MB
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             clearFile();
@@ -13807,7 +13871,7 @@ if (LINUX) {
         }
         if (!files[0].type.match(/image.*/)) {
             $app.$message({
-                message: "File isn't an image",
+                message: $t('message.file.not_image'),
                 type: 'error'
             });
             clearFile();
@@ -13818,7 +13882,7 @@ if (LINUX) {
             var base64Body = btoa(r.result);
             API.uploadVRCPlusIcon(base64Body).then((args) => {
                 $app.$message({
-                    message: 'Icon uploaded',
+                    message: $t('message.icon.uploaded'),
                     type: 'success'
                 });
                 return args;
@@ -13867,7 +13931,7 @@ if (LINUX) {
         if (files[0].size >= 100000000) {
             // 100MB
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             this.clearInviteImageUpload();
@@ -13875,7 +13939,7 @@ if (LINUX) {
         }
         if (!files[0].type.match(/image.*/)) {
             $app.$message({
-                message: "File isn't a png",
+                message: $t('message.file.not_image'),
                 type: 'error'
             });
             this.clearInviteImageUpload();
@@ -14782,7 +14846,7 @@ if (LINUX) {
                         this.stringComparer
                     );
                 }
-                if (!match && filters.includes('Rank') && ctx.ref.$friendNum) {
+                if (!match && filters.includes('Rank')) {
                     match = String(ctx.ref.$trustLevel)
                         .toUpperCase()
                         .includes(query.toUpperCase());
@@ -14791,7 +14855,6 @@ if (LINUX) {
                     continue;
                 }
             }
-            ctx.ref.$friendNum = ctx.no;
             results.push(ctx.ref);
         }
         this.getAllUserStats();
@@ -14862,7 +14925,7 @@ if (LINUX) {
         var ref = await database.getUserStats(ctx);
         /* eslint-disable require-atomic-updates */
         ctx.$joinCount = ref.joinCount;
-        ctx.$lastSeen = ref.created_at;
+        ctx.$lastSeen = ref.lastSeen;
         ctx.$timeSpent = ref.timeSpent;
         /* eslint-enable require-atomic-updates */
     };
@@ -14957,7 +15020,7 @@ if (LINUX) {
         if (files[0].size >= 100000000) {
             // 100MB
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             clearFile();
@@ -14965,7 +15028,7 @@ if (LINUX) {
         }
         if (!files[0].type.match(/image.*/)) {
             $app.$message({
-                message: "File isn't a png",
+                message: $t('message.file.not_image'),
                 type: 'error'
             });
             clearFile();
@@ -14990,7 +15053,7 @@ if (LINUX) {
             var fileId = $utils.extractFileId(imageUrl);
             if (!fileId) {
                 $app.$message({
-                    message: 'Current avatar image invalid',
+                    message: $t('message.avatar.image_invalid'),
                     type: 'error'
                 });
                 clearFile();
@@ -15293,7 +15356,7 @@ if (LINUX) {
         if (files[0].size >= 100000000) {
             // 100MB
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             clearFile();
@@ -15301,7 +15364,7 @@ if (LINUX) {
         }
         if (!files[0].type.match(/image.*/)) {
             $app.$message({
-                message: "File isn't a png",
+                message: $t('message.file.not_image'),
                 type: 'error'
             });
             clearFile();
@@ -15326,7 +15389,7 @@ if (LINUX) {
             var fileId = $utils.extractFileId(imageUrl);
             if (!fileId) {
                 $app.$message({
-                    message: 'Current world image invalid',
+                    message: $t('message.world.image_invalid'),
                     type: 'error'
                 });
                 clearFile();
@@ -15614,7 +15677,7 @@ if (LINUX) {
         $app.changeAvatarImageDialogLoading = false;
         if (args.json.imageUrl === args.params.imageUrl) {
             $app.$message({
-                message: 'Avatar image changed',
+                message: $t('message.avatar.image_changed'),
                 type: 'success'
             });
             $app.displayPreviousImages('Avatar', 'Change');
@@ -15628,7 +15691,7 @@ if (LINUX) {
         $app.changeWorldImageDialogLoading = false;
         if (args.json.imageUrl === args.params.imageUrl) {
             $app.$message({
-                message: 'World image changed',
+                message: $t('message.world.image_changed'),
                 type: 'success'
             });
             $app.displayPreviousImages('World', 'Change');
@@ -16031,7 +16094,7 @@ if (LINUX) {
                 name: $t('dialog.config_json.max_cache_size'),
                 default: '30',
                 type: 'number',
-                min: 20
+                min: 30
             },
             cache_expiry_delay: {
                 name: $t('dialog.config_json.cache_expiry_delay'),
@@ -16167,6 +16230,22 @@ if (LINUX) {
     $app.methods.setVRChatScreenshotResolution = function (res) {
         this.VRChatConfigFile.screenshot_res_height = res.height;
         this.VRChatConfigFile.screenshot_res_width = res.width;
+    };
+
+    $app.methods.getVRChatSpoutResolution = function () {
+        if (
+            this.VRChatConfigFile.camera_spout_res_height &&
+            this.VRChatConfigFile.camera_spout_res_width
+        ) {
+            var res = `${this.VRChatConfigFile.camera_spout_res_width}x${this.VRChatConfigFile.camera_spout_res_height}`;
+            return this.getVRChatResolution(res);
+        }
+        return '1920x1080 (1080p)';
+    };
+
+    $app.methods.setVRChatSpoutResolution = function (res) {
+        this.VRChatConfigFile.camera_spout_res_height = res.height;
+        this.VRChatConfigFile.camera_spout_res_width = res.width;
     };
 
     // Auto Launch Shortcuts
@@ -16488,7 +16567,7 @@ if (LINUX) {
         var D = this.screenshotMetadataDialog;
         if (D.metadata.fileSizeBytes > 10000000) {
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             return;
@@ -16499,7 +16578,7 @@ if (LINUX) {
                 API.uploadGalleryImage(base64Body)
                     .then((args) => {
                         $app.$message({
-                            message: 'Gallery image uploaded',
+                            message: $t('message.gallery.uploaded'),
                             type: 'success'
                         });
                         return args;
@@ -16510,7 +16589,7 @@ if (LINUX) {
             })
             .catch((err) => {
                 $app.$message({
-                    message: 'Failed to upload gallery image',
+                    message: $t('message.gallery.failed'),
                     type: 'error'
                 });
                 console.error(err);
@@ -16667,7 +16746,6 @@ if (LINUX) {
             var unityPackage = ref.unityPackages[i];
             if (
                 unityPackage.variant &&
-                unityPackage.variant !== 'standard' &&
                 unityPackage.variant !== 'security'
             ) {
                 continue;
@@ -17125,11 +17203,11 @@ if (LINUX) {
     $app.methods.userFavoriteWorldsStatus = function (visibility) {
         var style = {};
         if (visibility === 'public') {
-            style.online = true;
+            style.green = true;
         } else if (visibility === 'friends') {
-            style.joinme = true;
+            style.blue = true;
         } else {
-            style.busy = true;
+            style.red = true;
         }
         return style;
     };
@@ -17483,7 +17561,7 @@ if (LINUX) {
         if (files[0].size >= 100000000) {
             // 100MB
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             clearFile();
@@ -17491,7 +17569,7 @@ if (LINUX) {
         }
         if (!files[0].type.match(/image.*/)) {
             $app.$message({
-                message: "File isn't an image",
+                message: $t('message.file.not_image'),
                 type: 'error'
             });
             clearFile();
@@ -17502,7 +17580,7 @@ if (LINUX) {
             var base64Body = btoa(r.result);
             API.uploadGalleryImage(base64Body).then((args) => {
                 $app.$message({
-                    message: 'Gallery image uploaded',
+                    message: $t('message.gallery.uploaded'),
                     type: 'success'
                 });
                 return args;
@@ -17594,7 +17672,7 @@ if (LINUX) {
         if (files[0].size >= 100000000) {
             // 100MB
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             clearFile();
@@ -17602,7 +17680,7 @@ if (LINUX) {
         }
         if (!files[0].type.match(/image.*/)) {
             $app.$message({
-                message: "File isn't an image",
+                message: $t('message.file.not_image'),
                 type: 'error'
             });
             clearFile();
@@ -17617,7 +17695,7 @@ if (LINUX) {
             var base64Body = btoa(r.result);
             API.uploadSticker(base64Body, params).then((args) => {
                 $app.$message({
-                    message: 'Sticker uploaded',
+                    message: $t('message.sticker.uploaded'),
                     type: 'success'
                 });
                 return args;
@@ -17752,7 +17830,7 @@ if (LINUX) {
         if (files[0].size >= 100000000) {
             // 100MB
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             clearFile();
@@ -17760,7 +17838,7 @@ if (LINUX) {
         }
         if (!files[0].type.match(/image.*/)) {
             $app.$message({
-                message: "File isn't an image",
+                message: $t('message.file.not_image'),
                 type: 'error'
             });
             clearFile();
@@ -17780,7 +17858,7 @@ if (LINUX) {
             var base64Body = btoa(r.result);
             API.uploadPrint(base64Body, params).then((args) => {
                 $app.$message({
-                    message: 'Print uploaded',
+                    message: $t('message.print.uploaded'),
                     type: 'success'
                 });
                 return args;
@@ -17964,7 +18042,7 @@ if (LINUX) {
         if (files[0].size >= 100000000) {
             // 100MB
             $app.$message({
-                message: 'File size too large',
+                message: $t('message.file.too_large'),
                 type: 'error'
             });
             clearFile();
@@ -17972,7 +18050,7 @@ if (LINUX) {
         }
         if (!files[0].type.match(/image.*/)) {
             $app.$message({
-                message: "File isn't an image",
+                message: $t('message.file.not_image'),
                 type: 'error'
             });
             clearFile();
@@ -17997,7 +18075,7 @@ if (LINUX) {
             var base64Body = btoa(r.result);
             API.uploadEmoji(base64Body, params).then((args) => {
                 $app.$message({
-                    message: 'Emoji uploaded',
+                    message: $t('message.emoji.uploaded'),
                     type: 'success'
                 });
                 return args;
@@ -19368,7 +19446,7 @@ if (LINUX) {
     );
 
     $app.methods.updateDatabaseVersion = async function () {
-        var databaseVersion = 10;
+        var databaseVersion = 11;
         if (this.databaseVersion < databaseVersion) {
             if (this.databaseVersion) {
                 var msgBox = this.$message({
@@ -19387,11 +19465,11 @@ if (LINUX) {
                 await database.fixNegativeGPS(); // fix GPS being a negative value due to VRCX bug with traveling
                 await database.fixBrokenLeaveEntries(); // fix user instance timer being higher than current user location timer
                 await database.fixBrokenGroupInvites(); // fix notification v2 in wrong table
-                await database.updateTableForGroupNames(); // alter tables to include group name
                 await database.fixBrokenNotifications(); // fix notifications being null
                 await database.fixBrokenGroupChange(); // fix spam group left & name change
                 await database.fixCancelFriendRequestTypo(); // fix CancelFriendRequst typo
                 await database.fixBrokenGameLogDisplayNames(); // fix gameLog display names "DisplayName (userId)"
+                await database.upgradeDatabaseVersion(); // update database version
                 await database.vacuum(); // succ
                 await configRepository.setInt(
                     'VRCX_databaseVersion',
@@ -19606,43 +19684,58 @@ if (LINUX) {
     };
 
     $app.methods.updateWorldExportDialog = function () {
-        var _ = function (str) {
+        const formatter = function (str) {
             if (/[\x00-\x1f,"]/.test(str) === true) {
                 return `"${str.replace(/"/g, '""')}"`;
             }
             return str;
         };
-        var lines = ['WorldID,Name'];
+
+        function resText(ref) {
+            let resArr = [];
+            propsForQuery.forEach((e) => {
+                resArr.push(formatter(ref?.[e]));
+            });
+            return resArr.join(',');
+        }
+
+        const lines = [this.exportSelectedOptions.join(',')];
+        const propsForQuery = this.exportSelectOptions
+            .filter((option) =>
+                this.exportSelectedOptions.includes(option.label)
+            )
+            .map((option) => option.value);
+
         if (this.worldExportFavoriteGroup) {
             API.favoriteWorldGroups.forEach((group) => {
                 if (this.worldExportFavoriteGroup === group) {
                     $app.favoriteWorlds.forEach((ref) => {
                         if (group.key === ref.groupKey) {
-                            lines.push(`${_(ref.id)},${_(ref.name)}`);
+                            lines.push(resText(ref.ref));
                         }
                     });
                 }
             });
         } else if (this.worldExportLocalFavoriteGroup) {
-            var favoriteGroup =
+            const favoriteGroup =
                 this.localWorldFavorites[this.worldExportLocalFavoriteGroup];
             if (!favoriteGroup) {
                 return;
             }
-            for (var i = 0; i < favoriteGroup.length; ++i) {
-                var ref = favoriteGroup[i];
-                lines.push(`${_(ref.id)},${_(ref.name)}`);
+            for (let i = 0; i < favoriteGroup.length; ++i) {
+                const ref = favoriteGroup[i];
+                lines.push(resText(ref));
             }
         } else {
             // export all
-            this.favoriteWorlds.forEach((ref1) => {
-                lines.push(`${_(ref1.id)},${_(ref1.name)}`);
+            this.favoriteWorlds.forEach((ref) => {
+                lines.push(resText(ref.ref));
             });
-            for (var i = 0; i < this.localWorldFavoritesList.length; ++i) {
-                var worldId = this.localWorldFavoritesList[i];
-                var ref2 = API.cachedWorlds.get(worldId);
-                if (typeof ref2 !== 'undefined') {
-                    lines.push(`${_(ref2.id)},${_(ref2.name)}`);
+            for (let i = 0; i < this.localWorldFavoritesList.length; ++i) {
+                const worldId = this.localWorldFavoritesList[i];
+                const ref = API.cachedWorlds.get(worldId);
+                if (typeof ref !== 'undefined') {
+                    lines.push(resText(ref));
                 }
             }
         }
@@ -19835,6 +19928,16 @@ if (LINUX) {
     $app.data.avatarExportFavoriteGroup = null;
     $app.data.avatarExportLocalFavoriteGroup = null;
 
+    // Storage of selected filtering options for model and world export
+    $app.data.exportSelectedOptions = ['ID', 'Name'];
+    $app.data.exportSelectOptions = [
+        { label: 'ID', value: 'id' },
+        { label: 'Name', value: 'name' },
+        { label: 'Author ID', value: 'authorId' },
+        { label: 'Author Name', value: 'authorName' },
+        { label: 'Thumbnail', value: 'thumbnailImageUrl' }
+    ];
+
     $app.methods.showAvatarExportDialog = function () {
         this.$nextTick(() =>
             $app.adjustDialogZ(this.$refs.avatarExportDialogRef.$el)
@@ -19845,14 +19948,33 @@ if (LINUX) {
         this.avatarExportDialogVisible = true;
     };
 
+    /**
+     * Update the content of the avatar export dialog based on the selected options
+     */
+
     $app.methods.updateAvatarExportDialog = function () {
-        var _ = function (str) {
+        const formatter = function (str) {
             if (/[\x00-\x1f,"]/.test(str) === true) {
                 return `"${str.replace(/"/g, '""')}"`;
             }
             return str;
         };
-        var lines = ['AvatarID,Name'];
+
+        function resText(ref) {
+            let resArr = [];
+            propsForQuery.forEach((e) => {
+                resArr.push(formatter(ref?.[e]));
+            });
+            return resArr.join(',');
+        }
+
+        const lines = [this.exportSelectedOptions.join(',')];
+        const propsForQuery = this.exportSelectOptions
+            .filter((option) =>
+                this.exportSelectedOptions.includes(option.label)
+            )
+            .map((option) => option.value);
+
         if (this.avatarExportFavoriteGroup) {
             API.favoriteAvatarGroups.forEach((group) => {
                 if (
@@ -19861,31 +19983,31 @@ if (LINUX) {
                 ) {
                     $app.favoriteAvatars.forEach((ref) => {
                         if (group.key === ref.groupKey) {
-                            lines.push(`${_(ref.id)},${_(ref.name)}`);
+                            lines.push(resText(ref.ref));
                         }
                     });
                 }
             });
         } else if (this.avatarExportLocalFavoriteGroup) {
-            var favoriteGroup =
+            const favoriteGroup =
                 this.localAvatarFavorites[this.avatarExportLocalFavoriteGroup];
             if (!favoriteGroup) {
                 return;
             }
-            for (var i = 0; i < favoriteGroup.length; ++i) {
-                var ref = favoriteGroup[i];
-                lines.push(`${_(ref.id)},${_(ref.name)}`);
+            for (let i = 0; i < favoriteGroup.length; ++i) {
+                const ref = favoriteGroup[i];
+                lines.push(resText(ref));
             }
         } else {
             // export all
-            this.favoriteAvatars.forEach((ref1) => {
-                lines.push(`${_(ref1.id)},${_(ref1.name)}`);
+            this.favoriteAvatars.forEach((ref) => {
+                lines.push(resText(ref.ref));
             });
-            for (var i = 0; i < this.localAvatarFavoritesList.length; ++i) {
-                var avatarId = this.localAvatarFavoritesList[i];
-                var ref2 = API.cachedAvatars.get(avatarId);
-                if (typeof ref2 !== 'undefined') {
-                    lines.push(`${_(ref2.id)},${_(ref2.name)}`);
+            for (let i = 0; i < this.localAvatarFavoritesList.length; ++i) {
+                const avatarId = this.localAvatarFavoritesList[i];
+                const ref = API.cachedAvatars.get(avatarId);
+                if (typeof ref !== 'undefined') {
+                    lines.push(resText(ref));
                 }
             }
         }
@@ -21413,7 +21535,9 @@ if (LINUX) {
         API.queuedInstances.forEach((ref) => {
             if (ref.location !== instanceId) {
                 $app.$message({
-                    message: `Removed instance ${ref.$worldName} from queue`,
+                    message: $t('message.instance.removed_form_queue', {
+                        worldName: ref.$worldName
+                    }),
                     type: 'info'
                 });
                 ref.$msgBox?.close();
@@ -21700,7 +21824,7 @@ if (LINUX) {
                     }
                 } else {
                     $app.$message({
-                        message: 'Failed to change avatar moderation',
+                        message: $t('message.avatar.change_moderation_failed'),
                         type: 'error'
                     });
                 }
@@ -22190,7 +22314,7 @@ if (LINUX) {
     API.$on('INSTANCE:CLOSE', function (args) {
         if (args.json) {
             $app.$message({
-                message: 'Instance closed',
+                message: $t('message.instance.closed'),
                 type: 'success'
             });
 
@@ -22369,7 +22493,7 @@ if (LINUX) {
     API.$on('BADGE:UPDATE', function (args) {
         if (args.json) {
             $app.$message({
-                message: 'Badge updated',
+                message: $t('message.badge.updated'),
                 type: 'success'
             });
         }
