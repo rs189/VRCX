@@ -8,12 +8,7 @@ function patchFile(filePath) {
     }
 
     let fileContent = fs.readFileSync(filePath, 'utf8');
-
-    // Log the current content for debugging
-    //console.log('Current file content:');
-    //console.log(fileContent);
-
-    // More flexible regex that allows for different quote types and whitespace
+    
     const regex =
         /const\s+managedHostPath\s*=\s*__dirname\s*\+\s*`\/\$\{targetFramework\}\/\$\{assemblyName\}\.DotNetHost\.dll`/;
 
@@ -27,10 +22,6 @@ managedHostPath = managedHostPath.indexOf('app.asar.unpacked') < 0 ?
     if (fileContent !== newContent) {
         fs.writeFileSync(filePath, newContent, 'utf8');
         console.log(`Patched: ${filePath}`);
-
-        // Log the new content for verification
-        //console.log('New file content:');
-        //console.log(newContent);
 
         return true;
     }

@@ -11,8 +11,8 @@
         "localization": "node ./src/localization/localizationHelperCLI.js",
         "prod": "cross-env PLATFORM=windows webpack --config webpack.config.js --mode production",
         "prod-linux": "cross-env PLATFORM=linux webpack --config webpack.config.js --mode production",
-        "build": "electron-builder",
-        "postbuild": "node patch-node-api-dotnet.js"
+        "build": "node patch-package-version.js && electron-builder",
+        "postbuild": "node patch-node-api-dotnet.js && node rename-builds.js"
     },
     "repository": {
         "type": "git",
@@ -105,12 +105,22 @@
             "output": "build"
         },
         "linux": {
+            "artifactName": "VRCX_Version.${ext}",
             "target": [
+                "tar.xz",
                 "AppImage"
             ],
-            "artifactName": "VRCX.AppImage",
             "icon": "VRCX.png",
             "category": "Utility",
+            "executableName": "vrcx",
+            "desktop": {
+                "Name": "VRCX",
+                "Comment": "Friendship management tool for VRChat",
+                "Icon": "VRCX",
+                "Terminal": "false",
+                "Type": "Application",
+                "Categories": "Utility;Application;"
+            },
             "maintainer": "rs189 <35667100+rs189@users.noreply.github.com>",
             "description": "Friendship management tool for VRChat"
         }

@@ -95,10 +95,25 @@ function createTray() {
 }
 
 async function installVRCX() {
-    const appImagePath = process.env.APPIMAGE;
+    let appImagePath = process.env.APPIMAGE;
     if (!appImagePath) {
         console.error('AppImage path is not available!');
         return;
+    }
+
+    let currentName = path.basename(appImagePath);
+    let newName = currentName.replace(/VRCX_\d{8}/, 'VRCX');
+    if (currentName !== newName) {
+        const newPath = path.join(path.dirname(appImagePath), newName);
+        try {
+            fs.renameSync(appImagePath, newPath);
+            console.log('AppImage renamed to:', newPath);
+            appImagePath = newPath;
+        } catch (err) {
+            console.error('Error renaming AppImage:', err);
+            dialog.showErrorBox('Error', 'Failed to rename AppImage.');
+            return;
+        }
     }
 
     if (appImagePath.startsWith(path.join(app.getPath('home'), 'Applications'))) {
@@ -140,7 +155,7 @@ async function installVRCX() {
     		const desktopFile = `[Desktop Entry]
 Name=VRCX
 Exec=${targetAppImagePath}
-Icon=${targetIconPath}  # Ensure the icon path points to the downloaded icon
+Icon=${targetIconPath}
 Type=Application
 Categories=Network;InstantMessaging;Game;
 Terminal=false
