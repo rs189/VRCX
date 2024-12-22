@@ -118,6 +118,19 @@ if (LINUX) {
     const API = new _apiInit($app);
     const vrcxJsonStorage = new _vrcxJsonStorage(VRCXStorage);
 
+    if (LINUX) {
+        const position = { 
+            x: await VRCXStorage.Get('VRCX_LocationX'), 
+            y: await VRCXStorage.Get('VRCX_LocationY') 
+        };
+        const size = { 
+            width: await VRCXStorage.Get('VRCX_SizeWidth'),
+            height: await VRCXStorage.Get('VRCX_SizeHeight')
+        };
+        const state = await VRCXStorage.Get('VRCX_WindowState');
+        window.electron.applyWindowSettings(position, size, state);
+    }
+
     let vrcxClasses = {
         // other classes
         API,
@@ -8378,6 +8391,16 @@ if (LINUX) {
     $app.data.proxyServer = await VRCXStorage.Get('VRCX_ProxyServer');
     $app.data.disableGpuAcceleration =
         (await VRCXStorage.Get('VRCX_DisableGpuAcceleration')) === 'true';
+    $app.data.locationX =
+        (await VRCXStorage.Get('VRCX_LocationX'));
+    $app.data.locationY = 
+        (await VRCXStorage.Get('VRCX_LocationY'));
+    $app.data.sizeWidth =
+        (await VRCXStorage.Get('VRCX_SizeWidth'));
+    $app.data.sizeHeight =
+        (await VRCXStorage.Get('VRCX_SizeHeight'));
+    $app.data.windowState =
+        (await VRCXStorage.Get('VRCX_WindowState'));
     $app.data.disableVrOverlayGpuAcceleration =
         (await VRCXStorage.Get('VRCX_DisableVrOverlayGpuAcceleration')) ===
         'true';
@@ -8409,11 +8432,20 @@ if (LINUX) {
             'VRCX_DisableGpuAcceleration',
             this.disableGpuAcceleration.toString()
         );
+        VRCXStorage.Set('VRCX_LocationX', this.locationX);
+        VRCXStorage.Set('VRCX_LocationY', this.locationY);
+        VRCXStorage.Set('VRCX_SizeWidth', this.sizeWidth);
+        VRCXStorage.Set('VRCX_SizeHeight', this.sizeHeight);
+        VRCXStorage.Set('VRCX_WindowState', this.windowState);
         VRCXStorage.Set(
             'VRCX_DisableVrOverlayGpuAcceleration',
             this.disableVrOverlayGpuAcceleration.toString()
         );
-        AppApi.SetStartup(this.isStartAtWindowsStartup);
+        if (!LINUX) {
+            AppApi.SetStartup(this.isStartAtWindowsStartup);
+        } else {
+            VRCXStorage.Flush();
+        }
     };
     $app.data.photonEventOverlay = await configRepository.getBool(
         'VRCX_PhotonEventOverlay',
@@ -16370,9 +16402,8 @@ if (LINUX) {
         if (LINUX) {
             const filePath = await window.electron.openFileDialog();
             if (filePath) {
-                console.log('Full file path:', filePath);
                 this.screenshotMetadataResetSearch();
-                this.getAndDisplayScreenshot(filePath);  // Use filePath instead of file.path
+                this.getAndDisplayScreenshot(filePath);
             }
         } else {
             AppApi.OpenScreenshotFileDialog();
@@ -22583,6 +22614,27 @@ if (LINUX) {
     for (let value of Object.values(vrcxClasses)) {
         value.updateRef($app);
     }
+
+    window.electron.onWindowPositionChanged((event, position) => {
+        window.$app.locationX = position.x;
+        window.$app.locationY = position.y;
+        window.$app.saveVRCXWindowOption();
+    });
+
+    window.electron.onWindowSizeChanged((event, size) => {
+        window.$app.sizeWidth = size.width;
+        window.$app.sizeHeight = size.height;
+        window.$app.saveVRCXWindowOption();
+    });
+
+    window.electron.onWindowStateChange((event, state) => {
+        window.$app.windowState = state;
+        window.$app.saveVRCXWindowOption();
+    });
+
+    //window.electron.onWindowClosed((event) => {
+    //    window.$app.saveVRCXWindowOption();
+    //});
 })();
 // #endregion
 

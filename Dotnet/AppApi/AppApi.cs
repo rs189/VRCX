@@ -596,17 +596,17 @@ namespace VRCX
         /// <param name="enabled">True to enable automatic startup, false to disable it.</param>
         public void SetStartup(bool enabled)
         {
+#if LINUX
+#else
             try
             {
                 using (var key = Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true))
                 {
                     if (enabled)
                     {
-#if LINUX
-#else
+
                         var path = Application.ExecutablePath;
                         key.SetValue("VRCX", $"\"{path}\" --startup");
-#endif
                     }
                     else
                     {
@@ -617,6 +617,7 @@ namespace VRCX
             catch
             {
             }
+#endif
         }
 
         // what the fuck even is this

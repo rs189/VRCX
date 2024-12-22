@@ -26,6 +26,24 @@ ipcMain.handle('callDotNetMethod', (event, className, methodName, args) => {
 
 var mainWindow = undefined;
 
+ipcMain.handle('applyWindowSettings', (event, position, size, state) => {
+    if (position) {
+        mainWindow.setPosition(parseInt(position.x), parseInt(position.y));
+    }
+    if (size) {
+        mainWindow.setSize(parseInt(size.width), parseInt(size.height));
+    }
+    if (state) {
+        if (state === '0') {
+            mainWindow.restore();
+        } else if (state === '1') {
+            mainWindow.minimize();
+        } else if (state === '2') {
+            mainWindow.maximize();
+        }
+    }
+});
+
 ipcMain.handle('dialog:openFile', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
         properties: ['openFile'],
@@ -59,6 +77,28 @@ function createWindow() {
 	globalShortcut.register('Control+=', () => {
 		mainWindow.webContents.setZoomLevel(mainWindow.webContents.getZoomLevel() + 1)
 	})
+
+    mainWindow.on('resize', () => {
+        const [width, height] = mainWindow.getSize().map(size => size.toString());
+        mainWindow.webContents.send('setWindowSize', { width, height });
+    });
+
+    mainWindow.on('move', () => {
+        const [x, y] = mainWindow.getPosition().map(coord => coord.toString());
+        mainWindow.webContents.send('setWindowPosition', { x, y });
+    });
+
+    mainWindow.on('maximize', () => {
+        mainWindow.webContents.send('setWindowState', '2');
+    });
+
+    mainWindow.on('minimize', () => {
+        mainWindow.webContents.send('setWindowState', '1');
+    });
+
+    mainWindow.on('unmaximize', () => {
+        mainWindow.webContents.send('setWindowState', '0');
+    });
 }
 
 function createTray() {
@@ -208,6 +248,10 @@ app.whenReady().then(() => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
 });
+
+//app.on('before-quit', function () {
+//    mainWindow.webContents.send('windowClosed');
+//});
 
 app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit();

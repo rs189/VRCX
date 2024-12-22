@@ -186,6 +186,38 @@ namespace VRCX
         /// <param name="arguments">The command-line arguments to pass to the VRChat game.</param>
         public bool StartGame(string arguments)
         {
+#if LINUX
+            try
+            {
+                string steamPath = LogWatcher.GetSteamPath();
+                if (string.IsNullOrEmpty(steamPath))
+                {
+                    Console.WriteLine("Steam path could not be determined.");
+                    return false;
+                }
+
+                string steamExecutable = Path.Combine(steamPath, "steam.sh");
+                if (!File.Exists(steamExecutable))
+                {
+                    Console.WriteLine("Steam executable not found.");
+                    return false;
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = steamExecutable,
+                    Arguments = $"-applaunch 438100 {arguments}",
+                    UseShellExecute = false,
+                })?.Close();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to start VRChat: {ex.Message}");
+                return false;
+            }
+#else
             // try stream first
             try
             {
@@ -228,7 +260,7 @@ namespace VRCX
             {
                 logger.Warn("Failed to start VRChat from registry");
             }
-
+#endif
             return false;
         }
 

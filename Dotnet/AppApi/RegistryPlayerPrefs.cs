@@ -46,7 +46,7 @@ namespace VRCX
             return key + "_h" + hash;
         }
 #if LINUX
-        private int FindMatchingBracket(string content, int openBracketIndex)
+        private static int FindMatchingBracket(string content, int openBracketIndex)
         {
             int depth = 0;
             for (int i = openBracketIndex; i < content.Length; i++)
@@ -63,7 +63,7 @@ namespace VRCX
             return -1;
         }
 
-        private Dictionary<string, string> ExtractCompatToolMapping(string vdfContent)
+        private static Dictionary<string, string> ExtractCompatToolMapping(string vdfContent)
         {
             var compatToolMapping = new Dictionary<string, string>();
             const string sectionHeader = "\"CompatToolMapping\"";
@@ -104,7 +104,7 @@ namespace VRCX
             return compatToolMapping;
         }
 
-        public string GetSteamVdfCompatTool()
+        public static string GetSteamVdfCompatTool()
         {
             string steamPath = LogWatcher.GetSteamPath();
             string configVdfPath = Path.Combine(steamPath, "config", "config.vdf");
@@ -252,7 +252,7 @@ namespace VRCX
             return null;
         }
 
-        public string GetVRChatWinePath()
+        public static string GetVRChatWinePath()
         {
             string compatTool = GetSteamVdfCompatTool();
             if (compatTool == null)

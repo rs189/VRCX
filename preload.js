@@ -6,7 +6,7 @@
  *
  * https://www.electronjs.org/docs/latest/tutorial/sandbox
  */
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, app } = require("electron");
 
 contextBridge.exposeInMainWorld("interopApi", {
     callDotNetMethod: (className, methodName, args) => {
@@ -15,5 +15,12 @@ contextBridge.exposeInMainWorld("interopApi", {
 });
 
 contextBridge.exposeInMainWorld('electron', {
-    openFileDialog: () => ipcRenderer.invoke('dialog:openFile')
+    openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
+    onWindowPositionChanged: (callback) => ipcRenderer.on('setWindowPosition', callback),
+    onWindowSizeChanged: (callback) => ipcRenderer.on('setWindowSize', callback),
+    onWindowStateChange: (callback) => ipcRenderer.on('setWindowState', callback),
+    applyWindowSettings: (position, size, state) => { 
+        ipcRenderer.invoke('applyWindowSettings', position, size, state);
+    },
+    //onWindowClosed: (callback) => ipcRenderer.on('windowClosed', callback)
 });
