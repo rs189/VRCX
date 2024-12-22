@@ -56,6 +56,17 @@ ipcMain.handle('dialog:openFile', async () => {
     return null;
 });
 
+ipcMain.handle('dialog:openDirectory', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openDirectory']
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+    }
+    return null;
+});
+
 function createWindow() {
     app.commandLine.appendSwitch('enable-speech-dispatcher')
 

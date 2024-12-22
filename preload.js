@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("interopApi", {
 
 contextBridge.exposeInMainWorld('electron', {
     openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
+    openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
     onWindowPositionChanged: (callback) => ipcRenderer.on('setWindowPosition', callback),
     onWindowSizeChanged: (callback) => ipcRenderer.on('setWindowSize', callback),
     onWindowStateChange: (callback) => ipcRenderer.on('setWindowState', callback),

@@ -20596,6 +20596,9 @@ if (LINUX) {
     };
 
     $app.methods.openUGCFolder = async function () {
+        if (LINUX && this.ugcFolderPath == null) {
+            this.resetUGCFolder();
+        }
         await AppApi.OpenUGCPhotosFolder(this.ugcFolderPath);
     };
 
@@ -20605,9 +20608,15 @@ if (LINUX) {
         if (D.visible) return;
 
         D.visible = true;
-        var newUGCFolder = await AppApi.OpenFolderSelectorDialog(
-            this.ugcFolderPath
-        );
+        var newUGCFolder;
+        if (LINUX) {
+            newUGCFolder = await window.electron.openDirectoryDialog();
+        } else {
+            newUGCFolder = await AppApi.OpenFolderSelectorDialog(
+                this.ugcFolderPath
+            );
+        }
+        
         D.visible = false;
 
         await this.setUGCFolderPath(newUGCFolder);

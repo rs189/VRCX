@@ -343,6 +343,8 @@ namespace VRCX
         /// Opens a folder dialog to select a folder and pass it back to the JS side.
         /// </summary>
         /// <param name="defaultPath">The default path for the folder picker.</param>
+#if LINUX
+#else
         public async Task<string> OpenFolderSelectorDialog(string defaultPath = "")
         {
             var tcs = new TaskCompletionSource<string>();
@@ -376,7 +378,7 @@ namespace VRCX
 
             return await tcs.Task;
         }
-
+#endif
         private static readonly Regex _folderRegex = new Regex(string.Format(@"([{0}]*\.+$)|([{0}]+)",
             Regex.Escape(new string(Path.GetInvalidPathChars()))));
 
