@@ -141,13 +141,13 @@ namespace VRCX
                 imageData = imageSaveMemoryStream.ToArray();
             }
         }
-        
+
         public byte[] ResizePrintImage(byte[] imageData)
         {
             var inputImage = ResizeImageToFitLimits(imageData, false, 1920, 1080);
             using var fileMemoryStream = new MemoryStream(inputImage);
             var image = new Bitmap(fileMemoryStream);
-            
+
             // increase size to 1920x1080
             if (image.Width < 1920 || image.Height < 1080)
             {
@@ -183,11 +183,11 @@ namespace VRCX
             graphics.DrawImage(image, new Rectangle(xOffset, yOffset, image.Width, image.Height));
             image.Dispose();
             image = newImage;
-            
+
             using var imageSaveMemoryStream = new MemoryStream();
             image.Save(imageSaveMemoryStream, System.Drawing.Imaging.ImageFormat.Png);
             return imageSaveMemoryStream.ToArray();
-        } 
+        }
 
         /// <summary>
         /// Computes the signature of the file represented by the specified base64-encoded string using the librsync library.
@@ -706,9 +706,9 @@ namespace VRCX
             return null;
         }
 
-        public async Task<bool> SavePrintToFile(string url, string path, string fileName)
+        public async Task<bool> SavePrintToFile(string url, string ugcFolderPath, string monthFolder, string fileName)
         {
-            var folder = Path.Combine(GetVRChatPhotosLocation(), "Prints", MakeValidFileName(path));
+            var folder = Path.Combine(GetUGCPhotoLocation(ugcFolderPath), "Prints", MakeValidFileName(monthFolder));
             Directory.CreateDirectory(folder);
             var filePath = Path.Combine(folder, MakeValidFileName(fileName));
             if (File.Exists(filePath))
@@ -717,9 +717,9 @@ namespace VRCX
             return await ImageCache.SaveImageToFile(url, filePath);
         }
 
-        public async Task<bool> SaveStickerToFile(string url, string path, string fileName)
+        public async Task<bool> SaveStickerToFile(string url, string ugcFolderPath, string monthFolder, string fileName)
         {
-            var folder = Path.Combine(GetVRChatPhotosLocation(), "Stickers", MakeValidFileName(path));
+            var folder = Path.Combine(GetUGCPhotoLocation(ugcFolderPath), "Stickers", MakeValidFileName(monthFolder));
             Directory.CreateDirectory(folder);
             var filePath = Path.Combine(folder, MakeValidFileName(fileName));
             if (File.Exists(filePath))

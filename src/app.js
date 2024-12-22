@@ -1374,6 +1374,7 @@ if (LINUX) {
                 roleRestricted: false, // only present with group instance type
                 instancePersistenceEnabled: null,
                 playerPersistenceEnabled: null,
+                ageGate: null,
                 // VRCX
                 $fetchedAt: '',
                 ...json
@@ -5190,7 +5191,18 @@ if (LINUX) {
             // Do Not Disturb
             style.busy = true;
         }
-        if (user.last_platform && user.last_platform !== 'standalonewindows') {
+        if (
+            user.platform &&
+            user.platform !== 'standalonewindows' &&
+            user.platform !== 'web'
+        ) {
+            style.mobile = true;
+        }
+        if (
+            user.last_platform &&
+            user.last_platform !== 'standalonewindows' &&
+            user.platform === 'web'
+        ) {
             style.mobile = true;
         }
         return style;
@@ -7125,6 +7137,10 @@ if (LINUX) {
             `VRCX_friendNumber_${currentUser.id}`,
             0
         );
+        var maxFriendLogNumber = await database.getMaxFriendLogNumber();
+        if (this.friendNumber < maxFriendLogNumber) {
+            this.friendNumber = maxFriendLogNumber;
+        }
 
         var friendLogCurrentArray = await database.getFriendLogCurrent();
         for (var friend of friendLogCurrentArray) {
@@ -7945,6 +7961,10 @@ if (LINUX) {
         'VRCX_afkDesktopToast',
         false
     );
+    $app.data.overlayToast = await configRepository.getString(
+        'VRCX_overlayToast',
+        'Game Running'
+    );
     $app.data.minimalFeed = await configRepository.getBool(
         'VRCX_minimalFeed',
         false
@@ -7969,6 +7989,10 @@ if (LINUX) {
         'VRCX_notificationTTSNickName',
         false
     );
+
+    // It's not necessary to store it in configRepo because it's rarely used.
+    $app.data.isTestTTSVisible = false;
+
     $app.data.notificationTTSVoice = await configRepository.getString(
         'VRCX_notificationTTSVoice',
         '0'
@@ -8153,6 +8177,10 @@ if (LINUX) {
         await configRepository.setBool(
             'VRCX_afkDesktopToast',
             this.afkDesktopToast
+        );
+        await configRepository.setString(
+            'VRCX_overlayToast',
+            this.overlayToast
         );
         await configRepository.setBool(
             'VRCX_notificationTTSNickName',
@@ -12645,6 +12673,7 @@ if (LINUX) {
             'instanceDialogGroupAccessType',
             'plus'
         ),
+        ageGate: await configRepository.getBool('instanceDialogAgeGate', false),
         strict: false,
         location: '',
         shortName: '',
@@ -12691,6 +12720,9 @@ if (LINUX) {
             if (D.accessType === 'invite+') {
                 tags.push('~canRequestInvite');
             }
+        }
+        if (D.accessType === 'group' && D.ageGate) {
+            tags.push('~ageGate');
         }
         if (D.region === 'US West') {
             tags.push(`~region(us)`);
@@ -12818,6 +12850,16 @@ if (LINUX) {
                 params.canRequestInvite = true;
             }
         }
+        if (
+            D.ageGate &&
+            type === 'group' &&
+            this.hasGroupPermission(
+                D.groupRef,
+                'group-instance-age-gated-create'
+            )
+        ) {
+            params.ageGate = true;
+        }
         try {
             var args = await API.createInstance(params);
             D.location = args.json.location;
@@ -12900,6 +12942,10 @@ if (LINUX) {
         await configRepository.setBool(
             'instanceDialogQueueEnabled',
             this.newInstanceDialog.queueEnabled
+        );
+        await configRepository.setBool(
+            'instanceDialogAgeGate',
+            this.newInstanceDialog.ageGate
         );
     };
 
@@ -16823,10 +16869,7 @@ if (LINUX) {
         var variant = '';
         for (var i = ref.unityPackages.length - 1; i > -1; i--) {
             var unityPackage = ref.unityPackages[i];
-            if (
-                unityPackage.variant &&
-                unityPackage.variant !== 'security'
-            ) {
+            if (unityPackage.variant && unityPackage.variant !== 'security') {
                 continue;
             }
             if (
@@ -17287,6 +17330,18 @@ if (LINUX) {
             style.blue = true;
         } else {
             style.red = true;
+        }
+        return style;
+    };
+
+    $app.methods.userFavoriteWorldsStatusForFavTab = function (visibility) {
+        let style = '';
+        if (visibility === 'public') {
+            style = '';
+        } else if (visibility === 'friends') {
+            style = 'success';
+        } else {
+            style = 'info';
         }
         return style;
     };
@@ -17821,15 +17876,20 @@ if (LINUX) {
         var args = await API.call(`file/${fileId}`);
         var imageUrl = args.versions[1].file.url;
         var createdAt = args.versions[0].created_at;
-        var path = createdAt.slice(0, 7);
+        var monthFolder = createdAt.slice(0, 7);
         var fileNameDate = createdAt
             .replace(/:/g, '-')
             .replace(/T/g, '_')
             .replace(/Z/g, '');
         var fileName = `${displayName}_${fileNameDate}_${fileId}.png`;
-        var status = await AppApi.SaveStickerToFile(imageUrl, path, fileName);
+        var status = await AppApi.SaveStickerToFile(
+            imageUrl,
+            this.ugcFolderPath,
+            monthFolder,
+            fileName
+        );
         if (status) {
-            console.log(`Sticker saved to file: ${path}\\${fileName}`);
+            console.log(`Sticker saved to file: ${monthFolder}\\${fileName}`);
         }
     };
 
@@ -18059,11 +18119,16 @@ if (LINUX) {
             return;
         }
         var createdAt = this.getPrintLocalDate(args.json);
-        var path = createdAt.toISOString().slice(0, 7);
+        var monthFolder = createdAt.toISOString().slice(0, 7);
         var fileName = this.getPrintFileName(args.json);
-        var status = await AppApi.SavePrintToFile(imageUrl, path, fileName);
+        var status = await AppApi.SavePrintToFile(
+            imageUrl,
+            this.ugcFolderPath,
+            monthFolder,
+            fileName
+        );
         if (status) {
-            console.log(`Print saved to file: ${path}\\${fileName}`);
+            console.log(`Print saved to file: ${monthFolder}\\${fileName}`);
         }
     };
 
@@ -19762,6 +19827,23 @@ if (LINUX) {
         this.worldExportDialogVisible = true;
     };
 
+    $app.methods.handleCopyWorldExportData = function (event) {
+        event.target.tagName === 'TEXTAREA' && event.target.select();
+        navigator.clipboard
+            .writeText(this.worldExportContent)
+            .then(() => {
+                this.$message({
+                    message: 'Copied successfully!',
+                    type: 'success',
+                    duration: 2000
+                });
+            })
+            .catch((err) => {
+                console.error('Copy failed:', err);
+                this.$message.error('Copy failed!');
+            });
+    };
+
     $app.methods.updateWorldExportDialog = function () {
         const formatter = function (str) {
             if (/[\x00-\x1f,"]/.test(str) === true) {
@@ -20027,6 +20109,23 @@ if (LINUX) {
         this.avatarExportDialogVisible = true;
     };
 
+    $app.methods.handleCopyAvatarExportData = function (event) {
+        event.target.tagName === 'TEXTAREA' && event.target.select();
+        navigator.clipboard
+            .writeText(this.avatarExportContent)
+            .then(() => {
+                this.$message({
+                    message: 'Copied successfully!',
+                    type: 'success',
+                    duration: 2000
+                });
+            })
+            .catch((err) => {
+                console.error('Copy failed:', err);
+                this.$message.error('Copy failed!');
+            });
+    };
+
     /**
      * Update the content of the avatar export dialog based on the selected options
      */
@@ -20268,6 +20367,23 @@ if (LINUX) {
         this.friendExportDialogVisible = true;
     };
 
+    $app.methods.handleCopyFriendExportData = function (event) {
+        event.target.tagName === 'TEXTAREA' && event.target.select();
+        navigator.clipboard
+            .writeText(this.friendExportContent)
+            .then(() => {
+                this.$message({
+                    message: 'Copied successfully!',
+                    type: 'success',
+                    duration: 2000
+                });
+            })
+            .catch((err) => {
+                console.error('Copy failed:', err);
+                this.$message.error('Copy failed!');
+            });
+    };
+
     $app.methods.updateFriendExportDialog = function () {
         var _ = function (str) {
             if (/[\x00-\x1f,"]/.test(str) === true) {
@@ -20458,6 +20574,43 @@ if (LINUX) {
 
     $app.methods.cancelNoteExport = function () {
         this.noteExportDialog.loading = false;
+    };
+
+    // user generated content
+    $app.data.ugcFolderPath = await configRepository.getString(
+        'VRCX_userGeneratedContentPath',
+        ''
+    );
+
+    $app.data.userGeneratedContentDialog = {
+        visible: false
+    };
+
+    $app.methods.setUGCFolderPath = async function (path) {
+        await configRepository.setString('VRCX_userGeneratedContentPath', path);
+        this.ugcFolderPath = path;
+    };
+
+    $app.methods.resetUGCFolder = function () {
+        this.setUGCFolderPath('');
+    };
+
+    $app.methods.openUGCFolder = async function () {
+        await AppApi.OpenUGCPhotosFolder(this.ugcFolderPath);
+    };
+
+    $app.methods.openUGCFolderSelector = async function () {
+        var D = this.userGeneratedContentDialog;
+
+        if (D.visible) return;
+
+        D.visible = true;
+        var newUGCFolder = await AppApi.OpenFolderSelectorDialog(
+            this.ugcFolderPath
+        );
+        D.visible = false;
+
+        await this.setUGCFolderPath(newUGCFolder);
     };
 
     // avatar database provider

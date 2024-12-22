@@ -6,6 +6,9 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Microsoft.Win32;
+using System.Threading;
+using System.Windows.Forms;
+using System.Threading.Tasks;
 
 namespace VRCX
 {
@@ -58,6 +61,33 @@ namespace VRCX
 #else
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "VRChat");
 #endif
+        }
+
+        /// <summary> 
+        /// Gets the folder the user has selected for User-Generated content such as prints / stickers from the JS side.
+        /// If there is no override on the folder, it returns the default VRChat Photos path.
+        /// </summary>
+        /// <returns>The UGC Photo Location.</returns>
+        public string GetUGCPhotoLocation(string path = "")
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return GetVRChatPhotosLocation();
+            }
+
+            try
+            {
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+                return path;
+            }
+            catch (Exception e)
+            {
+                logger.Error(e);
+                return GetVRChatPhotosLocation();
+            }
         }
 
         private string GetSteamUserdataPathFromRegistry()
@@ -166,6 +196,16 @@ namespace VRCX
         public bool OpenVrcPhotosFolder()
         {
             var path = GetVRChatPhotosLocation();
+            if (!Directory.Exists(path))
+                return false;
+
+            OpenFolderAndSelectItem(path, true);
+            return true;
+        }
+
+        public bool OpenUGCPhotosFolder(string ugcPath = "")
+        {
+            var path = GetUGCPhotoLocation(ugcPath);
             if (!Directory.Exists(path))
                 return false;
 
@@ -297,6 +337,44 @@ namespace VRCX
                 Process.Start("explorer.exe", $"/select,\"{path}\"");
 #endif
             }
+        }
+
+        /// <summary>
+        /// Opens a folder dialog to select a folder and pass it back to the JS side.
+        /// </summary>
+        /// <param name="defaultPath">The default path for the folder picker.</param>
+        public async Task<string> OpenFolderSelectorDialog(string defaultPath = "")
+        {
+            var tcs = new TaskCompletionSource<string>();
+            var staThread = new Thread(() =>
+            {
+                try
+                {
+                    using (var openFolderDialog = new FolderBrowserDialog())
+                    {
+                        openFolderDialog.InitialDirectory = Directory.Exists(defaultPath) ? defaultPath : GetVRChatPhotosLocation();
+
+                        var dialogResult = openFolderDialog.ShowDialog(MainForm.nativeWindow);
+                        if (dialogResult == DialogResult.OK)
+                        {
+                            tcs.SetResult(openFolderDialog.SelectedPath);
+                        }
+                        else
+                        {
+                            tcs.SetResult(defaultPath);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                }
+            });
+
+            staThread.SetApartmentState(ApartmentState.STA);
+            staThread.Start();
+
+            return await tcs.Task;
         }
 
         private static readonly Regex _folderRegex = new Regex(string.Format(@"([{0}]*\.+$)|([{0}]+)",

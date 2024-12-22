@@ -22,6 +22,7 @@ namespace VRCX
     public partial class MainForm : WinformBase
     {
         public static MainForm Instance;
+        public static NativeWindow nativeWindow;
         private static NLog.Logger jslogger = NLog.LogManager.GetLogger("Javascript");
         public ChromiumWebBrowser Browser;
         private readonly Timer _saveTimer;
@@ -48,6 +49,7 @@ namespace VRCX
         {
             Instance = this;
             InitializeComponent();
+            nativeWindow = NativeWindow.FromHandle(this.Handle);
 
             // adding a 5s delay here to avoid excessive writes to disk
             _saveTimer = new Timer();
