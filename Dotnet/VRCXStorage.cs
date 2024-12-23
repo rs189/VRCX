@@ -31,7 +31,7 @@ namespace VRCX
             m_Lock.EnterWriteLock();
             try
             {
-                JsonSerializer.Deserialize(m_JsonPath, ref m_Storage);
+                JsonFileSerializer.Deserialize(m_JsonPath, ref m_Storage);
                 m_Dirty = false;
             }
             finally

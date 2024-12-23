@@ -95,85 +95,75 @@ class Database {
         date.setDate(date.getDate() - 1); // 24 hour limit
         var dateOffset = date.toJSON();
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    userId: dbRow[i][2],
-                    displayName: dbRow[i][3],
-                    type: 'GPS',
-                    location: dbRow[i][4],
-                    worldName: dbRow[i][5],
-                    previousLocation: dbRow[i][6],
-                    time: dbRow[i][7],
-                    groupName: dbRow[i][8]
-                };
-                feedDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                userId: dbRow[2],
+                displayName: dbRow[3],
+                type: 'GPS',
+                location: dbRow[4],
+                worldName: dbRow[5],
+                previousLocation: dbRow[6],
+                time: dbRow[7],
+                groupName: dbRow[8]
+            };
+            feedDatabase.unshift(row);
         }, `SELECT * FROM ${Database.userPrefix}_feed_gps WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    userId: dbRow[i][2],
-                    displayName: dbRow[i][3],
-                    type: 'Status',
-                    status: dbRow[i][4],
-                    statusDescription: dbRow[i][5],
-                    previousStatus: dbRow[i][6],
-                    previousStatusDescription: dbRow[i][7]
-                };
-                feedDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                userId: dbRow[2],
+                displayName: dbRow[3],
+                type: 'Status',
+                status: dbRow[4],
+                statusDescription: dbRow[5],
+                previousStatus: dbRow[6],
+                previousStatusDescription: dbRow[7]
+            };
+            feedDatabase.unshift(row);
         }, `SELECT * FROM ${Database.userPrefix}_feed_status WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    userId: dbRow[i][2],
-                    displayName: dbRow[i][3],
-                    type: 'Bio',
-                    bio: dbRow[i][4],
-                    previousBio: dbRow[i][5]
-                };
-                feedDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                userId: dbRow[2],
+                displayName: dbRow[3],
+                type: 'Bio',
+                bio: dbRow[4],
+                previousBio: dbRow[5]
+            };
+            feedDatabase.unshift(row);
         }, `SELECT * FROM ${Database.userPrefix}_feed_bio WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    userId: dbRow[i][2],
-                    displayName: dbRow[i][3],
-                    type: 'Avatar',
-                    ownerId: dbRow[i][4],
-                    avatarName: dbRow[i][5],
-                    currentAvatarImageUrl: dbRow[i][6],
-                    currentAvatarThumbnailImageUrl: dbRow[i][7],
-                    previousCurrentAvatarImageUrl: dbRow[i][8],
-                    previousCurrentAvatarThumbnailImageUrl: dbRow[i][9]
-                };
-                feedDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                userId: dbRow[2],
+                displayName: dbRow[3],
+                type: 'Avatar',
+                ownerId: dbRow[4],
+                avatarName: dbRow[5],
+                currentAvatarImageUrl: dbRow[6],
+                currentAvatarThumbnailImageUrl: dbRow[7],
+                previousCurrentAvatarImageUrl: dbRow[8],
+                previousCurrentAvatarThumbnailImageUrl: dbRow[9]
+            };
+            feedDatabase.unshift(row);
         }, `SELECT * FROM ${Database.userPrefix}_feed_avatar WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    userId: dbRow[i][2],
-                    displayName: dbRow[i][3],
-                    type: dbRow[i][4],
-                    location: dbRow[i][5],
-                    worldName: dbRow[i][6],
-                    time: dbRow[i][7],
-                    groupName: dbRow[i][8]
-                };
-                feedDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                userId: dbRow[2],
+                displayName: dbRow[3],
+                type: dbRow[4],
+                location: dbRow[5],
+                worldName: dbRow[6],
+                time: dbRow[7],
+                groupName: dbRow[8]
+            };
+            feedDatabase.unshift(row);
         }, `SELECT * FROM ${Database.userPrefix}_feed_online_offline WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         var compareByCreatedAt = function (a, b) {
             var A = a.created_at;
@@ -204,13 +194,11 @@ class Database {
         var row = {};
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    row = {
-                        userId: dbRow[i][0],
-                        editedAt: dbRow[i][1],
-                        memo: dbRow[i][2]
-                    };
-                }
+                row = {
+                    userId: dbRow[0],
+                    editedAt: dbRow[1],
+                    memo: dbRow[2]
+                };
             },
             `SELECT * FROM memos WHERE user_id = @user_id`,
             {
@@ -223,13 +211,11 @@ class Database {
     async getAllUserMemos() {
         var memos = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    userId: dbRow[i][0],
-                    memo: dbRow[i][1]
-                };
-                memos.push(row);
-            }
+            var row = {
+                userId: dbRow[0],
+                memo: dbRow[1]
+            };
+            memos.push(row);
         }, 'SELECT user_id, memo FROM memos');
         return memos;
     }
@@ -260,13 +246,11 @@ class Database {
         var row = {};
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    row = {
-                        worldId: dbRow[i][0],
-                        editedAt: dbRow[i][1],
-                        memo: dbRow[i][2]
-                    };
-                }
+                row = {
+                    worldId: dbRow[0],
+                    editedAt: dbRow[1],
+                    memo: dbRow[2]
+                };
             },
             `SELECT * FROM world_memos WHERE world_id = @world_id`,
             {
@@ -302,13 +286,11 @@ class Database {
         var row = {};
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    row = {
-                        avatarId: dbRow[i][0],
-                        editedAt: dbRow[i][1],
-                        memo: dbRow[i][2]
-                    };
-                }
+                row = {
+                    avatarId: dbRow[0],
+                    editedAt: dbRow[1],
+                    memo: dbRow[2]
+                };
             },
             `SELECT * FROM avatar_memos WHERE avatar_id = @avatar_id`,
             {
@@ -341,15 +323,13 @@ class Database {
     async getFriendLogCurrent() {
         var friendLogCurrent = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    userId: dbRow[i][0],
-                    displayName: dbRow[i][1],
-                    trustLevel: dbRow[i][2],
-                    friendNumber: dbRow[i][3]
-                };
-                friendLogCurrent.unshift(row);
-            }
+            var row = {
+                userId: dbRow[0],
+                displayName: dbRow[1],
+                trustLevel: dbRow[2],
+                friendNumber: dbRow[3]
+            };
+            friendLogCurrent.unshift(row);
         }, `SELECT * FROM ${Database.userPrefix}_friend_log_current`);
         return friendLogCurrent;
     }
@@ -409,23 +389,21 @@ class Database {
     async getFriendLogHistory() {
         var friendLogHistory = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: dbRow[i][2],
-                    userId: dbRow[i][3],
-                    displayName: dbRow[i][4],
-                    friendNumber: dbRow[i][8]
-                };
-                if (row.type === 'DisplayName') {
-                    row.previousDisplayName = dbRow[i][5];
-                } else if (row.type === 'TrustLevel') {
-                    row.trustLevel = dbRow[i][6];
-                    row.previousTrustLevel = dbRow[i][7];
-                }
-                friendLogHistory.unshift(row);
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: dbRow[2],
+                userId: dbRow[3],
+                displayName: dbRow[4],
+                friendNumber: dbRow[8]
+            };
+            if (row.type === 'DisplayName') {
+                row.previousDisplayName = dbRow[5];
+            } else if (row.type === 'TrustLevel') {
+                row.trustLevel = dbRow[6];
+                row.previousTrustLevel = dbRow[7];
             }
+            friendLogHistory.unshift(row);
         }, `SELECT * FROM ${Database.userPrefix}_friend_log_history`);
         return friendLogHistory;
     }
@@ -583,101 +561,87 @@ class Database {
         date.setDate(date.getDate() - 1); // 24 hour limit
         var dateOffset = date.toJSON();
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: 'Location',
-                    location: dbRow[i][2],
-                    worldId: dbRow[i][3],
-                    worldName: dbRow[i][4],
-                    time: dbRow[i][5],
-                    groupName: dbRow[i][6]
-                };
-                gamelogDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: 'Location',
+                location: dbRow[2],
+                worldId: dbRow[3],
+                worldName: dbRow[4],
+                time: dbRow[5],
+                groupName: dbRow[6]
+            };
+            gamelogDatabase.unshift(row);
         }, `SELECT * FROM gamelog_location WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: dbRow[i][2],
-                    displayName: dbRow[i][3],
-                    location: dbRow[i][4],
-                    userId: dbRow[i][5],
-                    time: dbRow[i][6]
-                };
-                gamelogDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: dbRow[2],
+                displayName: dbRow[3],
+                location: dbRow[4],
+                userId: dbRow[5],
+                time: dbRow[6]
+            };
+            gamelogDatabase.unshift(row);
         }, `SELECT * FROM gamelog_join_leave WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: 'PortalSpawn',
-                    displayName: dbRow[i][2],
-                    location: dbRow[i][3],
-                    userId: dbRow[i][4],
-                    instanceId: dbRow[i][5],
-                    worldName: dbRow[i][6]
-                };
-                gamelogDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: 'PortalSpawn',
+                displayName: dbRow[2],
+                location: dbRow[3],
+                userId: dbRow[4],
+                instanceId: dbRow[5],
+                worldName: dbRow[6]
+            };
+            gamelogDatabase.unshift(row);
         }, `SELECT * FROM gamelog_portal_spawn WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: 'VideoPlay',
-                    videoUrl: dbRow[i][2],
-                    videoName: dbRow[i][3],
-                    videoId: dbRow[i][4],
-                    location: dbRow[i][5],
-                    displayName: dbRow[i][6],
-                    userId: dbRow[i][7]
-                };
-                gamelogDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: 'VideoPlay',
+                videoUrl: dbRow[2],
+                videoName: dbRow[3],
+                videoId: dbRow[4],
+                location: dbRow[5],
+                displayName: dbRow[6],
+                userId: dbRow[7]
+            };
+            gamelogDatabase.unshift(row);
         }, `SELECT * FROM gamelog_video_play WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: dbRow[i][3],
-                    resourceUrl: dbRow[i][2],
-                    location: dbRow[i][4]
-                };
-                gamelogDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: dbRow[3],
+                resourceUrl: dbRow[2],
+                location: dbRow[4]
+            };
+            gamelogDatabase.unshift(row);
         }, `SELECT * FROM gamelog_resource_load WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: 'Event',
-                    data: dbRow[i][2]
-                };
-                gamelogDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: 'Event',
+                data: dbRow[2]
+            };
+            gamelogDatabase.unshift(row);
         }, `SELECT * FROM gamelog_event WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: 'External',
-                    message: dbRow[i][2],
-                    displayName: dbRow[i][3],
-                    userId: dbRow[i][4],
-                    location: dbRow[i][5]
-                };
-                gamelogDatabase.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: 'External',
+                message: dbRow[2],
+                displayName: dbRow[3],
+                userId: dbRow[4],
+                location: dbRow[5]
+            };
+            gamelogDatabase.unshift(row);
         }, `SELECT * FROM gamelog_external WHERE created_at >= date('${dateOffset}') ORDER BY id DESC`);
         var compareByCreatedAt = function (a, b) {
             var A = a.created_at;
@@ -831,30 +795,28 @@ class Database {
     async getNotifications() {
         var notifications = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    id: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: dbRow[i][2],
-                    senderUserId: dbRow[i][3],
-                    senderUsername: dbRow[i][4],
-                    receiverUserId: dbRow[i][5],
-                    message: dbRow[i][6],
-                    details: {
-                        worldId: dbRow[i][7],
-                        worldName: dbRow[i][8],
-                        imageUrl: dbRow[i][9],
-                        inviteMessage: dbRow[i][10],
-                        requestMessage: dbRow[i][11],
-                        responseMessage: dbRow[i][12]
-                    }
-                };
-                row.$isExpired = false;
-                if (dbRow[i][13] === 1) {
-                    row.$isExpired = true;
+            var row = {
+                id: dbRow[0],
+                created_at: dbRow[1],
+                type: dbRow[2],
+                senderUserId: dbRow[3],
+                senderUsername: dbRow[4],
+                receiverUserId: dbRow[5],
+                message: dbRow[6],
+                details: {
+                    worldId: dbRow[7],
+                    worldName: dbRow[8],
+                    imageUrl: dbRow[9],
+                    inviteMessage: dbRow[10],
+                    requestMessage: dbRow[11],
+                    responseMessage: dbRow[12]
                 }
-                notifications.unshift(row);
+            };
+            row.$isExpired = false;
+            if (dbRow[13] === 1) {
+                row.$isExpired = true;
             }
+            notifications.unshift(row);
         }, `SELECT * FROM ${Database.userPrefix}_notifications ORDER BY created_at DESC LIMIT ${Database.maxTableSize}`);
         return notifications;
     }
@@ -937,9 +899,7 @@ class Database {
     async getGpsTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM ${Database.userPrefix}_feed_gps`);
         return size;
     }
@@ -947,9 +907,7 @@ class Database {
     async getStatusTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM ${Database.userPrefix}_feed_status`);
         return size;
     }
@@ -957,9 +915,7 @@ class Database {
     async getBioTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM ${Database.userPrefix}_feed_bio`);
         return size;
     }
@@ -967,9 +923,7 @@ class Database {
     async getAvatarTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM ${Database.userPrefix}_feed_avatar`);
         return size;
     }
@@ -977,9 +931,7 @@ class Database {
     async getOnlineOfflineTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM ${Database.userPrefix}_feed_online_offline`);
         return size;
     }
@@ -987,9 +939,7 @@ class Database {
     async getFriendLogHistoryTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM ${Database.userPrefix}_friend_log_history`);
         return size;
     }
@@ -997,9 +947,7 @@ class Database {
     async getNotificationTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM ${Database.userPrefix}_notifications`);
         return size;
     }
@@ -1007,9 +955,7 @@ class Database {
     async getLocationTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM gamelog_location`);
         return size;
     }
@@ -1017,9 +963,7 @@ class Database {
     async getJoinLeaveTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM gamelog_join_leave`);
         return size;
     }
@@ -1027,9 +971,7 @@ class Database {
     async getPortalSpawnTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM gamelog_portal_spawn`);
         return size;
     }
@@ -1037,9 +979,7 @@ class Database {
     async getVideoPlayTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM gamelog_video_play`);
         return size;
     }
@@ -1047,9 +987,7 @@ class Database {
     async getResourceLoadTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM gamelog_resource_load`);
         return size;
     }
@@ -1057,9 +995,7 @@ class Database {
     async getEventTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM gamelog_event`);
         return size;
     }
@@ -1067,9 +1003,7 @@ class Database {
     async getExternalTableSize() {
         var size = 0;
         await sqliteService.execute((row) => {
-            for (var i = 0; i < row.length; i++) {
-                size = row[i][0];
-            }
+            size = row[0];
         }, `SELECT COUNT(*) FROM gamelog_external`);
         return size;
     }
@@ -1086,12 +1020,10 @@ class Database {
         };
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    ref = {
-                        created_at: row[i][0],
-                        worldId: row[i][1]
-                    };
-                }
+                ref = {
+                    created_at: row[0],
+                    worldId: row[1]
+                };
             },
             `SELECT created_at, world_id FROM gamelog_location WHERE world_id = @worldId ORDER BY id DESC LIMIT @count`,
             {
@@ -1109,12 +1041,10 @@ class Database {
         };
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    ref = {
-                        visitCount: row[i][0],
-                        worldId
-                    };
-                }
+                ref = {
+                    visitCount: row[0],
+                    worldId
+                };
             },
             `SELECT COUNT(DISTINCT location) FROM gamelog_location WHERE world_id = @worldId`,
             {
@@ -1131,10 +1061,8 @@ class Database {
         };
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    if (typeof row[i][0] === 'number') {
-                        ref.timeSpent += row[i][0];
-                    }
+                if (typeof row[0] === 'number') {
+                    ref.timeSpent += row[0];
                 }
             },
             `SELECT time FROM gamelog_location WHERE world_id = @worldId`,
@@ -1157,18 +1085,16 @@ class Database {
         };
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    if (row[i][1]) {
-                        ref = {
-                            created_at: row[i][0],
-                            userId: row[i][1]
-                        };
-                    } else {
-                        ref = {
-                            created_at: row[i][0],
-                            userId: input.id
-                        };
-                    }
+                if (row[1]) {
+                    ref = {
+                        created_at: row[0],
+                        userId: row[1]
+                    };
+                } else {
+                    ref = {
+                        created_at: row[0],
+                        userId: input.id
+                    };
                 }
             },
             `SELECT created_at, user_id FROM gamelog_join_leave WHERE user_id = @userId OR display_name = @displayName ORDER BY id DESC LIMIT @count`,
@@ -1188,18 +1114,16 @@ class Database {
         };
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    if (row[i][1]) {
-                        ref = {
-                            joinCount: row[i][0],
-                            userId: row[i][1]
-                        };
-                    } else {
-                        ref = {
-                            joinCount: row[i][0],
-                            userId: input.id
-                        };
-                    }
+                if (row[1]) {
+                    ref = {
+                        joinCount: row[0],
+                        userId: row[1]
+                    };
+                } else {
+                    ref = {
+                        joinCount: row[0],
+                        userId: input.id
+                    };
                 }
             },
             `SELECT COUNT(DISTINCT location) FROM gamelog_join_leave WHERE (type = 'OnPlayerJoined') AND (user_id = @userId OR display_name = @displayName)`,
@@ -1218,10 +1142,8 @@ class Database {
         };
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    if (typeof row[i][0] === 'number') {
-                        ref.timeSpent += row[i][0];
-                    }
+                if (typeof row[0] === 'number') {
+                    ref.timeSpent += row[0];
                 }
             },
             `SELECT time FROM gamelog_join_leave WHERE (type = 'OnPlayerLeft') AND (user_id = @userId OR display_name = @displayName)`,
@@ -1245,18 +1167,16 @@ class Database {
         };
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    if (typeof row[i][2] === 'number') {
-                        ref.timeSpent += row[i][2];
-                    }
-                    i++;
-                    if (i === 1 || (inCurrentWorld && i === 2)) {
-                        ref.lastSeen = row[i][0];
-                    }
-                    instances.add(row[i][3]);
-                    if (input.displayName !== row[i][4]) {
-                        ref.previousDisplayNames.set(row[i][4], row[i][0]);
-                    }
+                if (typeof row[2] === 'number') {
+                    ref.timeSpent += row[2];
+                }
+                i++;
+                if (i === 1 || (inCurrentWorld && i === 2)) {
+                    ref.lastSeen = row[0];
+                }
+                instances.add(row[3]);
+                if (input.displayName !== row[4]) {
+                    ref.previousDisplayNames.set(row[4], row[0]);
                 }
             },
             `SELECT created_at, user_id, time, location, display_name FROM gamelog_join_leave WHERE user_id = @userId OR display_name = @displayName ORDER BY id DESC`,
@@ -1286,16 +1206,14 @@ class Database {
 
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        lastSeen: dbRow[i][0],
-                        userId: dbRow[i][1],
-                        timeSpent: dbRow[i][2],
-                        joinCount: dbRow[i][3],
-                        displayName: dbRow[i][4]
-                    };
-                    data.push(row);
-                }
+                var row = {
+                    lastSeen: dbRow[0],
+                    userId: dbRow[1],
+                    timeSpent: dbRow[2],
+                    joinCount: dbRow[3],
+                    displayName: dbRow[4]
+                };
+                data.push(row);
             },
             `SELECT
                 g.created_at,
@@ -1355,21 +1273,19 @@ class Database {
         }
         if (gps) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        userId: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        type: 'GPS',
-                        location: dbRow[i][4],
-                        worldName: dbRow[i][5],
-                        previousLocation: dbRow[i][6],
-                        time: dbRow[i][7],
-                        groupName: dbRow[i][8]
-                    };
-                    feedDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    userId: dbRow[2],
+                    displayName: dbRow[3],
+                    type: 'GPS',
+                    location: dbRow[4],
+                    worldName: dbRow[5],
+                    previousLocation: dbRow[6],
+                    time: dbRow[7],
+                    groupName: dbRow[8]
+                };
+                feedDatabase.unshift(row);
             }, `SELECT * FROM ${Database.userPrefix}_feed_gps WHERE location LIKE '%${instanceId}%' ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (online || offline) {
@@ -1382,20 +1298,18 @@ class Database {
                 }
             }
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        userId: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        type: dbRow[i][4],
-                        location: dbRow[i][5],
-                        worldName: dbRow[i][6],
-                        time: dbRow[i][7],
-                        groupName: dbRow[i][8]
-                    };
-                    feedDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    userId: dbRow[2],
+                    displayName: dbRow[3],
+                    type: dbRow[4],
+                    location: dbRow[5],
+                    worldName: dbRow[6],
+                    time: dbRow[7],
+                    groupName: dbRow[8]
+                };
+                feedDatabase.unshift(row);
             }, `SELECT * FROM ${Database.userPrefix}_feed_online_offline WHERE (location LIKE '%${instanceId}%' ${query}) ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         var compareByCreatedAt = function (a, b) {
@@ -1471,55 +1385,49 @@ class Database {
         var feedDatabase = [];
         if (gps) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        userId: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        type: 'GPS',
-                        location: dbRow[i][4],
-                        worldName: dbRow[i][5],
-                        previousLocation: dbRow[i][6],
-                        time: dbRow[i][7],
-                        groupName: dbRow[i][8]
-                    };
-                    feedDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    userId: dbRow[2],
+                    displayName: dbRow[3],
+                    type: 'GPS',
+                    location: dbRow[4],
+                    worldName: dbRow[5],
+                    previousLocation: dbRow[6],
+                    time: dbRow[7],
+                    groupName: dbRow[8]
+                };
+                feedDatabase.unshift(row);
             }, `SELECT * FROM ${Database.userPrefix}_feed_gps WHERE (display_name LIKE '%${search}%' OR world_name LIKE '%${search}%') ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (status) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        userId: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        type: 'Status',
-                        status: dbRow[i][4],
-                        statusDescription: dbRow[i][5],
-                        previousStatus: dbRow[i][6],
-                        previousStatusDescription: dbRow[i][7]
-                    };
-                    feedDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    userId: dbRow[2],
+                    displayName: dbRow[3],
+                    type: 'Status',
+                    status: dbRow[4],
+                    statusDescription: dbRow[5],
+                    previousStatus: dbRow[6],
+                    previousStatusDescription: dbRow[7]
+                };
+                feedDatabase.unshift(row);
             }, `SELECT * FROM ${Database.userPrefix}_feed_status WHERE (display_name LIKE '%${search}%' OR status LIKE '%${search}%' OR status_description LIKE '%${search}%') ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (bio) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        userId: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        type: 'Bio',
-                        bio: dbRow[i][4],
-                        previousBio: dbRow[i][5]
-                    };
-                    feedDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    userId: dbRow[2],
+                    displayName: dbRow[3],
+                    type: 'Bio',
+                    bio: dbRow[4],
+                    previousBio: dbRow[5]
+                };
+                feedDatabase.unshift(row);
             }, `SELECT * FROM ${Database.userPrefix}_feed_bio WHERE (display_name LIKE '%${search}%' OR bio LIKE '%${search}%') ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (avatar) {
@@ -1530,22 +1438,20 @@ class Database {
                 query = 'OR user_id != owner_id';
             }
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        userId: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        type: 'Avatar',
-                        ownerId: dbRow[i][4],
-                        avatarName: dbRow[i][5],
-                        currentAvatarImageUrl: dbRow[i][6],
-                        currentAvatarThumbnailImageUrl: dbRow[i][7],
-                        previousCurrentAvatarImageUrl: dbRow[i][8],
-                        previousCurrentAvatarThumbnailImageUrl: dbRow[i][9]
-                    };
-                    feedDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    userId: dbRow[2],
+                    displayName: dbRow[3],
+                    type: 'Avatar',
+                    ownerId: dbRow[4],
+                    avatarName: dbRow[5],
+                    currentAvatarImageUrl: dbRow[6],
+                    currentAvatarThumbnailImageUrl: dbRow[7],
+                    previousCurrentAvatarImageUrl: dbRow[8],
+                    previousCurrentAvatarThumbnailImageUrl: dbRow[9]
+                };
+                feedDatabase.unshift(row);
             }, `SELECT * FROM ${Database.userPrefix}_feed_avatar WHERE ((display_name LIKE '%${search}%' OR avatar_name LIKE '%${search}%') ${query}) ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (online || offline) {
@@ -1558,20 +1464,18 @@ class Database {
                 }
             }
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        userId: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        type: dbRow[i][4],
-                        location: dbRow[i][5],
-                        worldName: dbRow[i][6],
-                        time: dbRow[i][7],
-                        groupName: dbRow[i][8]
-                    };
-                    feedDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    userId: dbRow[2],
+                    displayName: dbRow[3],
+                    type: dbRow[4],
+                    location: dbRow[5],
+                    worldName: dbRow[6],
+                    time: dbRow[7],
+                    groupName: dbRow[8]
+                };
+                feedDatabase.unshift(row);
             }, `SELECT * FROM ${Database.userPrefix}_feed_online_offline WHERE ((display_name LIKE '%${search}%' OR world_name LIKE '%${search}%') ${query}) ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         var compareByCreatedAt = function (a, b) {
@@ -1635,19 +1539,17 @@ class Database {
         }
         if (location) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: 'Location',
-                        location: dbRow[i][2],
-                        worldId: dbRow[i][3],
-                        worldName: dbRow[i][4],
-                        time: dbRow[i][5],
-                        groupName: dbRow[i][6]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: 'Location',
+                    location: dbRow[2],
+                    worldId: dbRow[3],
+                    worldName: dbRow[4],
+                    time: dbRow[5],
+                    groupName: dbRow[6]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_location WHERE location LIKE '%${instanceId}%' ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (onplayerjoined || onplayerleft) {
@@ -1660,53 +1562,47 @@ class Database {
                 }
             }
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        location: dbRow[i][4],
-                        userId: dbRow[i][5],
-                        time: dbRow[i][6]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: dbRow[2],
+                    displayName: dbRow[3],
+                    location: dbRow[4],
+                    userId: dbRow[5],
+                    time: dbRow[6]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_join_leave WHERE (location LIKE '%${instanceId}%' AND user_id != '${Database.userId}') ${query} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (portalspawn) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: 'PortalSpawn',
-                        displayName: dbRow[i][2],
-                        location: dbRow[i][3],
-                        userId: dbRow[i][4],
-                        instanceId: dbRow[i][5],
-                        worldName: dbRow[i][6]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: 'PortalSpawn',
+                    displayName: dbRow[2],
+                    location: dbRow[3],
+                    userId: dbRow[4],
+                    instanceId: dbRow[5],
+                    worldName: dbRow[6]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_portal_spawn WHERE location LIKE '%${instanceId}%' ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (videoplay) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: 'VideoPlay',
-                        videoUrl: dbRow[i][2],
-                        videoName: dbRow[i][3],
-                        videoId: dbRow[i][4],
-                        location: dbRow[i][5],
-                        displayName: dbRow[i][6],
-                        userId: dbRow[i][7]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: 'VideoPlay',
+                    videoUrl: dbRow[2],
+                    videoName: dbRow[3],
+                    videoId: dbRow[4],
+                    location: dbRow[5],
+                    displayName: dbRow[6],
+                    userId: dbRow[7]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_video_play WHERE location LIKE '%${instanceId}%' ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (resourceload_string || resourceload_image) {
@@ -1719,16 +1615,14 @@ class Database {
                 checkString = `AND resource_type != 'ImageLoad'`;
             }
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: dbRow[i][3],
-                        resourceUrl: dbRow[i][2],
-                        location: dbRow[i][4]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: dbRow[3],
+                    resourceUrl: dbRow[2],
+                    location: dbRow[4]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_resource_load WHERE location LIKE '%${instanceId}%' ${checkString} ${checkImage} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         var compareByCreatedAt = function (a, b) {
@@ -1825,19 +1719,17 @@ class Database {
         var gamelogDatabase = [];
         if (location) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: 'Location',
-                        location: dbRow[i][2],
-                        worldId: dbRow[i][3],
-                        worldName: dbRow[i][4],
-                        time: dbRow[i][5],
-                        groupName: dbRow[i][6]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: 'Location',
+                    location: dbRow[2],
+                    worldId: dbRow[3],
+                    worldName: dbRow[4],
+                    time: dbRow[5],
+                    groupName: dbRow[6]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_location WHERE world_name LIKE '%${search}%' ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (onplayerjoined || onplayerleft) {
@@ -1850,83 +1742,73 @@ class Database {
                 }
             }
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        location: dbRow[i][4],
-                        userId: dbRow[i][5],
-                        time: dbRow[i][6]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: dbRow[2],
+                    displayName: dbRow[3],
+                    location: dbRow[4],
+                    userId: dbRow[5],
+                    time: dbRow[6]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_join_leave WHERE (display_name LIKE '%${search}%' AND user_id != '${Database.userId}') ${vipQuery} ${query} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (portalspawn) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: 'PortalSpawn',
-                        displayName: dbRow[i][2],
-                        location: dbRow[i][3],
-                        userId: dbRow[i][4],
-                        instanceId: dbRow[i][5],
-                        worldName: dbRow[i][6]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: 'PortalSpawn',
+                    displayName: dbRow[2],
+                    location: dbRow[3],
+                    userId: dbRow[4],
+                    instanceId: dbRow[5],
+                    worldName: dbRow[6]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_portal_spawn WHERE (display_name LIKE '%${search}%' OR world_name LIKE '%${search}%') ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (msgevent) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: 'Event',
-                        data: dbRow[i][2]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: 'Event',
+                    data: dbRow[2]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_event WHERE data LIKE '%${search}%' ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (external) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: 'External',
-                        message: dbRow[i][2],
-                        displayName: dbRow[i][3],
-                        userId: dbRow[i][4],
-                        location: dbRow[i][5]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: 'External',
+                    message: dbRow[2],
+                    displayName: dbRow[3],
+                    userId: dbRow[4],
+                    location: dbRow[5]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_external WHERE (display_name LIKE '%${search}%' OR message LIKE '%${search}%') ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (videoplay) {
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: 'VideoPlay',
-                        videoUrl: dbRow[i][2],
-                        videoName: dbRow[i][3],
-                        videoId: dbRow[i][4],
-                        location: dbRow[i][5],
-                        displayName: dbRow[i][6],
-                        userId: dbRow[i][7]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
-            }, `SELECT * FROM gamelog_video_play WHERE video_url LIKE '%${search}%' OR video_name LIKE '%${search}%' OR display_name LIKE '%${search}%' ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: 'VideoPlay',
+                    videoUrl: dbRow[2],
+                    videoName: dbRow[3],
+                    videoId: dbRow[4],
+                    location: dbRow[5],
+                    displayName: dbRow[6],
+                    userId: dbRow[7]
+                };
+                gamelogDatabase.unshift(row);
+            }, `SELECT * FROM gamelog_video_play WHERE (video_url LIKE '%${search}%' OR video_name LIKE '%${search}%' OR display_name LIKE '%${search}%') ${vipQuery} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         if (resourceload_string || resourceload_image) {
             var checkString = '';
@@ -1938,16 +1820,14 @@ class Database {
                 checkString = `AND resource_type != 'ImageLoad'`;
             }
             await sqliteService.execute((dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        rowId: dbRow[i][0],
-                        created_at: dbRow[i][1],
-                        type: dbRow[i][3],
-                        resourceUrl: dbRow[i][2],
-                        location: dbRow[i][4]
-                    };
-                    gamelogDatabase.unshift(row);
-                }
+                var row = {
+                    rowId: dbRow[0],
+                    created_at: dbRow[1],
+                    type: dbRow[3],
+                    resourceUrl: dbRow[2],
+                    location: dbRow[4]
+                };
+                gamelogDatabase.unshift(row);
             }, `SELECT * FROM gamelog_resource_load WHERE resource_url LIKE '%${search}%' ${checkString} ${checkImage} ORDER BY id DESC LIMIT ${Database.maxTableSize}`);
         }
         var compareByCreatedAt = function (a, b) {
@@ -1974,34 +1854,22 @@ class Database {
         var date = new Date().toJSON();
         var dateOffset = new Date(Date.now() - 86400000).toJSON(); // 24 hours
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                gamelogDatabase.unshift(dbRow[i][0]);
-            }
+            gamelogDatabase.unshift(dbRow[0]);
         }, 'SELECT created_at FROM gamelog_location ORDER BY id DESC LIMIT 1');
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                gamelogDatabase.unshift(dbRow[i][0]);
-            }
+            gamelogDatabase.unshift(dbRow[0]);
         }, 'SELECT created_at FROM gamelog_join_leave ORDER BY id DESC LIMIT 1');
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                gamelogDatabase.unshift(dbRow[i][0]);
-            }
+            gamelogDatabase.unshift(dbRow[0]);
         }, 'SELECT created_at FROM gamelog_portal_spawn ORDER BY id DESC LIMIT 1');
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                gamelogDatabase.unshift(dbRow[i][0]);
-            }
+            gamelogDatabase.unshift(dbRow[0]);
         }, 'SELECT created_at FROM gamelog_event ORDER BY id DESC LIMIT 1');
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                gamelogDatabase.unshift(dbRow[i][0]);
-            }
+            gamelogDatabase.unshift(dbRow[0]);
         }, 'SELECT created_at FROM gamelog_video_play ORDER BY id DESC LIMIT 1');
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                gamelogDatabase.unshift(dbRow[i][0]);
-            }
+            gamelogDatabase.unshift(dbRow[0]);
         }, 'SELECT created_at FROM gamelog_resource_load ORDER BY id DESC LIMIT 1');
         if (gamelogDatabase.length > 0) {
             gamelogDatabase.sort();
@@ -2017,9 +1885,7 @@ class Database {
         var worldName = '';
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    worldName = dbRow[i][0];
-                }
+                worldName = dbRow[0];
             },
             'SELECT world_name FROM gamelog_location WHERE world_id = @worldId ORDER BY id DESC LIMIT 1',
             {
@@ -2033,23 +1899,21 @@ class Database {
         var row = {};
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var block = false;
-                    var mute = false;
-                    if (dbRow[i][3] === 1) {
-                        block = true;
-                    }
-                    if (dbRow[i][4] === 1) {
-                        mute = true;
-                    }
-                    row = {
-                        userId: dbRow[i][0],
-                        updatedAt: dbRow[i][1],
-                        displayName: dbRow[i][2],
-                        block,
-                        mute
-                    };
+                var block = false;
+                var mute = false;
+                if (dbRow[3] === 1) {
+                    block = true;
                 }
+                if (dbRow[4] === 1) {
+                    mute = true;
+                }
+                row = {
+                    userId: dbRow[0],
+                    updatedAt: dbRow[1],
+                    displayName: dbRow[2],
+                    block,
+                    mute
+                };
             },
             `SELECT * FROM ${Database.userPrefix}_moderation WHERE user_id = @userId`,
             {
@@ -2093,24 +1957,22 @@ class Database {
         var data = new Map();
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var time = 0;
-                    if (dbRow[i][2]) {
-                        time = dbRow[i][2];
-                    }
-                    var ref = data.get(dbRow[i][1]);
-                    if (typeof ref !== 'undefined') {
-                        time += ref.time;
-                    }
-                    var row = {
-                        created_at: dbRow[i][0],
-                        location: dbRow[i][1],
-                        time,
-                        worldName: dbRow[i][3],
-                        groupName: dbRow[i][4]
-                    };
-                    data.set(row.location, row);
+                var time = 0;
+                if (dbRow[2]) {
+                    time = dbRow[2];
                 }
+                var ref = data.get(dbRow[1]);
+                if (typeof ref !== 'undefined') {
+                    time += ref.time;
+                }
+                var row = {
+                    created_at: dbRow[0],
+                    location: dbRow[1],
+                    time,
+                    worldName: dbRow[3],
+                    groupName: dbRow[4]
+                };
+                data.set(row.location, row);
             },
             `SELECT DISTINCT gamelog_join_leave.created_at, gamelog_join_leave.location, gamelog_join_leave.time, gamelog_location.world_name, gamelog_location.group_name
             FROM gamelog_join_leave
@@ -2201,24 +2063,22 @@ class Database {
         var data = new Map();
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var time = 0;
-                    if (dbRow[i][2]) {
-                        time = dbRow[i][2];
-                    }
-                    var ref = data.get(dbRow[i][1]);
-                    if (typeof ref !== 'undefined') {
-                        time += ref.time;
-                    }
-                    var row = {
-                        created_at: dbRow[i][0],
-                        location: dbRow[i][1],
-                        time,
-                        worldName: dbRow[i][3],
-                        groupName: dbRow[i][4]
-                    };
-                    data.set(row.location, row);
+                var time = 0;
+                if (dbRow[2]) {
+                    time = dbRow[2];
                 }
+                var ref = data.get(dbRow[1]);
+                if (typeof ref !== 'undefined') {
+                    time += ref.time;
+                }
+                var row = {
+                    created_at: dbRow[0],
+                    location: dbRow[1],
+                    time,
+                    worldName: dbRow[3],
+                    groupName: dbRow[4]
+                };
+                data.set(row.location, row);
             },
             `SELECT created_at, location, time, world_name, group_name
             FROM gamelog_location
@@ -2244,31 +2104,29 @@ class Database {
         var players = new Map();
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var time = 0;
-                    var count = 0;
-                    var created_at = dbRow[i][0];
-                    if (dbRow[i][3]) {
-                        time = dbRow[i][3];
-                    }
-                    var ref = players.get(dbRow[i][1]);
-                    if (typeof ref !== 'undefined') {
-                        time += ref.time;
-                        count = ref.count;
-                        created_at = ref.created_at;
-                    }
-                    if (dbRow[i][4] === 'OnPlayerJoined') {
-                        count++;
-                    }
-                    var row = {
-                        created_at,
-                        displayName: dbRow[i][1],
-                        userId: dbRow[i][2],
-                        time,
-                        count
-                    };
-                    players.set(row.displayName, row);
+                var time = 0;
+                var count = 0;
+                var created_at = dbRow[0];
+                if (dbRow[3]) {
+                    time = dbRow[3];
                 }
+                var ref = players.get(dbRow[1]);
+                if (typeof ref !== 'undefined') {
+                    time += ref.time;
+                    count = ref.count;
+                    created_at = ref.created_at;
+                }
+                if (dbRow[4] === 'OnPlayerJoined') {
+                    count++;
+                }
+                var row = {
+                    created_at,
+                    displayName: dbRow[1],
+                    userId: dbRow[2],
+                    time,
+                    count
+                };
+                players.set(row.displayName, row);
             },
             `SELECT created_at, display_name, user_id, time, type FROM gamelog_join_leave WHERE location = @location`,
             {
@@ -2282,14 +2140,12 @@ class Database {
         var data = new Map();
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    var row = {
-                        created_at: dbRow[i][0],
-                        displayName: dbRow[i][1]
-                    };
-                    if (ref.displayName !== row.displayName) {
-                        data.set(row.displayName, row.created_at);
-                    }
+                var row = {
+                    created_at: dbRow[0],
+                    displayName: dbRow[1]
+                };
+                if (ref.displayName !== row.displayName) {
+                    data.set(row.displayName, row.created_at);
                 }
             },
             `SELECT created_at, display_name
@@ -2344,22 +2200,20 @@ class Database {
     async getAvatarHistory(currentUserId, limit = 100) {
         var data = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    id: dbRow[i][0],
-                    authorId: dbRow[i][4],
-                    authorName: dbRow[i][5],
-                    created_at: dbRow[i][6],
-                    description: dbRow[i][7],
-                    imageUrl: dbRow[i][8],
-                    name: dbRow[i][9],
-                    releaseStatus: dbRow[i][10],
-                    thumbnailImageUrl: dbRow[i][11],
-                    updated_at: dbRow[i][12],
-                    version: dbRow[i][13]
-                };
-                data.push(row);
-            }
+            var row = {
+                id: dbRow[0],
+                authorId: dbRow[4],
+                authorName: dbRow[5],
+                created_at: dbRow[6],
+                description: dbRow[7],
+                imageUrl: dbRow[8],
+                name: dbRow[9],
+                releaseStatus: dbRow[10],
+                thumbnailImageUrl: dbRow[11],
+                updated_at: dbRow[12],
+                version: dbRow[13]
+            };
+            data.push(row);
         }, `SELECT * FROM ${Database.userPrefix}_avatar_history INNER JOIN cache_avatar ON cache_avatar.id = ${Database.userPrefix}_avatar_history.avatar_id WHERE author_id != "${currentUserId}" ORDER BY ${Database.userPrefix}_avatar_history.created_at DESC LIMIT ${limit}`);
         return data;
     }
@@ -2368,22 +2222,20 @@ class Database {
         var data = null;
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    data = {
-                        id: dbRow[0],
-                        // added_at: dbRow[1],
-                        authorId: dbRow[i][2],
-                        authorName: dbRow[i][3],
-                        created_at: dbRow[i][4],
-                        description: dbRow[i][5],
-                        imageUrl: dbRow[i][6],
-                        name: dbRow[i][7],
-                        releaseStatus: dbRow[i][8],
-                        thumbnailImageUrl: dbRow[i][9],
-                        updated_at: dbRow[i][10],
-                        version: dbRow[i][11]
-                    };
-                }
+                data = {
+                    id: dbRow[0],
+                    // added_at: dbRow[1],
+                    authorId: dbRow[2],
+                    authorName: dbRow[3],
+                    created_at: dbRow[4],
+                    description: dbRow[5],
+                    imageUrl: dbRow[6],
+                    name: dbRow[7],
+                    releaseStatus: dbRow[8],
+                    thumbnailImageUrl: dbRow[9],
+                    updated_at: dbRow[10],
+                    version: dbRow[11]
+                };
             },
             `SELECT * FROM cache_avatar WHERE id = @id`,
             {
@@ -2443,14 +2295,12 @@ class Database {
     async getAvatarFavorites() {
         var data = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    created_at: dbRow[i][1],
-                    avatarId: dbRow[i][2],
-                    groupName: dbRow[i][3]
-                };
-                data.push(row);
-            }
+            var row = {
+                created_at: dbRow[1],
+                avatarId: dbRow[2],
+                groupName: dbRow[3]
+            };
+            data.push(row);
         }, 'SELECT * FROM favorite_avatar');
         return data;
     }
@@ -2467,23 +2317,21 @@ class Database {
     async getAvatarCache() {
         var data = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    id: dbRow[i][0],
-                    // added_at: dbRow[i][1],
-                    authorId: dbRow[i][2],
-                    authorName: dbRow[i][3],
-                    created_at: dbRow[i][4],
-                    description: dbRow[i][5],
-                    imageUrl: dbRow[i][6],
-                    name: dbRow[i][7],
-                    releaseStatus: dbRow[i][8],
-                    thumbnailImageUrl: dbRow[i][9],
-                    updated_at: dbRow[i][10],
-                    version: dbRow[i][11]
-                };
-                data.push(row);
-            }
+            var row = {
+                id: dbRow[0],
+                // added_at: dbRow[1],
+                authorId: dbRow[2],
+                authorName: dbRow[3],
+                created_at: dbRow[4],
+                description: dbRow[5],
+                imageUrl: dbRow[6],
+                name: dbRow[7],
+                releaseStatus: dbRow[8],
+                thumbnailImageUrl: dbRow[9],
+                updated_at: dbRow[10],
+                version: dbRow[11]
+            };
+            data.push(row);
         }, 'SELECT * FROM cache_avatar');
         return data;
     }
@@ -2551,14 +2399,12 @@ class Database {
     async getWorldFavorites() {
         var data = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    created_at: dbRow[i][1],
-                    worldId: dbRow[i][2],
-                    groupName: dbRow[i][3]
-                };
-                data.push(row);
-            }
+            var row = {
+                created_at: dbRow[1],
+                worldId: dbRow[2],
+                groupName: dbRow[3]
+            };
+            data.push(row);
         }, 'SELECT * FROM favorite_world');
         return data;
     }
@@ -2575,23 +2421,21 @@ class Database {
     async getWorldCache() {
         var data = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    id: dbRow[i][0],
-                    // added_at: dbRow[i][1],
-                    authorId: dbRow[i][2],
-                    authorName: dbRow[i][3],
-                    created_at: dbRow[i][4],
-                    description: dbRow[i][5],
-                    imageUrl: dbRow[i][6],
-                    name: dbRow[i][7],
-                    releaseStatus: dbRow[i][8],
-                    thumbnailImageUrl: dbRow[i][9],
-                    updated_at: dbRow[i][10],
-                    version: dbRow[i][11]
-                };
-                data.push(row);
-            }
+            var row = {
+                id: dbRow[0],
+                // added_at: dbRow[1],
+                authorId: dbRow[2],
+                authorName: dbRow[3],
+                created_at: dbRow[4],
+                description: dbRow[5],
+                imageUrl: dbRow[6],
+                name: dbRow[7],
+                releaseStatus: dbRow[8],
+                thumbnailImageUrl: dbRow[9],
+                updated_at: dbRow[10],
+                version: dbRow[11]
+            };
+            data.push(row);
         }, 'SELECT * FROM cache_world');
         return data;
     }
@@ -2600,22 +2444,20 @@ class Database {
         var data = null;
         await sqliteService.execute(
             (dbRow) => {
-                for (var i = 0; i < dbRow.length; i++) {
-                    data = {
-                        id: dbRow[i][0],
-                        // added_at: dbRow[i][1],
-                        authorId: dbRow[i][2],
-                        authorName: dbRow[i][3],
-                        created_at: dbRow[i][4],
-                        description: dbRow[i][5],
-                        imageUrl: dbRow[i][6],
-                        name: dbRow[i][7],
-                        releaseStatus: dbRow[i][8],
-                        thumbnailImageUrl: dbRow[i][9],
-                        updated_at: dbRow[i][10],
-                        version: dbRow[i][11]
-                    };
-                }
+                data = {
+                    id: dbRow[0],
+                    // added_at: dbRow[1],
+                    authorId: dbRow[2],
+                    authorName: dbRow[3],
+                    created_at: dbRow[4],
+                    description: dbRow[5],
+                    imageUrl: dbRow[6],
+                    name: dbRow[7],
+                    releaseStatus: dbRow[8],
+                    thumbnailImageUrl: dbRow[9],
+                    updated_at: dbRow[10],
+                    version: dbRow[11]
+                };
             },
             `SELECT * FROM cache_world WHERE id = @id`,
             {
@@ -2628,40 +2470,36 @@ class Database {
     async fixGameLogTraveling() {
         var travelingList = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var row = {
-                    rowId: dbRow[i][0],
-                    created_at: dbRow[i][1],
-                    type: dbRow[i][2],
-                    displayName: dbRow[i][3],
-                    location: dbRow[i][4],
-                    userId: dbRow[i][5],
-                    time: dbRow[i][6]
-                };
-                travelingList.unshift(row);
-            }
+            var row = {
+                rowId: dbRow[0],
+                created_at: dbRow[1],
+                type: dbRow[2],
+                displayName: dbRow[3],
+                location: dbRow[4],
+                userId: dbRow[5],
+                time: dbRow[6]
+            };
+            travelingList.unshift(row);
         }, 'SELECT * FROM gamelog_join_leave WHERE type = "OnPlayerLeft" AND location = "traveling"');
         travelingList.forEach(async (travelingEntry) => {
             await sqliteService.execute(
                 (dbRow) => {
-                    for (var i = 0; i < dbRow.length; i++) {
-                        var onPlayingJoin = {
-                            rowId: dbRow[i][0],
-                            created_at: dbRow[i][1],
-                            type: dbRow[i][2],
-                            displayName: dbRow[i][3],
-                            location: dbRow[i][4],
-                            userId: dbRow[i][5],
-                            time: dbRow[i][6]
-                        };
-                        sqliteService.executeNonQuery(
-                            `UPDATE gamelog_join_leave SET location = @location WHERE id = @rowId`,
-                            {
-                                '@rowId': travelingEntry.rowId,
-                                '@location': onPlayingJoin.location
-                            }
-                        );
-                    }
+                    var onPlayingJoin = {
+                        rowId: dbRow[0],
+                        created_at: dbRow[1],
+                        type: dbRow[2],
+                        displayName: dbRow[3],
+                        location: dbRow[4],
+                        userId: dbRow[5],
+                        time: dbRow[6]
+                    };
+                    sqliteService.executeNonQuery(
+                        `UPDATE gamelog_join_leave SET location = @location WHERE id = @rowId`,
+                        {
+                            '@rowId': travelingEntry.rowId,
+                            '@location': onPlayingJoin.location
+                        }
+                    );
                 },
                 'SELECT * FROM gamelog_join_leave WHERE type = "OnPlayerJoined" AND display_name = @displayName AND created_at <= @created_at ORDER BY created_at DESC LIMIT 1',
                 {
@@ -2675,9 +2513,7 @@ class Database {
     async fixNegativeGPS() {
         var gpsTables = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                gpsTables.push(dbRow[i][0]);
-            }
+            gpsTables.push(dbRow[0]);
         }, `SELECT name FROM sqlite_schema WHERE type='table' AND name LIKE '%_gps'`);
         gpsTables.forEach((tableName) => {
             sqliteService.executeNonQuery(
@@ -2689,18 +2525,16 @@ class Database {
     async getGameLogInstancesTime() {
         var instances = new Map();
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                var time = 0;
-                var location = dbRow[i][0];
-                if (dbRow[i][1]) {
-                    time = dbRow[i][1];
-                }
-                var ref = instances.get(location);
-                if (typeof ref !== 'undefined') {
-                    time += ref;
-                }
-                instances.set(location, time);
+            var time = 0;
+            var location = dbRow[0];
+            if (dbRow[1]) {
+                time = dbRow[1];
             }
+            var ref = instances.get(location);
+            if (typeof ref !== 'undefined') {
+                time += ref;
+            }
+            instances.set(location, time);
         }, 'SELECT location, time FROM gamelog_location');
         return instances;
     }
@@ -2709,12 +2543,10 @@ class Database {
         var instances = await this.getGameLogInstancesTime();
         var badEntries = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                if (typeof dbRow[i][1] === 'number') {
-                    var ref = instances.get(dbRow[i][0]);
-                    if (typeof ref !== 'undefined' && dbRow[i][1] > ref) {
-                        badEntries.push(dbRow[i][2]);
-                    }
+            if (typeof dbRow[1] === 'number') {
+                var ref = instances.get(dbRow[0]);
+                if (typeof ref !== 'undefined' && dbRow[1] > ref) {
+                    badEntries.push(dbRow[2]);
                 }
             }
         }, `SELECT location, time, id FROM gamelog_join_leave WHERE type = 'OnPlayerLeft' AND time > 0`);
@@ -2743,9 +2575,7 @@ class Database {
         var userId = '';
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    userId = row[i][0];
-                }
+                userId = row[0];
             },
             `SELECT user_id FROM gamelog_join_leave WHERE display_name = @displayName AND user_id != "" ORDER BY id DESC LIMIT 1`,
             {
@@ -2758,9 +2588,7 @@ class Database {
     async fixBrokenGroupInvites() {
         var notificationTables = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                notificationTables.push(dbRow[i][0]);
-            }
+            notificationTables.push(dbRow[0]);
         }, `SELECT name FROM sqlite_schema WHERE type='table' AND name LIKE '%_notifications'`);
         notificationTables.forEach((tableName) => {
             sqliteService.executeNonQuery(
@@ -2806,7 +2634,7 @@ class Database {
             } catch (e) {
                 if (LINUX) {
                     e = e.toString();
-                }
+                }    
                 if (e.indexOf('duplicate column name') === -1) {
                     console.error(e);
                 }
@@ -2817,9 +2645,7 @@ class Database {
     async updateTableForGroupNames() {
         var tables = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                tables.push(dbRow[i][0]);
-            }
+            tables.push(dbRow[0]);
         }, `SELECT name FROM sqlite_schema WHERE type='table' AND name LIKE '%_feed_gps' OR name LIKE '%_feed_online_offline' OR name = 'gamelog_location'`);
         for (var tableName of tables) {
             try {
@@ -2829,7 +2655,7 @@ class Database {
             } catch (e) {
                 if (LINUX) {
                     e = e.toString();
-                }
+                }    
                 if (e.indexOf('duplicate column name') === -1) {
                     console.error(e);
                 }
@@ -2859,12 +2685,10 @@ class Database {
     async getBrokenGameLogDisplayNames() {
         var badEntries = [];
         await sqliteService.execute((dbRow) => {
-            for (var i = 0; i < dbRow.length; i++) {
-                badEntries.push({
-                    id: dbRow[i][0],
-                    displayName: dbRow[i][1]
-                });
-            }
+            badEntries.push({
+                id: dbRow[0],
+                displayName: dbRow[1]
+            });
         }, 'SELECT id, display_name FROM gamelog_join_leave WHERE display_name LIKE "% (%"');
         return badEntries;
     }
@@ -2892,11 +2716,9 @@ class Database {
         var instances = new Map();
         await sqliteService.execute(
             (row) => {
-                for (var i = 0; i < row.length; i++) {
-                    if (!instances.has(row[i][1])) {
-                        var epoch = new Date(row[i][0]).getTime();
-                        instances.set(row[i][1], epoch);
-                    }
+                if (!instances.has(row[1])) {
+                    var epoch = new Date(row[0]).getTime();
+                    instances.set(row[1], epoch);
                 }
             },
             `SELECT created_at, location FROM gamelog_join_leave WHERE user_id = @userId AND created_at > @created_at ORDER BY created_at DESC`,

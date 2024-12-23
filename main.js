@@ -37,7 +37,7 @@ ipcMain.handle('applyWindowSettings', (event, position, size, state) => {
         if (state === '0') {
             mainWindow.restore();
         } else if (state === '1') {
-            mainWindow.minimize();
+            mainWindow.restore();
         } else if (state === '2') {
             mainWindow.maximize();
         }

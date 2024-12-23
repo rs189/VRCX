@@ -424,8 +424,7 @@ namespace VRCX
                 {
                     valueName = AddHashToKeyName(valueName);
                 }
-
-                Console.WriteLine($"Querying registry values for {valueName}");
+                
                 foreach (var line in lines)
                 {
                     if (line.Contains(valueName))
