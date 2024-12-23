@@ -5,7 +5,7 @@ const fs = require('fs');
 const https = require('https');
 
 const dotnet = require('node-api-dotnet/net8.0');
-require(path.join(__dirname, 'build/bin/Debug/VRCX.cjs'));
+require(path.join(__dirname, 'build/Electron/Debug/VRCX.cjs'));
 
 const InteropApi = require('./InteropApi');
 const interopApi = new InteropApi();
