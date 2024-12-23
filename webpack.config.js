@@ -86,8 +86,8 @@ module.exports = {
     },
     plugins: [
         new webpack.DefinePlugin({
-            'LINUX': JSON.stringify(process.env.PLATFORM === 'linux'),
-            'WINDOWS': JSON.stringify(process.env.PLATFORM === 'windows'),
+            LINUX: JSON.stringify(process.env.PLATFORM === 'linux'),
+            WINDOWS: JSON.stringify(process.env.PLATFORM === 'windows')
         }),
         new MiniCssExtractPlugin({
             filename: '[name].css'

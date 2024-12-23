@@ -4,15 +4,15 @@
     "private": true,
     "main": "main.js",
     "scripts": {
-        "dev": "cross-env PLATFORM=windows webpack --config webpack.config.js --mode development",
         "watch": "cross-env PLATFORM=windows webpack --config webpack.config.js --mode development --watch",
-        "start": "electron .",
+        "watch-linux": "cross-env PLATFORM=linux webpack --config webpack.config.js --mode development --watch",
         "lint": "eslint --ext .js src/ && prettier --check src/",
         "localization": "node ./src/localization/localizationHelperCLI.js",
         "prod": "cross-env PLATFORM=windows webpack --config webpack.config.js --mode production",
         "prod-linux": "cross-env PLATFORM=linux webpack --config webpack.config.js --mode production",
-        "build": "node patch-package-version.js && electron-builder",
-        "postbuild": "node patch-node-api-dotnet.js && node rename-builds.js"
+        "build-electron": "node patch-package-version.js && electron-builder",
+        "postbuild-electron": "node patch-node-api-dotnet.js && node rename-builds.js",
+        "start-electron": "electron ."
     },
     "repository": {
         "type": "git",

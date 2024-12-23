@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 #if LINUX
 using System.Collections.Concurrent;
@@ -328,7 +329,7 @@ namespace VRCX
             {
                 if (!m_FirstRun)
                 {
-                    var logLine = System.Text.Json.JsonSerializer.Serialize(item);
+                    var logLine = JsonSerializer.Serialize(item);
 #if LINUX
                     m_LogQueue.Enqueue(logLine);
 #else
