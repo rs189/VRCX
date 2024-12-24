@@ -14,10 +14,10 @@ using Microsoft.Win32;
 
 namespace VRCX
 {
-    public partial class AppApi
+    public partial class AppApiCef : AppApiInterface
     {
         [DllImport("advapi32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
-        public static extern uint RegSetValueEx(
+        private static extern uint RegSetValueEx(
             UIntPtr hKey,
             [MarshalAs(UnmanagedType.LPStr)] string lpValueName,
             int Reserved,
@@ -26,7 +26,7 @@ namespace VRCX
             int cbData);
 
         [DllImport("advapi32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
-        public static extern int RegOpenKeyEx(
+        private static extern int RegOpenKeyEx(
             UIntPtr hKey,
             string subKey,
             int ulOptions,
@@ -34,9 +34,9 @@ namespace VRCX
             out UIntPtr hkResult);
 
         [DllImport("advapi32.dll")]
-        public static extern int RegCloseKey(UIntPtr hKey);
+        private static extern int RegCloseKey(UIntPtr hKey);
 
-        public string AddHashToKeyName(string key)
+        private string AddHashToKeyName(string key)
         {
             // https://discussions.unity.com/t/playerprefs-changing-the-name-of-keys/30332/4
             // VRC_GROUP_ORDER_usr_032383a7-748c-4fb2-94e4-bcb928e5de6b_h2810492971
@@ -959,7 +959,7 @@ namespace VRCX
             }
         }
 
-        public void CreateVRChatRegistryFolder()
+        private void CreateVRChatRegistryFolder()
         {
 #if LINUX
             string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /f";

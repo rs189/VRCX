@@ -1,20 +1,20 @@
-#if LINUX
-#else
-using CefSharp;
-#endif
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Cookie = System.Net.Cookie;
-using System.Windows;
 using NLog;
+using Timer = System.Threading.Timer;
+
+#if !LINUX
+using CefSharp;
+using System.Windows.Forms;
+#endif
 
 namespace VRCX
 {
@@ -56,15 +56,7 @@ namespace VRCX
             }
         }
 
-#if LINUX
         public void Init()
-        {
-            SetProxy();
-            LoadCookies();
-            _timer.Change(1000, 1000);
-        }
-#else
-        internal void Init()
         {
             SetProxy();
             LoadCookies();
@@ -95,16 +87,16 @@ namespace VRCX
             catch (UriFormatException)
             {
                 VRCXStorage.Instance.Set("VRCX_ProxyServer", string.Empty);
-#if LINUX
-                Console.WriteLine("The proxy server URI you used is invalid.\nVRCX will close, please correct the proxy URI.");
-#else
-                MessageBox.Show("The proxy server URI you used is invalid.\nVRCX will close, please correct the proxy URI.", "Invalid Proxy URI", MessageBoxButton.OK);
+                var message = "The proxy server URI you used is invalid.\nVRCX will close, please correct the proxy URI.";
+#if !LINUX
+                MessageBox.Show(message, "Invalid Proxy URI", MessageBoxButton.OK);
 #endif
+                Logger.Error(message);
                 Environment.Exit(0);
             }
         }
 
-        internal void Exit()
+        public void Exit()
         {
             _timer.Change(-1, -1);
             SaveCookies();
@@ -139,7 +131,7 @@ namespace VRCX
             }
         }
 
-        internal void SaveCookies()
+        private void SaveCookies()
         {
             if (_cookieDirty == false)
             {
@@ -214,7 +206,7 @@ namespace VRCX
                 }
             }
             var imageData = options["imageData"] as string;
-            byte[] fileToUpload = AppApi.Instance.ResizeImageToFitLimits(Convert.FromBase64String(imageData), false);
+            byte[] fileToUpload = Program.AppApiInstance.ResizeImageToFitLimits(Convert.FromBase64String(imageData), false);
             string fileFormKey = "image";
             string fileName = "image.png";
             string fileMimeType = "image/png";
@@ -283,7 +275,7 @@ namespace VRCX
             }
             var imageData = options["imageData"] as string;
             var matchingDimensions = options["matchingDimensions"] as bool? ?? false;
-            byte[] fileToUpload = AppApi.Instance.ResizeImageToFitLimits(Convert.FromBase64String(imageData), matchingDimensions);
+            byte[] fileToUpload = Program.AppApiInstance.ResizeImageToFitLimits(Convert.FromBase64String(imageData), matchingDimensions);
 
             string fileFormKey = "file";
             string fileName = "blob";
@@ -320,7 +312,7 @@ namespace VRCX
             request.ContentType = "multipart/form-data; boundary=" + boundary;
             var requestStream = request.GetRequestStream();
             var imageData = options["imageData"] as string;
-            var fileToUpload = AppApi.Instance.ResizePrintImage(Convert.FromBase64String(imageData));
+            var fileToUpload = Program.AppApiInstance.ResizePrintImage(Convert.FromBase64String(imageData));
             const string fileFormKey = "image";
             const string fileName = "image";
             const string fileMimeType = "image/png";

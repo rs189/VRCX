@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace VRCX
 {
-    public partial class AppApi
+    public partial class AppApiCef : AppApiInterface
     {
         /// <summary>
         /// Gets the VRChat application data location by reading the config file and checking the cache directory.
@@ -121,8 +121,9 @@ namespace VRCX
                     }
                 }
             }
-            catch
+            catch (Exception e)
             {
+                logger.Error($"Failed to get Steam userdata path from registry: {e}");
             }
 #endif
             return steamUserdataPath;
@@ -385,7 +386,7 @@ namespace VRCX
         private static readonly Regex _fileRegex = new Regex(string.Format(@"([{0}]*\.+$)|([{0}]+)",
             Regex.Escape(new string(Path.GetInvalidFileNameChars()))));
 
-        public static string MakeValidFileName(string name)
+        public string MakeValidFileName(string name)
         {
             name = name.Replace("/", "");
             name = name.Replace("\\", "");

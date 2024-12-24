@@ -4,10 +4,6 @@
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
-#if LINUX
-#else
-using CefSharp.Internals;
-#endif
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -16,12 +12,17 @@ using System.Linq;
 using System.Management;
 using System.Text;
 using System.Threading;
+
+#if !LINUX
 using System.Windows.Forms;
+using CefSharp.Internals;
+#endif
 
 namespace VRCX
 {
     internal class StartupArgs
     {
+        private const string SubProcessTypeArgument = "--type";
         public static VrcxLaunchArguments LaunchArguments = new();
 
         public static void ArgsCheck()
@@ -40,18 +41,19 @@ namespace VRCX
             {
                 if (File.Exists(LaunchArguments.ConfigDirectory))
                 {
-#if LINUX
-                    Console.WriteLine("Move your \"VRCX.sqlite3\" into a folder then specify the folder in the launch parameter e.g.\n--config=\"/home/user/VRCX/\"");
-#else
-                    MessageBox.Show("Move your \"VRCX.sqlite3\" into a folder then specify the folder in the launch parameter e.g.\n--config=\"C:\\VRCX\\\"", "--config is now a directory", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    var message =
+                        "Move your \"VRCX.sqlite3\" into a folder then specify the folder in the launch parameter e.g.\n--config=\"C:\\VRCX\\\"";
+#if !LINUX
+                    MessageBox.Show(message, "--config is now a directory", MessageBoxButtons.OK, MessageBoxIcon.Error);
 #endif
+                    Console.WriteLine(message);
                     Environment.Exit(0);
                 }
 
                 Program.AppDataDirectory = LaunchArguments.ConfigDirectory;
             }
-#if LINUX
-#else
+
+#if !LINUX
             var disableClosing = LaunchArguments.IsUpgrade || // we're upgrading, allow it
                                   !string.IsNullOrEmpty(CommandLineArgsParser.GetArgumentValue(args, CefSharpArguments.SubProcessTypeArgument)); // we're launching a subprocess, allow it
 
@@ -127,9 +129,8 @@ namespace VRCX
                 {
                     // ignored
                 }
-#if LINUX
-#else
-                if (commandLine.Contains(CefSharpArguments.SubProcessTypeArgument)) // ignore subprocesses
+
+                if (commandLine.Contains(SubProcessTypeArgument)) // ignore subprocesses
                     continue;
 #endif
                 var processArguments = ParseArgs(commandLine.Split(' '));

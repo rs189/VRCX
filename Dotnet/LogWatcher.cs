@@ -11,9 +11,8 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
-#if LINUX
-using System.Collections.Concurrent;
-#else
+
+#if !LINUX
 using CefSharp;
 #endif
 

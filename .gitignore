@@ -4,4 +4,4 @@ obj/
 obj1/
 .idea/
 *.log
-Dotnet/Folder.DotSettings.user
+*.DotSettings.user

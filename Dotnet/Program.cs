@@ -40,10 +40,10 @@ namespace VRCX
         public static string Version { get; private set; }
         public static bool LaunchDebug;
         private static readonly NLog.Logger logger = NLog.LogManager.GetLogger("VRCX");
-#if LINUX
-#else
+#if !LINUX
         public static VRCXVRInterface VRCXVRInstance { get; private set; }
 #endif
+        public static AppApiInterface AppApiInstance { get; private set; }
 
         private static void SetProgramDirectories()
         {
@@ -80,6 +80,20 @@ namespace VRCX
                 Directory.Move(oldCachePath, newCachePath);
             }
         }
+        
+        private static void GetVersion()
+        {
+            var buildName = "VRCX";
+            try
+            {
+                Version = $"{buildName} {File.ReadAllText(Path.Combine(BaseDirectory, "Version"))}";
+            }
+            catch (Exception)
+            {
+                Version = $"{buildName} Build";
+            }
+            Version = Version.Replace("\r", "").Replace("\n", "");
+        }
 
         private static void ConfigureLogger()
         {
@@ -105,7 +119,7 @@ namespace VRCX
                     Encoding = System.Text.Encoding.UTF8
                 };
 
-                if (Program.LaunchDebug)
+                if (LaunchDebug)
                 {
                     builder.ForLogger().FilterMinLevel(LogLevel.Debug).WriteTo(fileTarget);
                 }
@@ -121,8 +135,7 @@ namespace VRCX
             });
         }
 
-#if LINUX
-#else
+#if !LINUX
         [STAThread]
         private static void Main()
         {
@@ -154,7 +167,7 @@ namespace VRCX
                         MessageBox.Show(
                             "vc_redist has finished installing, if the issue persists upon next restart, please reinstall VRCX From GitHub,\nVRCX Will now restart.", "vc_redist installation complete", MessageBoxButtons.OK);
                         Thread.Sleep(5000);
-                        AppApi.Instance.RestartApplication(false);
+                        AppApiInstance.RestartApplication(false);
                         break;
 
                     case DialogResult.No:
@@ -178,7 +191,7 @@ namespace VRCX
                     e, "Database error", MessageBoxButtons.YesNo, MessageBoxIcon.Error);
                 if (messageBoxResult == DialogResult.Yes)
                 {
-                    AppApi.Instance.OpenLink("https://github.com/vrcx-team/VRCX/wiki#how-to-repair-vrcx-database");
+                    AppApiInstance.OpenLink("https://github.com/vrcx-team/VRCX/wiki#how-to-repair-vrcx-database");
                 }
             }
             #endregion
@@ -190,7 +203,7 @@ namespace VRCX
                     var messageBoxResult = MessageBox.Show(cpuError.Value.Item1, "Potentially Faulty CPU Detected", MessageBoxButtons.YesNo, MessageBoxIcon.Error);
                     if (messageBoxResult == DialogResult.Yes)
                     {
-                        AppApi.Instance.OpenLink(cpuError.Value.Item2);
+                        AppApiInstance.OpenLink(cpuError.Value.Item2);
                     }
                 }
                 logger.Fatal(e, "Unhandled Exception, program dying");
@@ -198,52 +211,6 @@ namespace VRCX
                 Environment.Exit(0);
             }
         }
-#endif
-        private static void GetVersion()
-        {
-            var buildName = "VRCX";
-            try
-            {
-                Version = $"{buildName} {File.ReadAllText(Path.Combine(BaseDirectory, "Version"))}";
-            }
-            catch (Exception)
-            {
-                Version = $"{buildName} Build";
-            }
-            Version = Version.Replace("\r", "").Replace("\n", "");
-        }
-
-#if LINUX
-        public static void PreInit()
-        {
-            StartupArgs.ArgsCheck();
-            SetProgramDirectories();
-        }
-
-        public static void Init()
-        {
-            ConfigureLogger();
-            Update.Check();
-            GetVersion();
-
-            logger.Info("{0} Starting...", Version);
-
-            ProcessMonitor.Instance.Init();
-        }
-#else
-        public static void PreInit()
-        {
-
-        }
-
-        public static void Init()
-        {
-
-        }
-#endif
-
-#if LINUX
-#else
         private static void Run()
         {
             StartupArgs.ArgsCheck();
@@ -260,10 +227,12 @@ namespace VRCX
             logger.Info("{0} Starting...", Version);
             logger.Debug("Wine support detection: {0}", Wine.GetIfWine());
             
-            ProcessMonitor.Instance.Init();
             SQLiteLegacy.Instance.Init();
-            AppApi.Instance.Init();
+            // AppApiInstance = new AppApiElectron();
+            AppApiInstance = new AppApiCef();
+            
             AppApiVr.Instance.Init();
+            ProcessMonitor.Instance.Init();
             Discord.Instance.Init();
             WorldDBManager.Instance.Init();
             WebApi.Instance.Init();

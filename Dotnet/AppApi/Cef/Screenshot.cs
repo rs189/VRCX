@@ -10,7 +10,7 @@ using Newtonsoft.Json.Serialization;
 
 namespace VRCX
 {
-    public partial class AppApi
+    public partial class AppApiCef : AppApiInterface
     {
         private static bool dialogOpen;
 
