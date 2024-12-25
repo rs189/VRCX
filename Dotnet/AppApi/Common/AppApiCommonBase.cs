@@ -6,8 +6,6 @@ namespace VRCX
 {
     public abstract partial class AppApiCommon
     {
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-            
         // AppApi
         public abstract void ShowDevTools();
         public abstract void DeleteAllCookies();
