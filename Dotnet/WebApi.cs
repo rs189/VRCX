@@ -4,7 +4,6 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Cookie = System.Net.Cookie;
@@ -89,7 +88,7 @@ namespace VRCX
                 VRCXStorage.Instance.Set("VRCX_ProxyServer", string.Empty);
                 var message = "The proxy server URI you used is invalid.\nVRCX will close, please correct the proxy URI.";
 #if !LINUX
-                MessageBox.Show(message, "Invalid Proxy URI", MessageBoxButton.OK);
+                System.Windows.Forms.MessageBox.Show(message, "Invalid Proxy URI", MessageBoxButtons.OK, MessageBoxIcon.Error);
 #endif
                 Logger.Error(message);
                 Environment.Exit(0);
@@ -131,7 +130,7 @@ namespace VRCX
             }
         }
 
-        private void SaveCookies()
+        public void SaveCookies()
         {
             if (_cookieDirty == false)
             {
@@ -353,162 +352,22 @@ namespace VRCX
             await requestStream.WriteAsync(endBytes);
             requestStream.Close();
         }
-
-#pragma warning disable CS4014
-
-#if LINUX
-        public async Task<string> ExecuteAsync(string jsonOptions)
+        
+        public async Task<string> ExecuteJson(IDictionary<string, object> options)
         {
-            IDictionary<string, object> options;
-
-            try
+            var result = await Execute(options);
+            return System.Text.Json.JsonSerializer.Serialize(new
             {
-                options = JsonConvert.DeserializeObject<IDictionary<string, object>>(jsonOptions);
-            }
-            catch (JsonException ex)
-            {
-                throw new ArgumentException("Invalid JSON format", ex);
-            }
-
-            try
-            {
-#pragma warning disable SYSLIB0014 // Type or member is obsolete
-                var request = WebRequest.CreateHttp((string)options["url"]);
-#pragma warning restore SYSLIB0014 // Type or member is obsolete
-
-                if (ProxySet)
-                    request.Proxy = Proxy;
-
-                request.CookieContainer = _cookieContainer;
-                request.KeepAlive = true;
-                request.UserAgent = Program.Version;
-                request.AutomaticDecompression = DecompressionMethods.All;
-
-                if (options.TryGetValue("headers", out object headers))
-                {
-                    if (headers is JObject headersJObject)
-                    {
-                        var headersDict = headersJObject.ToObject<Dictionary<string, object>>();
-                        foreach (var header in headersDict)
-                        {
-                            var key = header.Key;
-                            var value = header.Value?.ToString();
-
-                            if (string.Compare(key, "Content-Type", StringComparison.OrdinalIgnoreCase) == 0)
-                            {
-                                request.ContentType = value;
-                            }
-                            else if (string.Compare(key, "Referer", StringComparison.OrdinalIgnoreCase) == 0)
-                            {
-                                request.Referer = value;
-                            }
-                            else
-                            {
-                                request.Headers.Add(key, value);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException("Headers is not in the expected format.");
-                    }
-                }
-
-                if (options.TryGetValue("method", out object method))
-                {
-                    var _method = (string)method;
-                    request.Method = _method;
-
-                    if (string.Compare(_method, "GET", StringComparison.OrdinalIgnoreCase) != 0 &&
-                        options.TryGetValue("body", out object body))
-                    {
-                        using (var stream = await request.GetRequestStreamAsync())
-                        using (var streamWriter = new StreamWriter(stream))
-                        {
-                            await streamWriter.WriteAsync((string)body);
-                        }
-                    }
-                }
-
-                if (options.TryGetValue("uploadImage", out _))
-                {
-                    await ImageUpload(request, options);
-                }
-
-                if (options.TryGetValue("uploadFilePUT", out _))
-                {
-                    await UploadFilePut(request, options);
-                }
-
-                if (options.TryGetValue("uploadImageLegacy", out _))
-                {
-                    await LegacyImageUpload(request, options);
-                }
-
-                if (options.TryGetValue("uploadImagePrint", out _))
-                {
-                    await PrintImageUpload(request, options);
-                }
-
-                using (var response = await request.GetResponseAsync() as HttpWebResponse)
-                {
-                    if (response.Headers["Set-Cookie"] != null)
-                    {
-                        _cookieDirty = true;
-                    }
-
-                    using (var stream = response.GetResponseStream())
-                    using (var streamReader = new StreamReader(stream))
-                    {
-                        if (response.ContentType.Contains("image/") || response.ContentType.Contains("application/octet-stream"))
-                        {
-                            using (var memoryStream = new MemoryStream())
-                            {
-                                await stream.CopyToAsync(memoryStream);
-                                var responseJson = new
-                                {
-                                    data = $"data:image/png;base64,{Convert.ToBase64String(memoryStream.ToArray())}",
-                                    status = response.StatusCode
-                                };
-                                return JsonConvert.SerializeObject(responseJson);
-                            }
-                        }
-                        else
-                        {
-                            var responseJson = new
-                            {
-                                data = await streamReader.ReadToEndAsync(),
-                                status = response.StatusCode
-                            };
-                            return JsonConvert.SerializeObject(responseJson);
-                        }
-                    }
-                }
-            }
-            catch (WebException webException) when (webException.Response is HttpWebResponse response)
-            {
-                using (var stream = response.GetResponseStream())
-                using (var streamReader = new StreamReader(stream))
-                {
-                    var responseJson = new
-                    {
-                        data = await streamReader.ReadToEndAsync(),
-                        status = response.StatusCode
-                    };
-                    return JsonConvert.SerializeObject(responseJson);
-                }
-            }
-            catch (Exception e)
-            {
-                var responseJson = new { error = e.Message };
-                return JsonConvert.SerializeObject(responseJson);
-            }
+                status = result.Item1,
+                message = result.Item2
+            });
         }
-#else
-        public async void Execute(IDictionary<string, object> options, IJavascriptCallback callback)
+
+        public async Task<Tuple<int, string>> Execute(IDictionary<string, object> options)
         {
             try
             {
+                // TODO: switch to HttpClient
 #pragma warning disable SYSLIB0014 // Type or member is obsolete
                 var request = WebRequest.CreateHttp((string)options["url"]);
 #pragma warning restore SYSLIB0014 // Type or member is obsolete
@@ -520,141 +379,95 @@ namespace VRCX
                 request.UserAgent = Program.Version;
                 request.AutomaticDecompression = DecompressionMethods.All;
 
-                if (options.TryGetValue("headers", out object headers))
+                if (options.TryGetValue("headers", out var headers))
                 {
-                    foreach (var header in (IEnumerable<KeyValuePair<string, object>>)headers)
+                    foreach (var (key, o) in (IEnumerable<KeyValuePair<string, object>>)headers)
                     {
-                        var key = header.Key;
-                        var value = header.Value.ToString();
-
+                        var value = (string)o;
                         if (string.Compare(key, "Content-Type", StringComparison.OrdinalIgnoreCase) == 0)
-                        {
                             request.ContentType = value;
-                        }
                         else if (string.Compare(key, "Referer", StringComparison.OrdinalIgnoreCase) == 0)
-                        {
                             request.Referer = value;
-                        }
                         else
-                        {
                             request.Headers.Add(key, value);
-                        }
                     }
                 }
 
-                if (options.TryGetValue("method", out object method))
+                if (options.TryGetValue("method", out var method))
                 {
-                    var _method = (string)method;
-                    request.Method = _method;
-
-                    if (string.Compare(_method, "GET", StringComparison.OrdinalIgnoreCase) != 0 &&
-                        options.TryGetValue("body", out object body) == true)
+                    request.Method = (string)method;
+                    if (string.Compare(request.Method, "GET", StringComparison.OrdinalIgnoreCase) != 0 &&
+                        options.TryGetValue("body", out var body))
                     {
-                        using (var stream = await request.GetRequestStreamAsync())
-                        using (var streamWriter = new StreamWriter(stream))
-                        {
-                            await streamWriter.WriteAsync((string)body);
-                        }
+                        await using var stream = await request.GetRequestStreamAsync();
+                        await using var streamWriter = new StreamWriter(stream);
+                        await streamWriter.WriteAsync((string)body);
                     }
                 }
 
                 if (options.TryGetValue("uploadImage", out _))
-                {
                     await ImageUpload(request, options);
-                }
-
+                
                 if (options.TryGetValue("uploadFilePUT", out _))
-                {
                     await UploadFilePut(request, options);
-                }
 
                 if (options.TryGetValue("uploadImageLegacy", out _))
-                {
                     await LegacyImageUpload(request, options);
-                }
-
+                
                 if (options.TryGetValue("uploadImagePrint", out _))
-                {
                     await PrintImageUpload(request, options);
-                }
 
                 try
                 {
-                    using (var response = await request.GetResponseAsync() as HttpWebResponse)
+                    using var response = await request.GetResponseAsync() as HttpWebResponse;
+                    if (response?.Headers["Set-Cookie"] != null)
+                        _cookieDirty = true;
+
+                    await using var stream = response.GetResponseStream();
+                    using var streamReader = new StreamReader(stream);
+                    if (response.ContentType.Contains("image/") ||
+                        response.ContentType.Contains("application/octet-stream"))
                     {
-                        if (response.Headers["Set-Cookie"] != null)
-                        {
-                            _cookieDirty = true;
-                        }
-                        using (var stream = response.GetResponseStream())
-                        using (var streamReader = new StreamReader(stream))
-                        {
-                            if (callback.CanExecute == true)
-                            {
-                                if (response.ContentType.Contains("image/") || response.ContentType.Contains("application/octet-stream"))
-                                {
-                                    // base64 response data for image
-                                    using (var memoryStream = new MemoryStream())
-                                    {
-                                        await stream.CopyToAsync(memoryStream);
-                                        callback.ExecuteAsync(null, new
-                                        {
-                                            data = $"data:image/png;base64,{Convert.ToBase64String(memoryStream.ToArray())}",
-                                            status = response.StatusCode
-                                        });
-                                    }
-                                }
-                                else
-                                {
-                                    callback.ExecuteAsync(null, new
-                                    {
-                                        data = await streamReader.ReadToEndAsync(),
-                                        status = response.StatusCode
-                                    });
-                                }
-                            }
-                        }
+                        // base64 response data for image
+                        using var memoryStream = new MemoryStream();
+                        await stream.CopyToAsync(memoryStream);
+                        return new Tuple<int, string>(
+                            (int)response.StatusCode,
+                            $"data:image/png;base64,{Convert.ToBase64String(memoryStream.ToArray())}"
+                        );
                     }
+                    return new Tuple<int, string>(
+                        (int)response.StatusCode,
+                        await streamReader.ReadToEndAsync()
+                    );
                 }
                 catch (WebException webException)
                 {
                     if (webException.Response is HttpWebResponse response)
                     {
                         if (response.Headers["Set-Cookie"] != null)
-                        {
                             _cookieDirty = true;
-                        }
-                        using (var stream = response.GetResponseStream())
-                        using (var streamReader = new StreamReader(stream))
-                        {
-                            if (callback.CanExecute == true)
-                            {
-                                callback.ExecuteAsync(null, new
-                                {
-                                    data = await streamReader.ReadToEndAsync(),
-                                    status = response.StatusCode
-                                });
-                            }
-                        }
+
+                        await using var stream = response.GetResponseStream();
+                        using var streamReader = new StreamReader(stream);
+                        return new Tuple<int, string>(
+                            (int)response.StatusCode,
+                            await streamReader.ReadToEndAsync()
+                        );
                     }
-                    else if (callback.CanExecute == true)
-                    {
-                        callback.ExecuteAsync(webException.Message, null);
-                    }
+                    return new Tuple<int, string>(
+                        -1,
+                        webException.Message
+                    );
                 }
             }
             catch (Exception e)
             {
-                if (callback.CanExecute == true)
-                {
-                    // FIXME: 브라우저는 종료되었는데 얘는 이후에 실행되면 터짐
-                    callback.ExecuteAsync(e.Message, null);
-                }
+                return new Tuple<int, string>(
+                    -1,
+                    e.Message
+                );
             }
-
-            callback.Dispose();
         }
-#endif
-#pragma warning restore CS4014
     }
 }

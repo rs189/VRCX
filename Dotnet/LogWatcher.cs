@@ -5,6 +5,7 @@
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -82,18 +83,13 @@ namespace VRCX
                 IsBackground = true
             };
         }
-#if LINUX
+
         public void Init()
         {
             m_Thread.Start();
         }
-#else
-        internal void Init()
-        {
-            m_Thread.Start();
-        }
-#endif
-        internal void Exit()
+
+        public void Exit()
         {
             var thread = m_Thread;
             m_Thread = null;
@@ -344,19 +340,17 @@ namespace VRCX
                 m_LogListLock.ExitWriteLock();
             }
         }
-#if LINUX
+
         public List<string> GetLogLines()
         {
+            // for electron
             var logLines = new List<string>();
-
             while (m_LogQueue.TryDequeue(out var logLine))
-            {
                 logLines.Add(logLine);
-            }
 
             return logLines;
         }
-#endif
+        
         private string ConvertLogTimeToISO8601(string line)
         {
             // 2020.10.31 23:36:22
@@ -721,7 +715,9 @@ namespace VRCX
 
             var data = line.Substring(offset + 13);
 
+#if !LINUX
             WorldDBManager.Instance.ProcessLogWorldDataRequest(data);
+#endif
             return true;
         }
 

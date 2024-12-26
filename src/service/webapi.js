@@ -18,28 +18,15 @@ class WebApiService {
         return WebApi.SetCookies(cookie);
     }
 
-    execute(options) {
-        return new Promise((resolve, reject) => {
-            if (LINUX) {
-                WebApi.ExecuteAsync(JSON.stringify(options))
-                    .then(response => {
-                        if (response.error) {
-                            reject(response.error);
-                        } else {
-                            resolve(JSON.parse(response));
-                        }
-                    })
-                    .catch(err => reject(err));
-            } else {
-                WebApi.Execute(options, (err, response) => {
-                    if (err !== null) {
-                        reject(err);
-                        return;
-                    }
-                    resolve(response);
-                });
-            }
-        });
+    async execute(options) {
+        var item = await WebApi.Execute(options);
+        if (item.Item1 === -1) {
+            throw item.Item2;
+        }
+        return {
+            status: item.Item1,
+            data: item.Item2
+        };
     }
 }
 

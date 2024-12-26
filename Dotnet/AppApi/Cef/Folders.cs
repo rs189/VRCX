@@ -12,14 +12,14 @@ using System.Threading.Tasks;
 
 namespace VRCX
 {
-    public partial class AppApiCef : AppApiInterface
+    public partial class AppApiCef
     {
-        /// <summary>
-        /// Gets the VRChat application data location by reading the config file and checking the cache directory.
-        /// If the cache directory is not found in the config file, it returns the default cache path.
-        /// </summary>
-        /// <returns>The VRChat application data location.</returns>
-        public string GetVRChatAppDataLocation()
+        public override string GetVRChatAppDataLocation()
+        {
+            return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"Low\VRChat\VRChat";
+        }
+        
+        public override string GetVRChatCacheLocation()
         {
             var json = ReadConfigFile();
             if (!string.IsNullOrEmpty(json))
@@ -34,14 +34,11 @@ namespace VRCX
                     }
                 }
             }
-#if LINUX
-            return Path.Combine(LogWatcher.GetVrcPrefixPath(), "drive_c", "users", "steamuser", "AppData", "LocalLow", "VRChat", "VRChat");
-#else
-            return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"Low\VRChat\VRChat";
-#endif
+
+            return Path.Combine(GetVRChatAppDataLocation(), "Cache-WindowsPlayer");
         }
 
-        public string GetVRChatPhotosLocation()
+        public override string GetVRChatPhotosLocation()
         {
             var json = ReadConfigFile();
             if (!string.IsNullOrEmpty(json))
@@ -62,13 +59,8 @@ namespace VRCX
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "VRChat");
 #endif
         }
-
-        /// <summary> 
-        /// Gets the folder the user has selected for User-Generated content such as prints / stickers from the JS side.
-        /// If there is no override on the folder, it returns the default VRChat Photos path.
-        /// </summary>
-        /// <returns>The UGC Photo Location.</returns>
-        public string GetUGCPhotoLocation(string path = "")
+        
+        public override string GetUGCPhotoLocation(string path = "")
         {
             if (string.IsNullOrEmpty(path))
             {
@@ -129,7 +121,7 @@ namespace VRCX
             return steamUserdataPath;
         }
 
-        public string GetVRChatScreenshotsLocation()
+        public override string GetVRChatScreenshotsLocation()
         {
             // program files steam userdata screenshots
             var steamUserdataPath = GetSteamUserdataPathFromRegistry();
@@ -160,16 +152,7 @@ namespace VRCX
             return screenshotPath;
         }
 
-        /// <summary>
-        /// Gets the VRChat cache location by combining the VRChat application data location with the cache directory name.
-        /// </summary>
-        /// <returns>The VRChat cache location.</returns>
-        public string GetVRChatCacheLocation()
-        {
-            return Path.Combine(GetVRChatAppDataLocation(), "Cache-WindowsPlayer");
-        }
-
-        public bool OpenVrcxAppDataFolder()
+        public override bool OpenVrcxAppDataFolder()
         {
             var path = Program.AppDataDirectory;
             if (!Directory.Exists(path))
@@ -179,7 +162,7 @@ namespace VRCX
             return true;
         }
 
-        public bool OpenVrcAppDataFolder()
+        public override bool OpenVrcAppDataFolder()
         {
             string path;
 #if LINUX
@@ -194,7 +177,7 @@ namespace VRCX
             return true;
         }
 
-        public bool OpenVrcPhotosFolder()
+        public override bool OpenVrcPhotosFolder()
         {
             var path = GetVRChatPhotosLocation();
             if (!Directory.Exists(path))
@@ -204,7 +187,7 @@ namespace VRCX
             return true;
         }
 
-        public bool OpenUGCPhotosFolder(string ugcPath = "")
+        public override bool OpenUGCPhotosFolder(string ugcPath = "")
         {
             var path = GetUGCPhotoLocation(ugcPath);
             if (!Directory.Exists(path))
@@ -214,7 +197,7 @@ namespace VRCX
             return true;
         }
 
-        public bool OpenVrcScreenshotsFolder()
+        public override bool OpenVrcScreenshotsFolder()
         {
             var path = GetVRChatScreenshotsLocation();
             if (!Directory.Exists(path))
@@ -224,7 +207,7 @@ namespace VRCX
             return true;
         }
 
-        public bool OpenCrashVrcCrashDumps()
+        public override bool OpenCrashVrcCrashDumps()
         {
             string path;
 #if LINUX
@@ -238,11 +221,8 @@ namespace VRCX
             OpenFolderAndSelectItem(path, true);
             return true;
         }
-
-        /// <summary>
-        /// Opens the folder containing user-defined shortcuts, if it exists.
-        /// </summary>
-        public void OpenShortcutFolder()
+        
+        public override void OpenShortcutFolder()
         {
             var path = AutoAppLaunchManager.Instance.AppShortcutDirectory;
             if (!Directory.Exists(path))
@@ -250,13 +230,8 @@ namespace VRCX
 
             OpenFolderAndSelectItem(path, true);
         }
-
-        /// <summary>
-        /// Opens the folder containing the specified file or folder path and selects the item in the folder.
-        /// </summary>
-        /// <param name="path">The path to the file or folder to select in the folder.</param>
-        /// <param name="isFolder">Whether the specified path is a folder or not. Defaults to false.</param>
-        public void OpenFolderAndSelectItem(string path, bool isFolder = false)
+        
+        public override void OpenFolderAndSelectItem(string path, bool isFolder = false)
         {
             path = Path.GetFullPath(path);
             // I don't think it's quite meant for it, but SHOpenFolderAndSelectItems can open folders by passing the folder path as the item to select, as a child to itself, somehow. So we'll check to see if 'path' is a folder as well.
@@ -316,7 +291,7 @@ namespace VRCX
             }
         }
 
-        public void OpenFolderAndSelectItemFallback(string path)
+        private void OpenFolderAndSelectItemFallback(string path)
         {
             if (!File.Exists(path) && !Directory.Exists(path))
                 return;
@@ -340,32 +315,24 @@ namespace VRCX
             }
         }
 
-        /// <summary>
-        /// Opens a folder dialog to select a folder and pass it back to the JS side.
-        /// </summary>
-        /// <param name="defaultPath">The default path for the folder picker.</param>
-#if LINUX
-#else
-        public async Task<string> OpenFolderSelectorDialog(string defaultPath = "")
+        public override async Task<string> OpenFolderSelectorDialog(string defaultPath = "")
         {
             var tcs = new TaskCompletionSource<string>();
             var staThread = new Thread(() =>
             {
                 try
                 {
-                    using (var openFolderDialog = new FolderBrowserDialog())
-                    {
-                        openFolderDialog.InitialDirectory = Directory.Exists(defaultPath) ? defaultPath : GetVRChatPhotosLocation();
+                    using var openFolderDialog = new FolderBrowserDialog();
+                    openFolderDialog.InitialDirectory = Directory.Exists(defaultPath) ? defaultPath : GetVRChatPhotosLocation();
 
-                        var dialogResult = openFolderDialog.ShowDialog(MainForm.nativeWindow);
-                        if (dialogResult == DialogResult.OK)
-                        {
-                            tcs.SetResult(openFolderDialog.SelectedPath);
-                        }
-                        else
-                        {
-                            tcs.SetResult(defaultPath);
-                        }
+                    var dialogResult = openFolderDialog.ShowDialog(MainForm.nativeWindow);
+                    if (dialogResult == DialogResult.OK)
+                    {
+                        tcs.SetResult(openFolderDialog.SelectedPath);
+                    }
+                    else
+                    {
+                        tcs.SetResult(defaultPath);
                     }
                 }
                 catch (Exception ex)
@@ -378,22 +345,6 @@ namespace VRCX
             staThread.Start();
 
             return await tcs.Task;
-        }
-#endif
-        private static readonly Regex _folderRegex = new Regex(string.Format(@"([{0}]*\.+$)|([{0}]+)",
-            Regex.Escape(new string(Path.GetInvalidPathChars()))));
-
-        private static readonly Regex _fileRegex = new Regex(string.Format(@"([{0}]*\.+$)|([{0}]+)",
-            Regex.Escape(new string(Path.GetInvalidFileNameChars()))));
-
-        public string MakeValidFileName(string name)
-        {
-            name = name.Replace("/", "");
-            name = name.Replace("\\", "");
-            name = _folderRegex.Replace(name, "");
-            name = _fileRegex.Replace(name, "");
-
-            return name;
         }
     }
 }

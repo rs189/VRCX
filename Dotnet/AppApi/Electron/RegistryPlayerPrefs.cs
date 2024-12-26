@@ -2,40 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using Microsoft.Win32;
+using NLog;
 
 namespace VRCX
 {
-    public partial class AppApiCef
+    public partial class AppApiElectron
     {
-        [DllImport("advapi32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
-        private static extern uint RegSetValueEx(
-            UIntPtr hKey,
-            [MarshalAs(UnmanagedType.LPStr)] string lpValueName,
-            int Reserved,
-            RegistryValueKind dwType,
-            byte[] lpData,
-            int cbData);
-
-        [DllImport("advapi32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
-        private static extern int RegOpenKeyEx(
-            UIntPtr hKey,
-            string subKey,
-            int ulOptions,
-            int samDesired,
-            out UIntPtr hkResult);
-
-        [DllImport("advapi32.dll")]
-        private static extern int RegCloseKey(UIntPtr hKey);
-
         private string AddHashToKeyName(string key)
         {
             // https://discussions.unity.com/t/playerprefs-changing-the-name-of-keys/30332/4
@@ -45,7 +23,7 @@ namespace VRCX
                 hash = (hash * 33) ^ c;
             return key + "_h" + hash;
         }
-#if LINUX
+        
         private static int FindMatchingBracket(string content, int openBracketIndex)
         {
             int depth = 0;
@@ -71,7 +49,7 @@ namespace VRCX
 
             if (sectionStart == -1)
             {
-                Console.WriteLine("CompatToolMapping not found");
+                logger.Error("CompatToolMapping not found");
                 return compatToolMapping;
             }
 
@@ -80,7 +58,7 @@ namespace VRCX
 
             if (blockStart == -1 || blockEnd == -1)
             {
-                Console.WriteLine("CompatToolMapping block not found");
+                logger.Error("CompatToolMapping block not found");
                 return compatToolMapping;
             }
 
@@ -104,13 +82,13 @@ namespace VRCX
             return compatToolMapping;
         }
 
-        public static string GetSteamVdfCompatTool()
+        private static string GetSteamVdfCompatTool()
         {
-            string steamPath = LogWatcher.GetSteamPath();
+            string steamPath = _steamPath;
             string configVdfPath = Path.Combine(steamPath, "config", "config.vdf");
             if (!File.Exists(configVdfPath))
             {
-                Console.WriteLine("config.vdf not found");
+                logger.Error("config.vdf not found");
                 return null;
             }
 
@@ -162,7 +140,7 @@ namespace VRCX
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"Error parsing REG_BINARY as plain hex string: {ex.Message}");
+                                logger.Error($"Error parsing REG_BINARY as plain hex string: {ex.Message}");
                                 return null;
                             }
 
@@ -170,7 +148,7 @@ namespace VRCX
                             return "REG_DWORD";
 
                         default:
-                            Console.WriteLine($"Unsupported parsed registry value type: {valueType}");
+                            logger.Error($"Unsupported parsed registry value type: {valueType}");
                             return null;
                     }
                 }
@@ -230,7 +208,7 @@ namespace VRCX
                                 }
                                 catch (Exception ex)
                                 {
-                                    Console.WriteLine($"Error parsing JSON: {ex.Message}");
+                                    logger.Error($"Error parsing JSON: {ex.Message}");
                                     return decodedString;
                                 }
                             }
@@ -247,7 +225,7 @@ namespace VRCX
                 }
             }
 
-            Console.WriteLine($"Key not found: {keyName}");
+            logger.Error($"Key not found: {keyName}");
         
             return null;
         }
@@ -257,11 +235,11 @@ namespace VRCX
             string compatTool = GetSteamVdfCompatTool();
             if (compatTool == null)
             {
-                Console.WriteLine("CompatTool not found");
+                logger.Error("CompatTool not found");
                 return null;
             }
 
-            string steamPath = LogWatcher.GetSteamPath();
+            string steamPath = _steamPath;
             string steamAppsCommonPath = Path.Combine(steamPath, "steamapps", "common");
             string compatabilityToolsPath = Path.Combine(steamPath, "compatibilitytools.d");
             string protonPath = Path.Combine(steamAppsCommonPath, compatTool);
@@ -281,13 +259,13 @@ namespace VRCX
                 winePath = Path.Combine(protonPath, "dist", "bin", "wine");
                 if (!File.Exists(winePath))
                 {
-                    Console.WriteLine("Wine not found in Proton path");
+                    logger.Error("Wine not found in Proton path");
                     return null;
                 }
             }
             else
             {
-                Console.WriteLine("CompatTool and Proton not found");
+                logger.Error("CompatTool and Proton not found");
                 return null;
             }
 
@@ -317,32 +295,28 @@ namespace VRCX
         private string GetWineRegCommand(string command)
         {
             string winePath = GetVRChatWinePath();
-            string winePrefix = LogWatcher.GetVrcPrefixPath();
+            string winePrefix = _vrcPrefixPath;
             string wineRegCommand = $"\"{winePath}\" reg {command}";
             ProcessStartInfo processStartInfo = GetWineProcessStartInfo(winePath, winePrefix, wineRegCommand);
-            using (var process = Process.Start(processStartInfo))
+            using var process = Process.Start(processStartInfo);
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            if (!string.IsNullOrEmpty(error) && 
+                !error.Contains("wineserver: using server-side synchronization.") && 
+                !error.Contains("fixme:wineusb:query_id"))
             {
-                string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
-                process.WaitForExit();
-
-                if (!string.IsNullOrEmpty(error) && 
-                    !error.Contains("wineserver: using server-side synchronization.") && 
-                    !error.Contains("fixme:wineusb:query_id"))
-                {
-                    Console.WriteLine($"Wine reg command error: {error}");
-                    return null;
-                }
-
-                return output;
+                logger.Error($"Wine reg command error: {error}");
+                return null;
             }
 
-            return null;
+            return output;
         }
 
         private string GetWineRegCommandEx(string regCommand)
         {
-            string winePrefix = LogWatcher.GetVrcPrefixPath();
+            string winePrefix = _vrcPrefixPath;
             string filePath = Path.Combine(winePrefix, "user.reg");
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"Registry file not found at {filePath}");
@@ -436,7 +410,7 @@ namespace VRCX
                 return $"Value \"{valueName}\" not found.";
             }
 
-            Console.WriteLine($"Unsupported registry command: {regCommand}");
+            logger.Error($"Unsupported registry command: {regCommand}");
 
             return $"Command '{regCommand}' executed successfully.";
         }
@@ -461,12 +435,7 @@ namespace VRCX
             };
         }
 
-        /// <summary>
-        /// Retrieves the value of the specified key from the VRChat group in the windows registry.
-        /// </summary>
-        /// <param name="key">The name of the key to retrieve.</param>
-        /// <returns>The value of the specified key, or null if the key does not exist.</returns>
-        public string GetVRChatRegistryKey(string key)
+        public override string GetVRChatRegistryKey(string key)
         {
             try 
             {
@@ -487,44 +456,12 @@ namespace VRCX
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Exception in GetRegistryValueFromWine: {ex.Message}");
+                logger.Error($"Exception in GetRegistryValueFromWine: {ex.Message}");
                 return null;
             }
         }
-#else
-        /// <summary>
-        /// Retrieves the value of the specified key from the VRChat group in the windows registry.
-        /// </summary>
-        /// <param name="key">The name of the key to retrieve.</param>
-        /// <returns>The value of the specified key, or null if the key does not exist.</returns>
-        public override object GetVRChatRegistryKey(string key)
-        {
-            var keyName = AddHashToKeyName(key);
-            using var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat");
-            var data = regKey?.GetValue(keyName);
-            if (data == null)
-                return null;
-
-            var type = regKey.GetValueKind(keyName);
-            switch (type)
-            {
-                case RegistryValueKind.Binary:
-                    return Encoding.ASCII.GetString((byte[])data);
-
-                case RegistryValueKind.DWord:
-                    if (data.GetType() != typeof(long))
-                        return data;
-
-                    long.TryParse(data.ToString(), out var longValue);
-                    var bytes = BitConverter.GetBytes(longValue);
-                    var doubleValue = BitConverter.ToDouble(bytes, 0);
-                    return doubleValue;
-            }
-
-            return null;
-        }
-#endif
-#if LINUX
+        
+        // TODO: check this
         public async Task SetVRChatRegistryKeyAsync(string key, object value, int typeInt)
         {
             await Task.Run(() =>
@@ -532,145 +469,221 @@ namespace VRCX
                 SetVRChatRegistryKey(key, value, typeInt);
             });
         }
-#endif  
-        /// <summary>
-        /// Sets the value of the specified key in the VRChat group in the windows registry.
-        /// </summary>
-        /// <param name="key">The name of the key to set.</param>
-        /// <param name="value">The value to set for the specified key.</param>
-        /// <param name="typeInt">The RegistryValueKind type.</param>
-        /// <returns>True if the key was successfully set, false otherwise.</returns>
+
         public override bool SetVRChatRegistryKey(string key, object value, int typeInt)
         {
             var type = (RegistryValueKind)typeInt;
             var keyName = AddHashToKeyName(key);
-            using var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat", true);
-            if (regKey == null)
-                return false;
-
-            object setValue = null;
             switch (type)
             {
                 case RegistryValueKind.Binary:
-                    setValue = Encoding.ASCII.GetBytes(value.ToString());
+                    if (value is JsonElement jsonElement)
+                    {
+                        
+                        if (jsonElement.ValueKind == JsonValueKind.String)
+                        {
+                            byte[] byteArray = Encoding.UTF8.GetBytes(jsonElement.GetString());
+                            var data = BitConverter.ToString(byteArray).Replace("-", "");
+                            if (data.Length == 0)
+                                data = "\"\"";
+                            string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"" + keyName + "\" /t REG_BINARY /d " + data + " /f";
+                            var addResult = GetWineRegCommand(regCommand);
+                            if (addResult == null)
+                                return false;
+                        }
+                        else if (jsonElement.ValueKind == JsonValueKind.Array)
+                        {
+                            byte[] byteArray = jsonElement.EnumerateArray()
+                                                           .Select(e => (byte)e.GetInt32()) // Convert each element to byte
+                                                           .ToArray();
+                            string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"" + keyName + "\" /t REG_BINARY /d " + BitConverter.ToString(byteArray).Replace("-", "") + " /f";
+                            var addResult = GetWineRegCommand(regCommand);
+                            if (addResult == null)
+                                return false;
+                        }
+                        else
+                        {
+                            logger.Error($"Invalid value for REG_BINARY: {value}. It must be a JSON string or array.");
+                            return false;
+                        }
+                    }
+                    else if (value is string jsonArray)
+                    {
+                        byte[] byteArray = Encoding.UTF8.GetBytes(jsonArray);
+                        string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"" + keyName + "\" /t REG_BINARY /d " + BitConverter.ToString(byteArray).Replace("-", "") + " /f";
+                        var addResult = GetWineRegCommand(regCommand);
+                        if (addResult == null)
+                            return false;
+                    }
+                    else
+                    {
+                        logger.Error($"Invalid value for REG_BINARY: {value}. It must be a JsonElement.");
+                        return false;
+                    }
                     break;
-
+                
                 case RegistryValueKind.DWord:
-                    setValue = value;
+                    if (value is int intValue)
+                    {
+                        string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"" + keyName + "\" /t REG_DWORD /d " + intValue + " /f";
+                        var addResult = GetWineRegCommandEx(regCommand);
+                        if (addResult == null)
+                            return false;
+                    }
+                    else if (value is string stringValue && int.TryParse(stringValue, out int parsedIntValue))
+                    {
+                        string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"" + keyName + "\" /t REG_DWORD /d " + parsedIntValue + " /f";
+                        var addResult = GetWineRegCommandEx(regCommand);
+                        if (addResult == null)
+                            return false;
+                    }
+                    else if (value is JsonElement jsonElementValue && jsonElementValue.ValueKind == JsonValueKind.Number)
+                    {
+                        int parsedInt32Value = jsonElementValue.GetInt32();
+                        string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"" + keyName + "\" /t REG_DWORD /d " + parsedInt32Value + " /f";
+                        var addResult = GetWineRegCommandEx(regCommand);
+                        if (addResult == null)
+                            return false;
+                    }
+                    else
+                    {
+                        logger.Error($"Invalid value for REG_DWORD: {value}. It must be a valid integer.");
+                        return false;
+                    }
                     break;
+                default:
+                    logger.Error($"Unsupported set registry value type: {typeInt}");
+                    return false;
             }
-
-            if (setValue == null)
-                return false;
-
-            regKey.SetValue(keyName, setValue, type);
-
             return true;
         }
-  
-        /// <summary>
-        /// Sets the value of the specified key in the VRChat group in the windows registry.
-        /// </summary>
-        /// <param name="key">The name of the key to set.</param>
-        /// <param name="value">The value to set for the specified key.</param>
+
         public override void SetVRChatRegistryKey(string key, byte[] value)
         {
             var keyName = AddHashToKeyName(key);
-#if LINUX
             var data = BitConverter.ToString(value).Replace("-", "");
             if (data.Length == 0)
                 data = "\"\"";
-            string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"" + keyName + "\" /t REG_BINARY /d " + data + " /f";
-            var addResult = GetWineRegCommand(regCommand);
-            if (addResult == null)
-                return;
-#else
-            var hKey = (UIntPtr)0x80000001; // HKEY_LOCAL_MACHINE
-            const int keyWrite = 0x20006;
-            const string keyFolder = @"SOFTWARE\VRChat\VRChat";
-            var openKeyResult = RegOpenKeyEx(hKey, keyFolder, 0, keyWrite, out var folderPointer);
-            if (openKeyResult != 0)
-                throw new Exception("Error opening registry key. Error code: " + openKeyResult);
-
-            var setKeyResult = RegSetValueEx(folderPointer, keyName, 0, RegistryValueKind.DWord, value, value.Length);
-            if (setKeyResult != 0)
-                throw new Exception("Error setting registry value. Error code: " + setKeyResult);
-
-            RegCloseKey(hKey);
-#endif
+            var regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"" + keyName + "\" /t REG_BINARY /d " + data + " /f";
+            GetWineRegCommand(regCommand);
         }
 
         public override Dictionary<string, Dictionary<string, object>> GetVRChatRegistry()
         {
-            var output = new Dictionary<string, Dictionary<string, object>>();
-            using var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat");
-            if (regKey == null)
-                throw new Exception("Nothing to backup.");
+            return null;
+        }
 
-            var keys = regKey.GetValueNames();
+        // TODO: no object type
+        // public Dictionary<string, Dictionary<string, object>> GetVRChatRegistry()
+        public string GetVRChatRegistryJson()
+        {
+            var registry = new Dictionary<string, Dictionary<string, object>>();
+            string regCommand = "query \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\"";
+            var queryResult = GetWineRegCommand(regCommand);
+            if (queryResult == null)
+                return null;
 
-            Span<long> spanLong = stackalloc long[1];
-            Span<double> doubleSpan = MemoryMarshal.Cast<long, double>(spanLong);
+            var lines = queryResult.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(line => 
+                    !string.IsNullOrWhiteSpace(line) && 
+                    !line.Contains("fixme:") && 
+                    !line.Contains("wine:"))
+                .ToArray();
 
-            foreach (var key in keys)
+            foreach (var line in lines)
             {
-                var data = regKey.GetValue(key);
-                var index = key.LastIndexOf("_h", StringComparison.Ordinal);
-                if (index <= 0)
-                    continue;
-
-                var keyName = key.Substring(0, index);
-                if (data == null)
-                    continue;
-
-                var type = regKey.GetValueKind(key);
-                switch (type)
+                var parts = line.Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                                .Select(p => p.Trim())
+                                .ToArray();
+                if (parts.Length >= 3)
                 {
-                    case RegistryValueKind.Binary:
-                        var binDict = new Dictionary<string, object>
-                        {
-                            { "data", Encoding.ASCII.GetString((byte[])data) },
-                            { "type", type }
-                        };
-                        output.Add(keyName, binDict);
-                        break;
-
-                    case RegistryValueKind.DWord:
-                        if (data.GetType() != typeof(long))
-                        {
-                            var dwordDict = new Dictionary<string, object>
+                    var keyName = parts[0];
+                    var index = keyName.LastIndexOf("_h", StringComparison.Ordinal);
+                    if (index > 0)
+                        keyName = keyName.Substring(0, index);
+                    var valueType = parts[parts.Length - 2];
+                    var value = parts[parts.Length - 1];
+                    
+                    switch (valueType)
+                    {
+                        case "REG_BINARY":
+                            try 
                             {
-                                { "data", data },
-                                { "type", type }
-                            };
-                            output.Add(keyName, dwordDict);
+                                // Treat the value as a plain hex string and decode it to ASCII
+                                var hexValues = Enumerable.Range(0, value.Length / 2)
+                                    .Select(i => value.Substring(i * 2, 2)) // Break string into chunks of 2
+                                    .Select(hex => Convert.ToByte(hex, 16)) // Convert each chunk to a byte
+                                    .ToArray();
+
+                                var binDict = new Dictionary<string, object>
+                                {
+                                    { "data", Encoding.ASCII.GetString(hexValues).TrimEnd('\0') },
+                                    { "type", 3 }
+                                };
+                                registry.Add(keyName, binDict);
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.Error($"Error parsing REG_BINARY as plain hex string: {ex.Message}");
+                            }
                             break;
-                        }
 
-                        spanLong[0] = (long)data;
-                        var doubleValue = doubleSpan[0];
-                        var floatDict = new Dictionary<string, object>
-                        {
-                            { "data", doubleValue },
-                            { "type", 100 } // it's special
-                        };
-                        output.Add(keyName, floatDict);
-                        break;
+                        case "REG_DWORD":
+                            string regCommandExDword = $"query \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /v \"{keyName}\"";
+                            var queryResultExDword = GetWineRegCommandEx(regCommandExDword);
+                            if (queryResultExDword == null)
+                                break;
 
-                    default:
-                        Debug.WriteLine($"Unknown registry value kind: {type}");
-                        break;
+                            var resultExDword = ParseWineRegOutputEx(queryResultExDword, keyName);
+                            if (resultExDword == null)
+                                break;
+
+                            try
+                            {
+                                if (resultExDword.StartsWith("hex(4)"))
+                                {
+                                    string hexString = resultExDword;
+                                    string[] hexValues = hexString.Split(':')[1].Split(',');
+                                    byte[] byteValues = hexValues.Select(h => Convert.ToByte(h, 16)).ToArray();
+                                    if (byteValues.Length != 8)
+                                    {
+                                        throw new ArgumentException("Input does not represent a valid 8-byte double-precision float.");
+                                    }
+                                    double parsedDouble = BitConverter.ToDouble(byteValues, 0);
+                                    var doubleDict = new Dictionary<string, object>
+                                    {
+                                        { "data", parsedDouble },
+                                        { "type", 100 } // it's special
+                                    };
+                                    registry.Add(keyName, doubleDict);
+                                }
+                                else
+                                {
+                                    // Convert dword value to integer
+                                    int parsedInt = int.Parse(resultExDword);
+                                    var dwordDict = new Dictionary<string, object>
+                                    {
+                                        { "data", parsedInt },
+                                        { "type", 4 }
+                                    };
+                                    registry.Add(keyName, dwordDict);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.Error($"Error parsing REG_DWORD: {ex.Message}");
+                            }
+                            break;
+                    }
                 }
             }
 
-            return output;
+            return Newtonsoft.Json.JsonConvert.SerializeObject(registry, Newtonsoft.Json.Formatting.Indented);
         }
 
         public override void SetVRChatRegistry(string json)
         {
-            CreateVRChatRegistryFolder();
-#if LINUX
-            var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, object>>>(json);
+            var dict = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, object>>>(json);
             foreach (var item in dict)
             {
                 var data = (JsonElement)item.Value["data"];
@@ -711,110 +724,32 @@ namespace VRCX
                     SetVRChatRegistryKey(item.Key, data, type);
                 }
             }
-#else
-            Span<double> spanDouble = stackalloc double[1];
-            var dict = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, object>>>(json);
-            foreach (var item in dict)
-            {
-                var data = (JsonElement)item.Value["data"];
-                if (!int.TryParse(item.Value["type"].ToString(), out var type))
-                    throw new Exception("Unknown type: " + item.Value["type"]);
-
-                if (data.ValueKind == JsonValueKind.Number)
-                {
-                    if (type == 100)
-                    {
-                        // fun handling of double to long to byte array
-                        spanDouble[0] = data.Deserialize<double>();
-                        var valueLong = MemoryMarshal.Cast<double, long>(spanDouble)[0];
-                        const int dataLength = sizeof(long);
-                        var dataBytes = new byte[dataLength];
-                        Buffer.BlockCopy(BitConverter.GetBytes(valueLong), 0, dataBytes, 0, dataLength);
-                        SetVRChatRegistryKey(item.Key, dataBytes);
-                        continue;
-                    }
-
-                    if (int.TryParse(data.ToString(), out var intValue))
-                    {
-                        SetVRChatRegistryKey(item.Key, intValue, type);
-                        continue;
-                    }
-
-                    throw new Exception("Unknown number type: " + item.Key);
-                }
-
-                SetVRChatRegistryKey(item.Key, data, type);
-            }
-#endif
         }
 
         public override bool HasVRChatRegistryFolder()
         {
-            using var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat");
-            return regKey != null;
+            string regCommand = "query \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\"";
+            var queryResult = GetWineRegCommand(regCommand);
+            if (queryResult == null)
+                return false;
+
+            return !string.IsNullOrEmpty(queryResult);
         }
 
         private void CreateVRChatRegistryFolder()
         {
-#if LINUX
             string regCommand = "add \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /f";
-            var addResult = GetWineRegCommand(regCommand);
-            if (addResult == null)
-                return;
-#endif
-            if (HasVRChatRegistryFolder())
-                return;
-
-            using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\VRChat\VRChat");
-            if (key == null)
-                throw new Exception("Error creating registry key.");
+            GetWineRegCommand(regCommand);
         }
 
         public override void DeleteVRChatRegistryFolder()
         {
-            using var regKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\VRChat\VRChat");
-            if (regKey == null)
-                return;
-
-            Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\VRChat\VRChat");
+            string regCommand = "delete \"HKEY_CURRENT_USER\\SOFTWARE\\VRChat\\VRChat\" /f";
+            GetWineRegCommand(regCommand);
         }
 
-        /// <summary>
-        /// Opens a file dialog to select a VRChat registry backup JSON file.
-        /// </summary>
         public override void OpenVrcRegJsonFileDialog()
         {
-            if (dialogOpen) return;
-            dialogOpen = true;
-
-            var thread = new Thread(() =>
-            {
-                using var openFileDialog = new System.Windows.Forms.OpenFileDialog();
-                openFileDialog.DefaultExt = ".json";
-                openFileDialog.Filter = "JSON Files (*.json)|*.json";
-                openFileDialog.FilterIndex = 1;
-                openFileDialog.RestoreDirectory = true;
-
-                if (openFileDialog.ShowDialog() != DialogResult.OK)
-                {
-                    dialogOpen = false;
-                    return;
-                }
-
-                dialogOpen = false;
-
-                var path = openFileDialog.FileName;
-                if (string.IsNullOrEmpty(path))
-                    return;
-
-                // return file contents
-                var json = File.ReadAllText(path);
-                ExecuteAppFunction("restoreVrcRegistryFromFile", json);
-            });
-
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
         }
-#endif
     }
 }
