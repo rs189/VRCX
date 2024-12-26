@@ -14,23 +14,6 @@ using System.Windows.Forms;
 
 namespace VRCX
 {
-    public class DynamicProgram
-    {
-        public DynamicProgram()
-        {
-        }
-
-        public void PreInit()
-        {
-            Program.PreInit();
-        }
-
-        public void Init()
-        {
-            Program.Init();
-        }
-    }
-
     public static class Program
     {
         public static string BaseDirectory { get; private set; }

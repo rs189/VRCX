@@ -61,7 +61,6 @@ namespace VRCX
             LoadCookies();
             _timer.Change(1000, 1000);
         }
-#endif
 
         private void SetProxy()
         {

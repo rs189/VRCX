@@ -815,6 +815,5 @@ namespace VRCX
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
         }
-#endif
     }
 }

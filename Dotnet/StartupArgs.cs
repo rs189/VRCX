@@ -132,7 +132,7 @@ namespace VRCX
 
                 if (commandLine.Contains(SubProcessTypeArgument)) // ignore subprocesses
                     continue;
-#endif
+                
                 var processArguments = ParseArgs(commandLine.Split(' '));
                 if (processArguments.ConfigDirectory == launchArguments.ConfigDirectory)
                     return true;
