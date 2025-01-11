@@ -14,7 +14,8 @@ set -u
 
 # Ensure Wine version >= 9.0
 wine_version=$(wine --version | grep -Po '(?<=wine-)([0-9.]+)')
-if [ "${1-}" != "force" ] && [[ $wine_version < 9.0 ]]; then
+if [ "${1-}" != "force" ] && awk "BEGIN {exit !($wine_version < 9.0)}"; then
+	echo "Your Wine version: $wine_version"
 	echo "Please upgrade your Wine version to 9.0 or higher."
 	echo "If you want to try anyway, run: install-vrcx.sh force"
 	exit 1
@@ -83,14 +84,10 @@ cp seguiemj.ttf "$WINEPREFIX/drive_c/windows/Fonts"
 WINEPREFIX=$WINEPREFIX wine reg add 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Fonts' /v 'seguiemj' /t REG_SZ /d 'seguiemj.ttf' /f
 rm seguiemj.ttf
 
-rel_path=$(dirname $(realpath $0))
+curl -L https://raw.githubusercontent.com/vrcx-team/VRCX/master/Linux/vrcx.sh -o $WINEPREFIX/drive_c/vrcx.sh
+chmod +x $WINEPREFIX/drive_c/vrcx.sh
 
-# Install twemoji fonts as Segoe UI is proprietary and not included in wine
-if [[ -d "$rel_path/fonts" ]]; then
-    echo "Installing twemoji fonts."
-    cp -r "$rel_path/fonts/"* "$WINEPREFIX/drive_c/windows/Fonts"
-	WINEPREFIX=$WINEPREFIX wine reg add 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Fonts' /v 'seguiemj' /t REG_SZ /d 'seguiemj.ttf' /f
-fi
+curl -L https://raw.githubusercontent.com/vrcx-team/VRCX/master/Linux/winediscordipcbridge.exe -o $WINEPREFIX/drive_c/winediscordipcbridge.exe
 
 echo "Install VRCX.png to $XDG_DATA_HOME/icons"
 curl -L https://raw.githubusercontent.com/vrcx-team/VRCX/master/VRCX.png -o "$XDG_DATA_HOME/icons/VRCX.png"
@@ -100,7 +97,7 @@ echo "[Desktop Entry]
 Type=Application
 Name=VRCX
 Categories=Utility;
-Exec=WINEPREFIX=$WINEPREFIX wine '$INSTALL_LOCATION/VRCX.exe'
+Exec=$WINEPREFIX/drive_c/vrcx.sh
 Icon=VRCX
 " > $XDG_DATA_HOME/applications/vrcx.exe.desktop
 

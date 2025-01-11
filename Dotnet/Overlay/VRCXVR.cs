@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using CefSharp;
+using NLog;
 using SharpDX;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
@@ -26,7 +27,7 @@ namespace VRCX
     public class VRCXVR : VRCXVRInterface
     {
         public static VRCXVRInterface Instance;
-        private static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private static readonly float[] _rotation = { 0f, 0f, 0f };
         private static readonly float[] _translation = { 0f, 0f, 0f };
         private static readonly float[] _translationLeft = { -7f / 100f, -5f / 100f, 6f / 100f };
@@ -55,7 +56,6 @@ namespace VRCX
         private bool _wristOverlayActive;
         private bool _wristOverlayWasActive;
         
-        public bool IsHmdAfk { get; private set; }
 
         static VRCXVR()
         {
@@ -402,7 +402,7 @@ namespace VRCX
                         if (isHmdAfk != IsHmdAfk)
                         {
                             IsHmdAfk = isHmdAfk;
-                            AppApi.Instance.CheckGameRunning();
+                            Program.AppApiInstance.CheckGameRunning();
                         }
 
                         var headsetErr = ETrackedPropertyError.TrackedProp_Success;
@@ -837,16 +837,16 @@ namespace VRCX
         public override void ExecuteVrFeedFunction(string function, string json)
         {
             if (_wristOverlay == null) return;
-            if (_wristOverlay.IsLoading)
-                Restart();
+            // if (_wristOverlay.IsLoading)
+            //     Restart();
             _wristOverlay.ExecuteScriptAsync($"$app.{function}", json);
         }
 
         public override void ExecuteVrOverlayFunction(string function, string json)
         {
             if (_hmdOverlay == null) return;
-            if (_hmdOverlay.IsLoading)
-                Restart();
+            // if (_hmdOverlay.IsLoading)
+            //     Restart();
             _hmdOverlay.ExecuteScriptAsync($"$app.{function}", json);
         }
     }
