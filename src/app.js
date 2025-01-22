@@ -31,6 +31,9 @@ import _apiInit from './classes/apiInit.js';
 import _apiRequestHandler from './classes/apiRequestHandler.js';
 import _vrcxJsonStorage from './classes/vrcxJsonStorage.js';
 
+// tabs
+import ModerationTab from './views/tabs/Moderation.vue';
+
 // components
 import SimpleSwitch from './components/settings/SimpleSwitch.vue';
 
@@ -96,7 +99,8 @@ console.log(`isLinux: ${LINUX}`);
     const i18n = new VueI18n({
         locale: 'en',
         fallbackLocale: 'en',
-        messages: localizedStrings
+        messages: localizedStrings,
+        silentTranslationWarn: true
     });
     const $t = i18n.t.bind(i18n);
     Vue.use(ElementUI, {
@@ -157,6 +161,11 @@ console.log(`isLinux: ${LINUX}`);
         },
         watch: {},
         components: {
+            // tabs
+            ModerationTab,
+
+            // components
+            // - settings
             SimpleSwitch
         },
         el: '#x-app',
@@ -3772,6 +3781,7 @@ console.log(`isLinux: ${LINUX}`);
             if (isGameRunning) {
                 API.currentUser.$online_for = Date.now();
                 API.currentUser.$offline_for = '';
+                API.currentUser.$previousAvatarSwapTime = Date.now();
             } else {
                 await configRepository.setBool('isGameNoVR', this.isGameNoVR);
                 API.currentUser.$online_for = '';
@@ -3780,6 +3790,8 @@ console.log(`isLinux: ${LINUX}`);
                 this.autoVRChatCacheManagement();
                 this.checkIfGameCrashed();
                 this.ipcTimeout = 0;
+                this.addAvatarWearTime(API.currentUser.currentAvatar);
+                API.currentUser.$previousAvatarSwapTime = '';
             }
             this.lastLocationReset();
             this.clearNowPlaying();
@@ -3791,6 +3803,7 @@ console.log(`isLinux: ${LINUX}`);
             this.nextDiscordUpdate = 0;
             console.log(new Date(), 'isGameRunning', isGameRunning);
         }
+
         if (isSteamVRRunning !== this.isSteamVRRunning) {
             this.isSteamVRRunning = isSteamVRRunning;
             console.log('isSteamVRRunning:', isSteamVRRunning);
@@ -3838,12 +3851,15 @@ console.log(`isLinux: ${LINUX}`);
 
         workerTimers.setTimeout(() => {
             // fix some weird sorting bug when disabling data tables
-            if (
-                typeof this.$refs.playerModerationTableRef?.sortData !==
-                'undefined'
-            ) {
-                this.$refs.playerModerationTableRef.sortData.prop = 'created';
-            }
+
+            // looks like it's not needed anymore
+            // if (
+            //     typeof this.$refs.playerModerationTableRef?.sortData !==
+            //     'undefined'
+            // ) {
+            //     this.$refs.playerModerationTableRef.sortData.prop = 'created';
+            // }
+
             if (
                 typeof this.$refs.notificationTableRef?.sortData !== 'undefined'
             ) {
@@ -4301,10 +4317,13 @@ console.log(`isLinux: ${LINUX}`);
         $app.friends.clear();
         $app.pendingActiveFriends.clear();
         $app.friendNumber = 0;
+        $app.isFriendsGroupMe = true;
         $app.isVIPFriends = true;
         $app.isOnlineFriends = true;
         $app.isActiveFriends = true;
         $app.isOfflineFriends = false;
+        $app.isGroupInstances = false;
+        $app.groupInstances = [];
         $app.vipFriends_ = [];
         $app.onlineFriends_ = [];
         $app.activeFriends_ = [];
@@ -4313,6 +4332,7 @@ console.log(`isLinux: ${LINUX}`);
         $app.sortOnlineFriends = false;
         $app.sortActiveFriends = false;
         $app.sortOfflineFriends = false;
+        $app.updateInGameGroupOrder();
     });
 
     API.$on('USER:CURRENT', function (args) {
@@ -5443,6 +5463,10 @@ console.log(`isLinux: ${LINUX}`);
     $app.data.dontLogMeOut = false;
 
     API.$on('LOGIN', async function (args) {
+        // early loading indicator
+        this.isRefreshFriendsLoading = true;
+        $app.feedTable.loading = true;
+
         $app.friendLog = new Map();
         $app.feedTable.data = [];
         $app.feedSessionTable = [];
@@ -7507,33 +7531,7 @@ console.log(`isLinux: ${LINUX}`);
 
     $app.data.playerModerationTable = {
         data: [],
-        lastRunLength: 0,
-        filters: [
-            {
-                prop: 'type',
-                value: [],
-                filterFn: (row, filter) =>
-                    filter.value.some((v) => v === row.type)
-            },
-            {
-                prop: ['sourceDisplayName', 'targetDisplayName'],
-                value: ''
-            }
-        ],
-        tableProps: {
-            stripe: true,
-            size: 'mini',
-            defaultSort: {
-                prop: 'created',
-                order: 'descending'
-            }
-        },
-        pageSize: $app.data.tablePageSize,
-        paginationProps: {
-            small: true,
-            layout: 'sizes,prev,pager,next,total',
-            pageSizes: [10, 15, 25, 50, 100]
-        }
+        pageSize: $app.data.tablePageSize
     };
 
     API.$on('LOGIN', function () {
@@ -7541,10 +7539,10 @@ console.log(`isLinux: ${LINUX}`);
     });
 
     API.$on('PLAYER-MODERATION', function (args) {
-        var { ref } = args;
-        var array = $app.playerModerationTable.data;
-        var { length } = array;
-        for (var i = 0; i < length; ++i) {
+        let { ref } = args;
+        let array = $app.playerModerationTable.data;
+        let { length } = array;
+        for (let i = 0; i < length; ++i) {
             if (array[i].id === ref.id) {
                 Vue.set(array, i, ref);
                 return;
@@ -7554,36 +7552,16 @@ console.log(`isLinux: ${LINUX}`);
     });
 
     API.$on('PLAYER-MODERATION:@DELETE', function (args) {
-        var { ref } = args;
-        var array = $app.playerModerationTable.data;
-        var { length } = array;
-        for (var i = 0; i < length; ++i) {
+        let { ref } = args;
+        let array = $app.playerModerationTable.data;
+        let { length } = array;
+        for (let i = 0; i < length; ++i) {
             if (array[i].id === ref.id) {
                 array.splice(i, 1);
                 return;
             }
         }
     });
-
-    $app.methods.deletePlayerModeration = function (row) {
-        API.deletePlayerModeration({
-            moderated: row.targetUserId,
-            type: row.type
-        });
-    };
-
-    $app.methods.deletePlayerModerationPrompt = function (row) {
-        this.$confirm(`Continue? Delete Moderation ${row.type}`, 'Confirm', {
-            confirmButtonText: 'Confirm',
-            cancelButtonText: 'Cancel',
-            type: 'info',
-            callback: (action) => {
-                if (action === 'confirm') {
-                    this.deletePlayerModeration(row);
-                }
-            }
-        });
-    };
 
     // #endregion
     // #region | App: Notification
@@ -7841,10 +7819,6 @@ console.log(`isLinux: ${LINUX}`);
             JSON.stringify(this.friendLogTable.filters[0].value)
         );
         await configRepository.setString(
-            'VRCX_playerModerationTableFilters',
-            JSON.stringify(this.playerModerationTable.filters[0].value)
-        );
-        await configRepository.setString(
             'VRCX_notificationTableFilters',
             JSON.stringify(this.notificationTable.filters[0].value)
         );
@@ -7866,12 +7840,6 @@ console.log(`isLinux: ${LINUX}`);
     );
     $app.data.friendLogTable.filters[0].value = JSON.parse(
         await configRepository.getString('VRCX_friendLogTableFilters', '[]')
-    );
-    $app.data.playerModerationTable.filters[0].value = JSON.parse(
-        await configRepository.getString(
-            'VRCX_playerModerationTableFilters',
-            '[]'
-        )
     );
     $app.data.notificationTable.filters[0].value = JSON.parse(
         await configRepository.getString('VRCX_notificationTableFilters', '[]')
@@ -8162,7 +8130,7 @@ console.log(`isLinux: ${LINUX}`);
             '[ "https://avtr.just-h.party/vrcx_search.php" ]'
         )
     );
-    $app.data.pendingOfflineDelay = 130000;
+    $app.data.pendingOfflineDelay = 180000;
     if (await configRepository.getString('VRCX_avatarRemoteDatabaseProvider')) {
         // move existing provider to new list
         var avatarRemoteDatabaseProvider = await configRepository.getString(
@@ -8579,7 +8547,7 @@ console.log(`isLinux: ${LINUX}`);
             document.head.appendChild($appThemeStyle);
         }
         this.updateVRConfigVars();
-        await this.updatetrustColor();
+        await this.updateTrustColor();
         await this.applyWineEmojis();
     };
 
@@ -9158,7 +9126,7 @@ console.log(`isLinux: ${LINUX}`);
         )
     );
 
-    $app.methods.updatetrustColor = async function (setRandomColor = false) {
+    $app.methods.updateTrustColor = async function (setRandomColor = false) {
         if (setRandomColor) {
             this.randomUserColours = !this.randomUserColours;
         }
@@ -9184,10 +9152,10 @@ console.log(`isLinux: ${LINUX}`);
                 API.applyUserTrustLevel(ref);
             });
         }
-        await this.updatetrustColorClasses();
+        await this.updateTrustColorClasses();
     };
 
-    $app.methods.updatetrustColorClasses = async function () {
+    $app.methods.updateTrustColorClasses = async function () {
         var trustColor = JSON.parse(
             await configRepository.getString(
                 'VRCX_trustColor',
@@ -9215,7 +9183,7 @@ console.log(`isLinux: ${LINUX}`);
         style.innerHTML = newCSS;
         document.getElementsByTagName('head')[0].appendChild(style);
     };
-    await $app.methods.updatetrustColorClasses();
+    await $app.methods.updateTrustColorClasses();
 
     $app.data.notificationPosition = await configRepository.getString(
         'VRCX_notificationPosition',
@@ -10532,6 +10500,8 @@ console.log(`isLinux: ${LINUX}`);
         bundleSizes: [],
         lastUpdated: ''
     };
+
+    $app.data.currentInstanceWorldDescriptionExpanded = false;
     $app.data.currentInstanceLocation = {};
 
     $app.methods.updateCurrentInstanceWorld = function () {
@@ -12124,6 +12094,7 @@ console.log(`isLinux: ${LINUX}`);
         treeData: [],
         bundleSizes: [],
         platformInfo: {},
+        timeSpent: 0,
         lastUpdated: '',
         inCache: false,
         cacheSize: 0,
@@ -12174,6 +12145,7 @@ console.log(`isLinux: ${LINUX}`);
         D.lastUpdated = '';
         D.bundleSizes = [];
         D.platformInfo = {};
+        D.timeSpent = 0;
         D.isFavorite =
             API.cachedFavoritesByObjectId.has(avatarId) ||
             (this.isLocalUserVrcplusSupporter() &&
@@ -12192,6 +12164,18 @@ console.log(`isLinux: ${LINUX}`);
                 return;
             }
         }
+        database.getAvatarTimeSpent(avatarId).then((aviTime) => {
+            if (D.id === aviTime.avatarId) {
+                D.timeSpent = aviTime.timeSpent;
+                if (
+                    D.id === API.currentUser.currentAvatar &&
+                    API.currentUser.$previousAvatarSwapTime
+                ) {
+                    D.timeSpent +=
+                        Date.now() - API.currentUser.$previousAvatarSwapTime;
+                }
+            }
+        });
         API.getAvatar({ avatarId })
             .then((args) => {
                 var { ref } = args;
@@ -16752,9 +16736,11 @@ console.log(`isLinux: ${LINUX}`);
                 location.worldId,
                 this.screenshotHelperModifyFilename
             );
+            console.log('Screenshot metadata added', newPath);
         }
         if (this.screenshotHelperCopyToClipboard) {
             await AppApi.CopyImageToClipboard(newPath);
+            console.log('Screenshot copied to clipboard', newPath);
         }
     };
 
@@ -16801,9 +16787,12 @@ console.log(`isLinux: ${LINUX}`);
 
     $app.methods.getAndDisplayLastScreenshot = function () {
         this.screenshotMetadataResetSearch();
-        AppApi.GetLastScreenshot().then((path) =>
-            this.getAndDisplayScreenshot(path)
-        );
+        AppApi.GetLastScreenshot().then((path) => {
+            if (!path) {
+                return;
+            }
+            this.getAndDisplayScreenshot(path);
+        });
     };
 
     /**
@@ -17086,6 +17075,9 @@ console.log(`isLinux: ${LINUX}`);
     };
 
     $app.methods.copyImageToClipboard = function (path) {
+        if (!path) {
+            return;
+        }
         AppApi.CopyImageToClipboard(path).then(() => {
             this.$message({
                 message: 'Image copied to clipboard',
@@ -17095,6 +17087,9 @@ console.log(`isLinux: ${LINUX}`);
     };
 
     $app.methods.openImageFolder = function (path) {
+        if (!path) {
+            return;
+        }
         AppApi.OpenFolderAndSelectItem(path).then(() => {
             this.$message({
                 message: 'Opened image folder',
@@ -17703,6 +17698,9 @@ console.log(`isLinux: ${LINUX}`);
             var json = await this.getVRChatRegistryKey(
                 `VRC_GROUP_ORDER_${API.currentUser.id}`
             );
+            if (!json) {
+                return;
+            }
             this.inGameGroupOrder = JSON.parse(json);
         } catch (err) {
             console.error(err);
@@ -17712,6 +17710,21 @@ console.log(`isLinux: ${LINUX}`);
     $app.methods.sortGroupsByInGame = function (a, b) {
         var aIndex = this.inGameGroupOrder.indexOf(a?.id);
         var bIndex = this.inGameGroupOrder.indexOf(b?.id);
+        if (aIndex === -1 && bIndex === -1) {
+            return 0;
+        }
+        if (aIndex === -1) {
+            return 1;
+        }
+        if (bIndex === -1) {
+            return -1;
+        }
+        return aIndex - bIndex;
+    };
+
+    $app.methods.sortGroupInstancesByInGame = function (a, b) {
+        var aIndex = this.inGameGroupOrder.indexOf(a?.group?.id);
+        var bIndex = this.inGameGroupOrder.indexOf(b?.group?.id);
         if (aIndex === -1 && bIndex === -1) {
             return 0;
         }
@@ -19858,30 +19871,45 @@ console.log(`isLinux: ${LINUX}`);
         var historyArray = await database.getAvatarHistory(API.currentUser.id);
         this.avatarHistoryArray = historyArray;
         for (var i = 0; i < historyArray.length; i++) {
-            this.avatarHistory.add(historyArray[i].id);
-            API.applyAvatar(historyArray[i]);
+            var avatar = historyArray[i];
+            if (avatar.authorId === API.currentUser.id) {
+                continue;
+            }
+            this.avatarHistory.add(avatar.id);
+            API.applyAvatar(avatar);
         }
     };
 
     $app.methods.addAvatarToHistory = function (avatarId) {
         API.getAvatar({ avatarId }).then((args) => {
             var { ref } = args;
+
+            database.addAvatarToCache(ref);
+            database.addAvatarToHistory(ref.id);
+
             if (ref.authorId === API.currentUser.id) {
                 return;
             }
+
             var historyArray = this.avatarHistoryArray;
             for (var i = 0; i < historyArray.length; ++i) {
                 if (historyArray[i].id === ref.id) {
                     historyArray.splice(i, 1);
                 }
             }
-            this.avatarHistoryArray.unshift(ref);
-            database.addAvatarToCache(ref);
 
+            this.avatarHistoryArray.unshift(ref);
             this.avatarHistory.delete(ref.id);
             this.avatarHistory.add(ref.id);
-            database.addAvatarToHistory(ref.id);
         });
+    };
+
+    $app.methods.addAvatarWearTime = function (avatarId) {
+        if (!API.currentUser.$previousAvatarSwapTime || !avatarId) {
+            return;
+        }
+        const timeSpent = Date.now() - API.currentUser.$previousAvatarSwapTime;
+        database.addAvatarTimeSpent(avatarId, timeSpent);
     };
 
     $app.methods.promptClearAvatarHistory = function () {
@@ -19909,7 +19937,7 @@ console.log(`isLinux: ${LINUX}`);
     );
 
     $app.methods.updateDatabaseVersion = async function () {
-        var databaseVersion = 11;
+        var databaseVersion = 12;
         if (this.databaseVersion < databaseVersion) {
             if (this.databaseVersion) {
                 var msgBox = this.$message({
@@ -22272,7 +22300,10 @@ console.log(`isLinux: ${LINUX}`);
         try {
             var loggingEnabled =
                 await this.getVRChatRegistryKey('LOGGING_ENABLED');
-            if (loggingEnabled === null) {
+            if (
+                loggingEnabled === null ||
+                typeof loggingEnabled === 'undefined'
+            ) {
                 // key not found
                 return;
             }
@@ -23087,6 +23118,94 @@ console.log(`isLinux: ${LINUX}`);
 
     $app.methods.isLinux = function () {
         return LINUX;
+    };
+
+    // friendsListSiderBar
+    $app.methods.handleSwitchGroupByInstance = async function () {
+        this.isSidebarGroupByInstance = !this.isSidebarGroupByInstance;
+        await configRepository.setBool(
+            'VRCX_sidebarGroupByInstance',
+            this.isSidebarGroupByInstance
+        );
+    };
+
+    // friendsListSidebar
+    //  - SidebarGroupByInstance
+
+    $app.data.isSidebarGroupByInstance = await configRepository.getBool(
+        'VRCX_sidebarGroupByInstance',
+        true
+    );
+    $app.computed.onlineFriendsInSameInstance = function () {
+        const groupedItems = {};
+
+        this.onlineFriends.forEach((item) => {
+            const key = item.ref?.$location.tag;
+            if (!key || key === 'private' || key === 'offline') return;
+            if (!groupedItems[key]) {
+                groupedItems[key] = [];
+            }
+            groupedItems[key].push(item);
+        });
+
+        const sortedGroups = [];
+        for (const group of Object.values(groupedItems)) {
+            if (group.length > 1) {
+                sortedGroups.push(
+                    group.sort(
+                        (a, b) => a.ref?.$location_at - b.ref?.$location_at
+                    )
+                );
+            }
+        }
+
+        return sortedGroups.sort((a, b) => b.length - a.length);
+    };
+
+    $app.computed.onlineFriendsNotInSameInstance = function () {
+        const friendsInSameInstance = new Set(
+            this.onlineFriendsInSameInstance.flat().map((friend) => friend.id)
+        );
+
+        return this.onlineFriends.filter(
+            (friend) => !friendsInSameInstance.has(friend.id)
+        );
+    };
+
+    $app.computed.vipFriendsInSameInstance = function () {
+        const groupedItems = {};
+
+        this.vipFriends.forEach((item) => {
+            const key = item.ref?.$location.tag;
+            if (!key || key === 'private' || key === 'offline') return;
+            if (!groupedItems[key]) {
+                groupedItems[key] = [];
+            }
+            groupedItems[key].push(item);
+        });
+
+        const sortedGroups = [];
+        for (const group of Object.values(groupedItems)) {
+            if (group.length > 1) {
+                sortedGroups.push(
+                    group.sort(
+                        (a, b) => a.ref?.$location_at - b.ref?.$location_at
+                    )
+                );
+            }
+        }
+
+        return sortedGroups.sort((a, b) => b.length - a.length);
+    };
+
+    $app.computed.vipFriendsNotInSameInstance = function () {
+        const friendsInSameInstance = new Set(
+            this.vipFriendsInSameInstance.flat().map((friend) => friend.id)
+        );
+
+        return this.vipFriends.filter(
+            (friend) => !friendsInSameInstance.has(friend.id)
+        );
     };
 
     // #endregion
