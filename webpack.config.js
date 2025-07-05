@@ -3,8 +3,11 @@ const webpack = require('webpack');
 const CopyPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const TerserPlugin = require('terser-webpack-plugin');
 const { VueLoaderPlugin } = require('vue-loader');
+const { EsbuildPlugin } = require('esbuild-loader');
+
+const scssBasePath = './src/assets/scss/';
+const themeBasePath = `${scssBasePath}themes/`;
 
 module.exports = {
     entry: {
@@ -13,20 +16,21 @@ module.exports = {
             'noty',
             'vue',
             'vue-data-tables',
-            'vue-lazyload'
+            'vue-lazyload',
+            'dayjs'
         ],
         app: {
             import: ['./src/app.js', './src/app.scss'],
             dependOn: 'vendor'
         },
-        'theme.dark': './src/theme.dark.scss',
-        'theme.darkvanillaold': './src/theme.darkvanillaold.scss',
-        'theme.darkvanilla': './src/theme.darkvanilla.scss',
-        'theme.pink': './src/theme.pink.scss',
-        'theme.material3': './src/theme.material3.scss',
-        flags: './src/flags.scss',
-        'animated-emoji': './src/animated-emoji.scss',
-        'emoji.font': './src/emoji.font.scss',
+        'theme.dark': `${themeBasePath}theme.dark.scss`,
+        'theme.darkvanillaold': `${themeBasePath}theme.darkvanillaold.scss`,
+        'theme.darkvanilla': `${themeBasePath}theme.darkvanilla.scss`,
+        'theme.pink': `${themeBasePath}theme.pink.scss`,
+        'theme.material3': `${themeBasePath}theme.material3.scss`,
+        flags: `${scssBasePath}flags.scss`,
+        'animated-emoji': `${scssBasePath}animated-emoji.scss`,
+        'emoji.font': `${scssBasePath}emoji.font.scss`,
         vr: {
             import: ['./src/vr.js', './src/vr.scss'],
             dependOn: 'vendor'
@@ -46,16 +50,18 @@ module.exports = {
                 loader: 'vue-loader'
             },
             {
+                test: /\.[jt]sx?$/,
+                exclude: /node_modules/,
+                loader: 'esbuild-loader',
+                options: {
+                    loader: 'js',
+                    target: 'esnext',
+                    legalComments: 'inline'
+                }
+            },
+            {
                 test: /\.pug$/,
-                oneOf: [
-                    {
-                        resourceQuery: /^\?vue/,
-                        use: 'pug-plain-loader'
-                    },
-                    {
-                        use: ['raw-loader', 'pug-plain-loader']
-                    }
-                ]
+                use: [{ loader: 'raw-loader' }, { loader: 'pug-plain-loader' }]
             },
             {
                 test: /\.s?css$/,
@@ -71,12 +77,9 @@ module.exports = {
         ]
     },
     resolve: {
-        extensions: ['.css', '.js', '.scss'],
+        extensions: ['.js', '.css', '.scss'],
         alias: {
-            vue: path.join(
-                __dirname,
-                './node_modules/vue/dist/vue.common.prod.js'
-            )
+            vue: 'vue/dist/vue.esm.js'
         }
     },
     performance: {
@@ -100,13 +103,13 @@ module.exports = {
         }),
         new HtmlWebpackPlugin({
             filename: 'index.html',
-            template: './src/index.pug',
+            template: './src/static/index.html',
             inject: false,
             minify: false
         }),
         new HtmlWebpackPlugin({
             filename: 'vr.html',
-            template: './src/vr.pug',
+            template: './src/static/vr.html',
             inject: false,
             minify: false
         }),
@@ -118,13 +121,17 @@ module.exports = {
                     to: './images/'
                 }
             ]
-        })
+        }),
+        new webpack.ProgressPlugin({})
     ],
     optimization: {
         minimizer: [
-            new TerserPlugin({
-                extractComments: false
+            new EsbuildPlugin({
+                target: 'es2020'
             })
         ]
+    },
+    watchOptions: {
+        ignored: /node_modules/
     }
 };

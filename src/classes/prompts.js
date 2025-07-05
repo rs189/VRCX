@@ -1,7 +1,8 @@
 import * as workerTimers from 'worker-timers';
-import configRepository from '../repository/config.js';
-import database from '../repository/database.js';
+import configRepository from '../service/config.js';
+import database from '../service/database.js';
 import { baseClass, $app, API, $t, $utils } from './baseClass.js';
+import { avatarRequest, favoriteRequest, worldRequest } from '../api';
 
 export default class extends baseClass {
     constructor(_app, _API, _t) {
@@ -31,7 +32,7 @@ export default class extends baseClass {
                                 code: instance.inputValue.trim()
                             })
                                 .catch((err) => {
-                                    this.promptTOTP();
+                                    $app.clearCookiesTryLogin();
                                     throw err;
                                 })
                                 .then((args) => {
@@ -71,7 +72,7 @@ export default class extends baseClass {
                                 code: instance.inputValue.trim()
                             })
                                 .catch((err) => {
-                                    this.promptOTP();
+                                    $app.clearCookiesTryLogin();
                                     throw err;
                                 })
                                 .then((args) => {
@@ -131,139 +132,6 @@ export default class extends baseClass {
             );
         },
 
-        promptUserIdDialog() {
-            this.$prompt(
-                $t('prompt.direct_access_user_id.description'),
-                $t('prompt.direct_access_user_id.header'),
-                {
-                    distinguishCancelAndClose: true,
-                    confirmButtonText: $t('prompt.direct_access_user_id.ok'),
-                    cancelButtonText: $t('prompt.direct_access_user_id.cancel'),
-                    inputPattern: /\S+/,
-                    inputErrorMessage: $t(
-                        'prompt.direct_access_user_id.input_error'
-                    ),
-                    callback: (action, instance) => {
-                        if (action === 'confirm' && instance.inputValue) {
-                            var testUrl = instance.inputValue.substring(0, 15);
-                            if (testUrl === 'https://vrchat.') {
-                                var userId = this.parseUserUrl(
-                                    instance.inputValue
-                                );
-                                if (userId) {
-                                    this.showUserDialog(userId);
-                                } else {
-                                    this.$message({
-                                        message: $t(
-                                            'prompt.direct_access_user_id.message.error'
-                                        ),
-                                        type: 'error'
-                                    });
-                                }
-                            } else {
-                                this.showUserDialog(instance.inputValue);
-                            }
-                        }
-                    }
-                }
-            );
-        },
-
-        promptUsernameDialog() {
-            this.$prompt(
-                $t('prompt.direct_access_username.description'),
-                $t('prompt.direct_access_username.header'),
-                {
-                    distinguishCancelAndClose: true,
-                    confirmButtonText: $t('prompt.direct_access_username.ok'),
-                    cancelButtonText: $t(
-                        'prompt.direct_access_username.cancel'
-                    ),
-                    inputPattern: /\S+/,
-                    inputErrorMessage: $t(
-                        'prompt.direct_access_username.input_error'
-                    ),
-                    callback: (action, instance) => {
-                        if (action === 'confirm' && instance.inputValue) {
-                            this.lookupUser({
-                                displayName: instance.inputValue
-                            });
-                        }
-                    }
-                }
-            );
-        },
-
-        promptWorldDialog() {
-            this.$prompt(
-                $t('prompt.direct_access_world_id.description'),
-                $t('prompt.direct_access_world_id.header'),
-                {
-                    distinguishCancelAndClose: true,
-                    confirmButtonText: $t('prompt.direct_access_world_id.ok'),
-                    cancelButtonText: $t(
-                        'prompt.direct_access_world_id.cancel'
-                    ),
-                    inputPattern: /\S+/,
-                    inputErrorMessage: $t(
-                        'prompt.direct_access_world_id.input_error'
-                    ),
-                    callback: (action, instance) => {
-                        if (action === 'confirm' && instance.inputValue) {
-                            if (!this.directAccessWorld(instance.inputValue)) {
-                                this.$message({
-                                    message: $t(
-                                        'prompt.direct_access_world_id.message.error'
-                                    ),
-                                    type: 'error'
-                                });
-                            }
-                        }
-                    }
-                }
-            );
-        },
-
-        promptAvatarDialog() {
-            this.$prompt(
-                $t('prompt.direct_access_avatar_id.description'),
-                $t('prompt.direct_access_avatar_id.header'),
-                {
-                    distinguishCancelAndClose: true,
-                    confirmButtonText: $t('prompt.direct_access_avatar_id.ok'),
-                    cancelButtonText: $t(
-                        'prompt.direct_access_avatar_id.cancel'
-                    ),
-                    inputPattern: /\S+/,
-                    inputErrorMessage: $t(
-                        'prompt.direct_access_avatar_id.input_error'
-                    ),
-                    callback: (action, instance) => {
-                        if (action === 'confirm' && instance.inputValue) {
-                            var testUrl = instance.inputValue.substring(0, 15);
-                            if (testUrl === 'https://vrchat.') {
-                                var avatarId = this.parseAvatarUrl(
-                                    instance.inputValue
-                                );
-                                if (avatarId) {
-                                    this.showAvatarDialog(avatarId);
-                                } else {
-                                    this.$message({
-                                        message: $t(
-                                            'prompt.direct_access_avatar_id.message.error'
-                                        ),
-                                        type: 'error'
-                                    });
-                                }
-                            } else {
-                                this.showAvatarDialog(instance.inputValue);
-                            }
-                        }
-                    }
-                }
-            );
-        },
-
         promptOmniDirectDialog() {
             this.$prompt(
                 $t('prompt.direct_access_omni.description'),
@@ -287,47 +155,6 @@ export default class extends baseClass {
                                     type: 'error'
                                 });
                             }
-                        }
-                    }
-                }
-            );
-        },
-
-        changeFavoriteGroupName(ctx) {
-            this.$prompt(
-                $t('prompt.change_favorite_group_name.description'),
-                $t('prompt.change_favorite_group_name.header'),
-                {
-                    distinguishCancelAndClose: true,
-                    cancelButtonText: $t(
-                        'prompt.change_favorite_group_name.cancel'
-                    ),
-                    confirmButtonText: $t(
-                        'prompt.change_favorite_group_name.change'
-                    ),
-                    inputPlaceholder: $t(
-                        'prompt.change_favorite_group_name.input_placeholder'
-                    ),
-                    inputValue: ctx.displayName,
-                    inputPattern: /\S+/,
-                    inputErrorMessage: $t(
-                        'prompt.change_favorite_group_name.input_error'
-                    ),
-                    callback: (action, instance) => {
-                        if (action === 'confirm') {
-                            API.saveFavoriteGroup({
-                                type: ctx.type,
-                                group: ctx.name,
-                                displayName: instance.inputValue
-                            }).then((args) => {
-                                this.$message({
-                                    message: $t(
-                                        'prompt.change_favorite_group_name.message.success'
-                                    ),
-                                    type: 'success'
-                                });
-                                return args;
-                            });
                         }
                     }
                 }
@@ -402,78 +229,6 @@ export default class extends baseClass {
             );
         },
 
-        promptRenameAvatar(avatar) {
-            this.$prompt(
-                $t('prompt.rename_avatar.description'),
-                $t('prompt.rename_avatar.header'),
-                {
-                    distinguishCancelAndClose: true,
-                    confirmButtonText: $t('prompt.rename_avatar.ok'),
-                    cancelButtonText: $t('prompt.rename_avatar.cancel'),
-                    inputValue: avatar.ref.name,
-                    inputErrorMessage: $t('prompt.rename_avatar.input_error'),
-                    callback: (action, instance) => {
-                        if (
-                            action === 'confirm' &&
-                            instance.inputValue !== avatar.ref.name
-                        ) {
-                            API.saveAvatar({
-                                id: avatar.id,
-                                name: instance.inputValue
-                            }).then((args) => {
-                                this.$message({
-                                    message: $t(
-                                        'prompt.rename_avatar.message.success'
-                                    ),
-                                    type: 'success'
-                                });
-                                return args;
-                            });
-                        }
-                    }
-                }
-            );
-        },
-
-        promptChangeAvatarDescription(avatar) {
-            this.$prompt(
-                $t('prompt.change_avatar_description.description'),
-                $t('prompt.change_avatar_description.header'),
-                {
-                    distinguishCancelAndClose: true,
-                    confirmButtonText: $t(
-                        'prompt.change_avatar_description.ok'
-                    ),
-                    cancelButtonText: $t(
-                        'prompt.change_avatar_description.cancel'
-                    ),
-                    inputValue: avatar.ref.description,
-                    inputErrorMessage: $t(
-                        'prompt.change_avatar_description.input_error'
-                    ),
-                    callback: (action, instance) => {
-                        if (
-                            action === 'confirm' &&
-                            instance.inputValue !== avatar.ref.description
-                        ) {
-                            API.saveAvatar({
-                                id: avatar.id,
-                                description: instance.inputValue
-                            }).then((args) => {
-                                this.$message({
-                                    message: $t(
-                                        'prompt.change_avatar_description.message.success'
-                                    ),
-                                    type: 'success'
-                                });
-                                return args;
-                            });
-                        }
-                    }
-                }
-            );
-        },
-
         promptRenameWorld(world) {
             this.$prompt(
                 $t('prompt.rename_world.description'),
@@ -489,18 +244,20 @@ export default class extends baseClass {
                             action === 'confirm' &&
                             instance.inputValue !== world.ref.name
                         ) {
-                            API.saveWorld({
-                                id: world.id,
-                                name: instance.inputValue
-                            }).then((args) => {
-                                this.$message({
-                                    message: $t(
-                                        'prompt.rename_world.message.success'
-                                    ),
-                                    type: 'success'
+                            worldRequest
+                                .saveWorld({
+                                    id: world.id,
+                                    name: instance.inputValue
+                                })
+                                .then((args) => {
+                                    this.$message({
+                                        message: $t(
+                                            'prompt.rename_world.message.success'
+                                        ),
+                                        type: 'success'
+                                    });
+                                    return args;
                                 });
-                                return args;
-                            });
                         }
                     }
                 }
@@ -526,18 +283,20 @@ export default class extends baseClass {
                             action === 'confirm' &&
                             instance.inputValue !== world.ref.description
                         ) {
-                            API.saveWorld({
-                                id: world.id,
-                                description: instance.inputValue
-                            }).then((args) => {
-                                this.$message({
-                                    message: $t(
-                                        'prompt.change_world_description.message.success'
-                                    ),
-                                    type: 'success'
+                            worldRequest
+                                .saveWorld({
+                                    id: world.id,
+                                    description: instance.inputValue
+                                })
+                                .then((args) => {
+                                    this.$message({
+                                        message: $t(
+                                            'prompt.change_world_description.message.success'
+                                        ),
+                                        type: 'success'
+                                    });
+                                    return args;
                                 });
-                                return args;
-                            });
                         }
                     }
                 }
@@ -562,18 +321,20 @@ export default class extends baseClass {
                             action === 'confirm' &&
                             instance.inputValue !== world.ref.capacity
                         ) {
-                            API.saveWorld({
-                                id: world.id,
-                                capacity: instance.inputValue
-                            }).then((args) => {
-                                this.$message({
-                                    message: $t(
-                                        'prompt.change_world_capacity.message.success'
-                                    ),
-                                    type: 'success'
+                            worldRequest
+                                .saveWorld({
+                                    id: world.id,
+                                    capacity: instance.inputValue
+                                })
+                                .then((args) => {
+                                    this.$message({
+                                        message: $t(
+                                            'prompt.change_world_capacity.message.success'
+                                        ),
+                                        type: 'success'
+                                    });
+                                    return args;
                                 });
-                                return args;
-                            });
                         }
                     }
                 }
@@ -599,18 +360,20 @@ export default class extends baseClass {
                             instance.inputValue !==
                                 world.ref.recommendedCapacity
                         ) {
-                            API.saveWorld({
-                                id: world.id,
-                                recommendedCapacity: instance.inputValue
-                            }).then((args) => {
-                                this.$message({
-                                    message: $t(
-                                        'prompt.change_world_recommended_capacity.message.success'
-                                    ),
-                                    type: 'success'
+                            worldRequest
+                                .saveWorld({
+                                    id: world.id,
+                                    recommendedCapacity: instance.inputValue
+                                })
+                                .then((args) => {
+                                    this.$message({
+                                        message: $t(
+                                            'prompt.change_world_recommended_capacity.message.success'
+                                        ),
+                                        type: 'success'
+                                    });
+                                    return args;
                                 });
-                                return args;
-                            });
                         }
                     }
                 }
@@ -662,18 +425,20 @@ export default class extends baseClass {
                                 instance.inputValue !==
                                 world.ref.previewYoutubeId
                             ) {
-                                API.saveWorld({
-                                    id: world.id,
-                                    previewYoutubeId: instance.inputValue
-                                }).then((args) => {
-                                    this.$message({
-                                        message: $t(
-                                            'prompt.change_world_preview.message.success'
-                                        ),
-                                        type: 'success'
+                                worldRequest
+                                    .saveWorld({
+                                        id: world.id,
+                                        previewYoutubeId: instance.inputValue
+                                    })
+                                    .then((args) => {
+                                        this.$message({
+                                            message: $t(
+                                                'prompt.change_world_preview.message.success'
+                                            ),
+                                            type: 'success'
+                                        });
+                                        return args;
                                     });
-                                    return args;
-                                });
                             }
                         }
                     }

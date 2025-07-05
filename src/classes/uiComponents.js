@@ -1,6 +1,9 @@
 import Vue from 'vue';
 import VueMarkdown from 'vue-markdown';
-import { baseClass, $app, API, $t, $utils } from './baseClass.js';
+import { instanceRequest, userRequest } from '../api';
+import { hasGroupPermission } from '../composables/group/utils';
+import { parseLocation } from '../composables/instance/utils';
+import { $app, $t, API, baseClass } from './baseClass.js';
 
 export default class extends baseClass {
     constructor(_app, _API, _t) {
@@ -12,9 +15,10 @@ export default class extends baseClass {
 
         Vue.component('launch', {
             template:
-                '<el-button @click="confirm" size="mini" icon="el-icon-info" circle></el-button>',
+                '<el-tooltip placement="top" :content="$t(`dialog.user.info.launch_invite_tooltip`)" :disabled="hideTooltips"><el-button @click="confirm" size="mini" icon="el-icon-switch-button" circle></el-button></el-tooltip>',
             props: {
-                location: String
+                location: String,
+                hideTooltips: Boolean
             },
             methods: {
                 parse() {
@@ -25,7 +29,7 @@ export default class extends baseClass {
                         : 'none';
                 },
                 confirm() {
-                    API.$emit('SHOW_LAUNCH_DIALOG', this.location);
+                    this.$emit('show-launch-dialog', this.location);
                 }
             },
             watch: {
@@ -54,7 +58,26 @@ export default class extends baseClass {
                         : 'none';
                 },
                 confirm() {
-                    $app.selfInvite(this.location, this.shortname);
+                    this.selfInvite(this.location, this.shortname);
+                },
+                selfInvite(location, shortName) {
+                    const L = parseLocation(location);
+                    if (!L.isRealInstance) {
+                        return;
+                    }
+                    instanceRequest
+                        .selfInvite({
+                            instanceId: L.instanceId,
+                            worldId: L.worldId,
+                            shortName
+                        })
+                        .then((args) => {
+                            this.$message({
+                                message: 'Self invite sent',
+                                type: 'success'
+                            });
+                            return args;
+                        });
                 }
             },
             watch: {
@@ -63,144 +86,6 @@ export default class extends baseClass {
                 }
             },
             mounted() {
-                this.parse();
-            }
-        });
-
-        Vue.component('location', {
-            template:
-                "<span><span @click=\"showWorldDialog\" :class=\"{ 'x-link': link && this.location !== 'private' && this.location !== 'offline'}\">" +
-                '<i v-if="isTraveling" class="el-icon el-icon-loading" style="display:inline-block;margin-right:5px"></i>' +
-                '<span>{{ text }}</span></span>' +
-                '<span v-if="groupName" @click="showGroupDialog" :class="{ \'x-link\': link}">({{ groupName }})</span>' +
-                '<span v-if="region" class="flags" :class="region" style="display:inline-block;margin-left:5px"></span>' +
-                '<i v-if="strict" class="el-icon el-icon-lock" style="display:inline-block;margin-left:5px"></i></span>',
-            props: {
-                location: String,
-                traveling: String,
-                hint: {
-                    type: String,
-                    default: ''
-                },
-                grouphint: {
-                    type: String,
-                    default: ''
-                },
-                link: {
-                    type: Boolean,
-                    default: true
-                }
-            },
-            data() {
-                return {
-                    text: this.location,
-                    region: this.region,
-                    strict: this.strict,
-                    isTraveling: this.isTraveling,
-                    groupName: this.groupName
-                };
-            },
-            methods: {
-                parse() {
-                    this.isTraveling = false;
-                    this.groupName = '';
-                    var instanceId = this.location;
-                    if (
-                        typeof this.traveling !== 'undefined' &&
-                        this.location === 'traveling'
-                    ) {
-                        instanceId = this.traveling;
-                        this.isTraveling = true;
-                    }
-                    this.text = instanceId;
-                    var L = $utils.parseLocation(instanceId);
-                    if (L.isOffline) {
-                        this.text = 'Offline';
-                    } else if (L.isPrivate) {
-                        this.text = 'Private';
-                    } else if (L.isTraveling) {
-                        this.text = 'Traveling';
-                    } else if (
-                        typeof this.hint === 'string' &&
-                        this.hint !== ''
-                    ) {
-                        if (L.instanceId) {
-                            this.text = `${this.hint} #${L.instanceName} ${L.accessTypeName}`;
-                        } else {
-                            this.text = this.hint;
-                        }
-                    } else if (L.worldId) {
-                        var ref = API.cachedWorlds.get(L.worldId);
-                        if (typeof ref === 'undefined') {
-                            $app.getWorldName(L.worldId).then((worldName) => {
-                                if (L.tag === instanceId) {
-                                    if (L.instanceId) {
-                                        this.text = `${worldName} #${L.instanceName} ${L.accessTypeName}`;
-                                    } else {
-                                        this.text = worldName;
-                                    }
-                                }
-                            });
-                        } else if (L.instanceId) {
-                            this.text = `${ref.name} #${L.instanceName} ${L.accessTypeName}`;
-                        } else {
-                            this.text = ref.name;
-                        }
-                    }
-                    if (this.grouphint) {
-                        this.groupName = this.grouphint;
-                    } else if (L.groupId) {
-                        this.groupName = L.groupId;
-                        $app.getGroupName(instanceId).then((groupName) => {
-                            if (L.tag === instanceId) {
-                                this.groupName = groupName;
-                            }
-                        });
-                    }
-                    this.region = '';
-                    if (!L.isOffline && !L.isPrivate && !L.isTraveling) {
-                        this.region = L.region;
-                        if (!L.region && L.instanceId) {
-                            this.region = 'us';
-                        }
-                    }
-                    this.strict = L.strict;
-                },
-                showWorldDialog() {
-                    if (this.link) {
-                        var instanceId = this.location;
-                        if (this.traveling && this.location === 'traveling') {
-                            instanceId = this.traveling;
-                        }
-                        if (!instanceId && this.hint.length === 8) {
-                            // shortName
-                            API.$emit('SHOW_WORLD_DIALOG_SHORTNAME', this.hint);
-                            return;
-                        }
-                        API.$emit('SHOW_WORLD_DIALOG', instanceId);
-                    }
-                },
-                showGroupDialog() {
-                    var location = this.location;
-                    if (this.isTraveling) {
-                        location = this.traveling;
-                    }
-                    if (!location || !this.link) {
-                        return;
-                    }
-                    var L = $utils.parseLocation(location);
-                    if (!L.groupId) {
-                        return;
-                    }
-                    API.$emit('SHOW_GROUP_DIALOG', L.groupId);
-                }
-            },
-            watch: {
-                location() {
-                    this.parse();
-                }
-            },
-            created() {
                 this.parse();
             }
         });
@@ -271,8 +156,8 @@ export default class extends baseClass {
                     }
                 },
                 showLaunchDialog() {
-                    API.$emit(
-                        'SHOW_LAUNCH_DIALOG',
+                    this.$emit(
+                        'show-launch-dialog',
                         this.location,
                         this.shortName
                     );
@@ -281,11 +166,11 @@ export default class extends baseClass {
                     if (!this.location) {
                         return;
                     }
-                    var L = $utils.parseLocation(this.location);
+                    var L = parseLocation(this.location);
                     if (!L.groupId) {
                         return;
                     }
-                    API.$emit('SHOW_GROUP_DIALOG', L.groupId);
+                    $app.showGroupDialog(L.groupId);
                 }
             },
             watch: {
@@ -300,12 +185,12 @@ export default class extends baseClass {
 
         Vue.component('last-join', {
             template:
-                '<span>' +
-                '<el-tooltip placement="top" style="margin-left:5px" v-if="lastJoin">' +
+                '<span v-if="lastJoin">' +
+                '<el-tooltip placement="top" style="margin-left:5px" >' +
                 '<div slot="content">' +
                 '<span>{{ $t("dialog.user.info.last_join") }} <timer :epoch="lastJoin"></timer></span>' +
                 '</div>' +
-                '<i v-if="lastJoin" class="el-icon el-icon-location-outline" style="display:inline-block"></i>' +
+                '<i class="el-icon el-icon-location-outline" style="display:inline-block"></i>' +
                 '</el-tooltip>' +
                 '</span>',
             props: {
@@ -341,11 +226,12 @@ export default class extends baseClass {
                 '<el-tooltip v-if="isValidInstance" placement="bottom">' +
                 '<div slot="content">' +
                 '<template v-if="isClosed"><span>Closed At: {{ closedAt | formatDate(\'long\') }}</span></br></template>' +
-                '<template v-if="canCloseInstance"><el-button :disabled="isClosed" size="mini" type="primary" @click="$app.closeInstance(location)">{{ $t("dialog.user.info.close_instance") }}</el-button></br></br></template>' +
+                '<template v-if="canCloseInstance"><el-button :disabled="isClosed" size="mini" type="primary" @click="$root.closeInstance(location)">{{ $t("dialog.user.info.close_instance") }}</el-button></br></br></template>' +
                 '<span><span style="color:#409eff">PC: </span>{{ platforms.standalonewindows }}</span></br>' +
                 '<span><span style="color:#67c23a">Android: </span>{{ platforms.android }}</span></br>' +
                 '<span>{{ $t("dialog.user.info.instance_game_version") }} {{ gameServerVersion }}</span></br>' +
                 '<span v-if="queueEnabled">{{ $t("dialog.user.info.instance_queuing_enabled") }}</br></span>' +
+                '<span v-if="disabledContentSettings">{{ $t("dialog.user.info.instance_disabled_content") }} {{ disabledContentSettings }}</br></span>' +
                 '<span v-if="userList.length">{{ $t("dialog.user.info.instance_users") }}</br></span>' +
                 '<template v-for="user in userList"><span style="cursor:pointer;margin-right:5px" @click="showUserDialog(user.id)" v-text="user.displayName"></span></template>' +
                 '</div>' +
@@ -398,6 +284,7 @@ export default class extends baseClass {
                     this.gameServerVersion = '';
                     this.canCloseInstance = false;
                     this.isAgeGated = false;
+                    this.disabledContentSettings = '';
                     if (
                         !this.location ||
                         !this.instance ||
@@ -434,7 +321,7 @@ export default class extends baseClass {
                         // check group perms
                         var groupId = this.instance.ownerId;
                         var group = API.cachedGroups.get(groupId);
-                        this.canCloseInstance = $app.hasGroupPermission(
+                        this.canCloseInstance = hasGroupPermission(
                             group,
                             'group-instance-moderate'
                         );
@@ -444,9 +331,16 @@ export default class extends baseClass {
                         // dumb workaround for API not returning `ageGate`
                         this.isAgeGated = true;
                     }
+                    if (
+                        this.instance.$disabledContentSettings &&
+                        this.instance.$disabledContentSettings.length
+                    ) {
+                        this.disabledContentSettings =
+                            this.instance.$disabledContentSettings.join(', ');
+                    }
                 },
                 showUserDialog(userId) {
-                    API.$emit('SHOW_USER_DIALOG', userId);
+                    this.showUserDialog(userId);
                 }
             },
             watch: {
@@ -469,8 +363,8 @@ export default class extends baseClass {
             template:
                 '<div @click="confirm" class="avatar-info">' +
                 '<span style="margin-right:5px">{{ avatarName }}</span>' +
-                '<span style="margin-right:5px" :class="color">{{ avatarType }}</span>' +
-                '<span style="color:#909399;font-family:monospace;font-size:12px;">{{ avatarTags }}</span>' +
+                '<span v-if="avatarType" style="margin-right:5px" :class="color">{{ avatarType }}</span>' +
+                '<span v-if="avatarTags" style="color:#909399;font-family:monospace;font-size:12px;">{{ avatarTags }}</span>' +
                 '</div>',
             props: {
                 imageurl: String,
@@ -566,7 +460,7 @@ export default class extends baseClass {
             props: {
                 userid: String,
                 location: String,
-                key: Number,
+                forceUpdateKey: Number,
                 hint: {
                     type: String,
                     default: ''
@@ -583,7 +477,7 @@ export default class extends baseClass {
                     if (this.hint) {
                         this.username = this.hint;
                     } else if (this.userid) {
-                        var args = await API.getCachedUser({
+                        var args = await userRequest.getCachedUser({
                             userId: this.userid
                         });
                     }
@@ -603,7 +497,7 @@ export default class extends baseClass {
                 location() {
                     this.parse();
                 },
-                key() {
+                forceUpdateKey() {
                     this.parse();
                 },
                 userid() {

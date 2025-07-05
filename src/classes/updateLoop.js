@@ -1,5 +1,6 @@
 import * as workerTimers from 'worker-timers';
-import { baseClass, $app, API, $t, $utils } from './baseClass.js';
+import { baseClass, $app, API } from './baseClass.js';
+import { groupRequest } from '../api/index.js';
 
 export default class extends baseClass {
     constructor(_app, _API, _t) {
@@ -24,7 +25,8 @@ export default class extends baseClass {
         nextDiscordUpdate: 0,
         nextAutoStateChange: 0,
         nextGetLogCheck: 0,
-        nextGameRunningCheck: 0
+        nextGameRunningCheck: 0,
+        nextDatabaseOptimize: 3600
     };
 
     _methods = {
@@ -46,7 +48,7 @@ export default class extends baseClass {
                     if (--this.nextGroupInstanceRefresh <= 0) {
                         if (this.friendLogInitStatus) {
                             this.nextGroupInstanceRefresh = 300; // 5min
-                            API.getUsersGroupInstances();
+                            groupRequest.getUsersGroupInstances();
                         }
                         AppApi.CheckGameRunning();
                     }
@@ -95,11 +97,19 @@ export default class extends baseClass {
                     ) {
                         if (LINUX) {
                             this.nextGameRunningCheck = 1;
-                            $app.updateIsGameRunning(await AppApi.IsGameRunning(), await AppApi.IsSteamVRRunning(), false);
+                            $app.updateIsGameRunning(
+                                await AppApi.IsGameRunning(),
+                                await AppApi.IsSteamVRRunning(),
+                                false
+                            );
                         } else {
                             this.nextGameRunningCheck = 3;
                             AppApi.CheckGameRunning();
                         }
+                    }
+                    if (--this.nextDatabaseOptimize <= 0) {
+                        this.nextDatabaseOptimize = 86400; // 1 day
+                        database.optimize();
                     }
                 }
             } catch (err) {

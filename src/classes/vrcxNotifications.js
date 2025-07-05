@@ -1,4 +1,7 @@
-import { baseClass, $app, API, $t, $utils } from './baseClass.js';
+import { userRequest } from '../api';
+import { displayLocation } from '../composables/instance/utils';
+import { extractFileId, extractFileVersion } from '../composables/shared/utils';
+import { $app, API, baseClass } from './baseClass.js';
 
 export default class extends baseClass {
     constructor(_app, _API, _t) {
@@ -185,23 +188,33 @@ export default class extends baseClass {
             }
 
             const notiConditions = {
-                'Always': () => true,
+                Always: () => true,
                 'Inside VR': () => this.isSteamVRRunning,
                 'Outside VR': () => !this.isSteamVRRunning,
                 'Game Closed': () => !this.isGameRunning, // Also known as "Outside VRChat"
                 'Game Running': () => this.isGameRunning, // Also known as "Inside VRChat"
                 'Desktop Mode': () => this.isGameNoVR && this.isGameRunning,
-                'AFK': () => this.afkDesktopToast && this.isHmdAfk && this.isGameRunning && !this.isGameNoVR,
+                AFK: () =>
+                    this.afkDesktopToast &&
+                    this.isHmdAfk &&
+                    this.isGameRunning &&
+                    !this.isGameNoVR
             };
 
-            const playNotificationTTS = notiConditions[this.notificationTTS]?.();
-            const playDesktopToast = notiConditions[this.desktopToast]?.() || notiConditions['AFK']();
+            const playNotificationTTS =
+                notiConditions[this.notificationTTS]?.();
+            const playDesktopToast =
+                notiConditions[this.desktopToast]?.() ||
+                notiConditions['AFK']();
 
             const playOverlayToast = notiConditions[this.overlayToast]?.();
-            const playOverlayNotification = this.overlayNotifications && playOverlayToast;
+            const playOverlayNotification =
+                this.overlayNotifications && playOverlayToast;
             const playXSNotification = this.xsNotifications && playOverlayToast;
-            const playOvrtHudNotifications = this.ovrtHudNotifications && playOverlayToast;
-            const playOvrtWristNotifications = this.ovrtWristNotifications && playOverlayToast;
+            const playOvrtHudNotifications =
+                this.ovrtHudNotifications && playOverlayToast;
+            const playOvrtWristNotifications =
+                this.ovrtWristNotifications && playOverlayToast;
 
             var message = '';
             if (noty.title) {
@@ -316,9 +329,10 @@ export default class extends baseClass {
             } else if (noty.imageUrl) {
                 imageUrl = noty.imageUrl;
             } else if (userId && !userId.startsWith('grp_')) {
-                imageUrl = await API.getCachedUser({
-                    userId
-                })
+                imageUrl = await userRequest
+                    .getCachedUser({
+                        userId
+                    })
                     .catch((err) => {
                         console.error(err);
                         return '';
@@ -344,8 +358,8 @@ export default class extends baseClass {
 
         async notySaveImage(noty) {
             var imageUrl = await this.notyGetImage(noty);
-            var fileId = this.extractFileId(imageUrl);
-            var fileVersion = this.extractFileVersion(imageUrl);
+            var fileId = extractFileId(imageUrl);
+            var fileVersion = extractFileVersion(imageUrl);
             var imageLocation = '';
             try {
                 if (fileId && fileVersion) {
@@ -402,7 +416,7 @@ export default class extends baseClass {
                     break;
                 case 'GPS':
                     this.speak(
-                        `${displayName} is in ${this.displayLocation(
+                        `${displayName} is in ${displayLocation(
                             noty.location,
                             noty.worldName,
                             noty.groupName
@@ -412,7 +426,7 @@ export default class extends baseClass {
                 case 'Online':
                     var locationName = '';
                     if (noty.worldName) {
-                        locationName = ` to ${this.displayLocation(
+                        locationName = ` to ${displayLocation(
                             noty.location,
                             noty.worldName,
                             noty.groupName
@@ -430,7 +444,7 @@ export default class extends baseClass {
                     break;
                 case 'invite':
                     this.speak(
-                        `${displayName} has invited you to ${this.displayLocation(
+                        `${displayName} has invited you to ${displayLocation(
                             noty.details.worldId,
                             noty.details.worldName,
                             noty.groupName
@@ -501,7 +515,7 @@ export default class extends baseClass {
                 case 'PortalSpawn':
                     if (displayName) {
                         this.speak(
-                            `${displayName} has spawned a portal to ${this.displayLocation(
+                            `${displayName} has spawned a portal to ${displayLocation(
                                 noty.instanceId,
                                 noty.worldName,
                                 noty.groupName
@@ -556,15 +570,17 @@ export default class extends baseClass {
         },
 
         displayXSNotification(noty, message, image) {
-            var timeout = Math.floor(
+            const timeout = Math.floor(
                 parseInt(this.notificationTimeout, 10) / 1000
             );
+            const opacity = parseFloat(this.notificationOpacity) / 100;
             switch (noty.type) {
                 case 'OnPlayerJoined':
                     AppApi.XSNotification(
                         'VRCX',
                         `${noty.displayName} has joined`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -573,6 +589,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has left`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -581,25 +598,27 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} is joining`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
                 case 'GPS':
                     AppApi.XSNotification(
                         'VRCX',
-                        `${noty.displayName} is in ${this.displayLocation(
+                        `${noty.displayName} is in ${displayLocation(
                             noty.location,
                             noty.worldName,
                             noty.groupName
                         )}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
                 case 'Online':
                     var locationName = '';
                     if (noty.worldName) {
-                        locationName = ` to ${this.displayLocation(
+                        locationName = ` to ${displayLocation(
                             noty.location,
                             noty.worldName,
                             noty.groupName
@@ -609,6 +628,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has logged in${locationName}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -617,6 +637,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has logged out`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -625,6 +646,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} status is now ${noty.status} ${noty.statusDescription}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -633,11 +655,12 @@ export default class extends baseClass {
                         'VRCX',
                         `${
                             noty.senderUsername
-                        } has invited you to ${this.displayLocation(
+                        } has invited you to ${displayLocation(
                             noty.details.worldId,
                             noty.details.worldName
                         )}${message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -646,6 +669,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername} has requested an invite${message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -654,6 +678,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername} has responded to your invite${message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -662,6 +687,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername} has responded to your invite request${message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -670,6 +696,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername} has sent you a friend request`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -678,6 +705,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} is now your friend`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -686,6 +714,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} is no longer your friend`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -694,6 +723,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} trust level is now ${noty.trustLevel}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -702,40 +732,90 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.previousDisplayName} changed their name to ${noty.displayName}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
                 case 'boop':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'groupChange':
                     AppApi.XSNotification(
                         'VRCX',
                         `${noty.senderUsername}: ${noty.message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
                 case 'group.announcement':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'group.informative':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'group.invite':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'group.joinRequest':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'group.transfer':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'group.queueReady':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'instance.closed':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'PortalSpawn':
                     if (noty.displayName) {
@@ -743,12 +823,13 @@ export default class extends baseClass {
                             'VRCX',
                             `${
                                 noty.displayName
-                            } has spawned a portal to ${this.displayLocation(
+                            } has spawned a portal to ${displayLocation(
                                 noty.instanceId,
                                 noty.worldName,
                                 noty.groupName
                             )}`,
                             timeout,
+                            opacity,
                             image
                         );
                     } else {
@@ -756,6 +837,7 @@ export default class extends baseClass {
                             'VRCX',
                             'User has spawned a portal',
                             timeout,
+                            opacity,
                             image
                         );
                     }
@@ -765,6 +847,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} changed into avatar ${noty.name}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -773,20 +856,34 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} said ${noty.text}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
                 case 'Event':
-                    AppApi.XSNotification('VRCX', noty.data, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.data,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'External':
-                    AppApi.XSNotification('VRCX', noty.message, timeout, image);
+                    AppApi.XSNotification(
+                        'VRCX',
+                        noty.message,
+                        timeout,
+                        opacity,
+                        image
+                    );
                     break;
                 case 'VideoPlay':
                     AppApi.XSNotification(
                         'VRCX',
                         `Now playing: ${noty.notyName}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -795,6 +892,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Blocked user ${noty.displayName} has joined`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -803,6 +901,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Blocked user ${noty.displayName} has left`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -811,6 +910,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Muted user ${noty.displayName} has joined`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -819,6 +919,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Muted user ${noty.displayName} has left`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -827,6 +928,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has blocked you`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -835,6 +937,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has unblocked you`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -843,6 +946,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has muted you`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -851,6 +955,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has unmuted you`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -864,9 +969,10 @@ export default class extends baseClass {
             message,
             image
         ) {
-            var timeout = Math.floor(
+            const timeout = Math.floor(
                 parseInt(this.notificationTimeout, 10) / 1000
             );
+            const opacity = parseFloat(this.notificationOpacity) / 100;
             switch (noty.type) {
                 case 'OnPlayerJoined':
                     AppApi.OVRTNotification(
@@ -875,6 +981,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has joined`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -885,6 +992,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has left`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -895,6 +1003,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} is joining`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -903,19 +1012,20 @@ export default class extends baseClass {
                         playOvrtHudNotifications,
                         playOvrtWristNotifications,
                         'VRCX',
-                        `${noty.displayName} is in ${this.displayLocation(
+                        `${noty.displayName} is in ${displayLocation(
                             noty.location,
                             noty.worldName,
                             noty.groupName
                         )}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
                 case 'Online':
                     var locationName = '';
                     if (noty.worldName) {
-                        locationName = ` to ${this.displayLocation(
+                        locationName = ` to ${displayLocation(
                             noty.location,
                             noty.worldName,
                             noty.groupName
@@ -927,6 +1037,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has logged in${locationName}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -937,6 +1048,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has logged out`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -947,6 +1059,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} status is now ${noty.status} ${noty.statusDescription}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -957,11 +1070,12 @@ export default class extends baseClass {
                         'VRCX',
                         `${
                             noty.senderUsername
-                        } has invited you to ${this.displayLocation(
+                        } has invited you to ${displayLocation(
                             noty.details.worldId,
                             noty.details.worldName
                         )}${message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -972,6 +1086,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername} has requested an invite${message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -982,6 +1097,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername} has responded to your invite${message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -992,6 +1108,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername} has responded to your invite request${message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1002,6 +1119,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername} has sent you a friend request`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1012,6 +1130,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} is now your friend`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1022,6 +1141,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} is no longer your friend`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1032,6 +1152,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} trust level is now ${noty.trustLevel}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1042,6 +1163,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.previousDisplayName} changed their name to ${noty.displayName}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1052,6 +1174,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1062,6 +1185,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.senderUsername}: ${noty.message}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1072,6 +1196,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1082,6 +1207,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1092,6 +1218,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1102,6 +1229,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1112,6 +1240,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1122,6 +1251,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1132,6 +1262,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1143,12 +1274,13 @@ export default class extends baseClass {
                             'VRCX',
                             `${
                                 noty.displayName
-                            } has spawned a portal to ${this.displayLocation(
+                            } has spawned a portal to ${displayLocation(
                                 noty.instanceId,
                                 noty.worldName,
                                 noty.groupName
                             )}`,
                             timeout,
+                            opacity,
                             image
                         );
                     } else {
@@ -1158,6 +1290,7 @@ export default class extends baseClass {
                             'VRCX',
                             'User has spawned a portal',
                             timeout,
+                            opacity,
                             image
                         );
                     }
@@ -1169,6 +1302,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} changed into avatar ${noty.name}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1179,6 +1313,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} said ${noty.text}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1189,6 +1324,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.data,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1199,6 +1335,7 @@ export default class extends baseClass {
                         'VRCX',
                         noty.message,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1209,6 +1346,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Now playing: ${noty.notyName}`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1219,6 +1357,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Blocked user ${noty.displayName} has joined`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1229,6 +1368,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Blocked user ${noty.displayName} has left`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1239,6 +1379,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Muted user ${noty.displayName} has joined`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1249,6 +1390,7 @@ export default class extends baseClass {
                         'VRCX',
                         `Muted user ${noty.displayName} has left`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1259,6 +1401,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has blocked you`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1269,6 +1412,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has unblocked you`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1279,6 +1423,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has muted you`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1289,6 +1434,7 @@ export default class extends baseClass {
                         'VRCX',
                         `${noty.displayName} has unmuted you`,
                         timeout,
+                        opacity,
                         image
                     );
                     break;
@@ -1299,7 +1445,11 @@ export default class extends baseClass {
             if (WINDOWS) {
                 AppApi.DesktopNotification(displayName, message, image);
             } else {
-                window.electron.desktopNotification(displayName, message, image);
+                window.electron.desktopNotification(
+                    displayName,
+                    message,
+                    image
+                );
             }
         },
 
@@ -1329,7 +1479,7 @@ export default class extends baseClass {
                 case 'GPS':
                     this.desktopNotification(
                         noty.displayName,
-                        `is in ${this.displayLocation(
+                        `is in ${displayLocation(
                             noty.location,
                             noty.worldName,
                             noty.groupName
@@ -1340,7 +1490,7 @@ export default class extends baseClass {
                 case 'Online':
                     var locationName = '';
                     if (noty.worldName) {
-                        locationName = ` to ${this.displayLocation(
+                        locationName = ` to ${displayLocation(
                             noty.location,
                             noty.worldName,
                             noty.groupName
@@ -1369,7 +1519,7 @@ export default class extends baseClass {
                 case 'invite':
                     this.desktopNotification(
                         noty.senderUsername,
-                        `has invited you to ${this.displayLocation(
+                        `has invited you to ${displayLocation(
                             noty.details.worldId,
                             noty.details.worldName
                         )}${message}`,
@@ -1499,7 +1649,7 @@ export default class extends baseClass {
                     if (noty.displayName) {
                         this.desktopNotification(
                             noty.displayName,
-                            `has spawned a portal to ${this.displayLocation(
+                            `has spawned a portal to ${displayLocation(
                                 noty.instanceId,
                                 noty.worldName,
                                 noty.groupName
