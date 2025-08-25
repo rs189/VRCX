@@ -127,6 +127,10 @@
             {
                 "from": "src-electron/libs/linux/libopenvr_api.so",
                 "to": "bin/libopenvr_api.so"
+            },
+            {
+                "from": "src-electron/libs/linux/libopenvr_api.so",
+                "to": "app.asar.unpacked/build/Electron/openvr_api.so"
             }
         ],
         "directories": {
