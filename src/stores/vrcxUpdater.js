@@ -3,7 +3,6 @@ import { computed, reactive } from 'vue';
 import * as workerTimers from 'worker-timers';
 import { $app } from '../app';
 import configRepository from '../service/config';
-import { watchState } from '../service/watchState';
 import { branches } from '../shared/constants';
 import { changeLogRemoveLinks } from '../shared/utils';
 import { useUiStore } from './ui';
@@ -178,6 +177,42 @@ export const useVRCXUpdaterStore = defineStore('VRCXUpdater', () => {
             await configRepository.setString('VRCX_id', state.vrcxId);
         }
     }
+    function getAssetOfInterest(assets) {
+        let downloadUrl = '';
+        let hashString = '';
+        let size = 0;
+        for (const asset of assets) {
+            if (asset.state !== 'uploaded') {
+                continue;
+            }
+            if (
+                WINDOWS &&
+                asset.name.endsWith('.exe') &&
+                (asset.content_type === 'application/x-msdownload' ||
+                    asset.content_type === 'application/x-msdos-program')
+            ) {
+                downloadUrl = asset.browser_download_url;
+                if (asset.digest && asset.digest.startsWith('sha256:')) {
+                    hashString = asset.digest.replace('sha256:', '');
+                }
+                size = asset.size;
+                break;
+            }
+            if (
+                LINUX &&
+                asset.name.endsWith('.AppImage') &&
+                asset.content_type === 'application/octet-stream'
+            ) {
+                downloadUrl = asset.browser_download_url;
+                if (asset.digest && asset.digest.startsWith('sha256:')) {
+                    hashString = asset.digest.replace('sha256:', '');
+                }
+                size = asset.size;
+                break;
+            }
+        }
+        return { downloadUrl, hashString, size };
+    }
     async function checkForVRCXUpdate() {
         if (
             !currentVersion.value ||
@@ -224,58 +259,22 @@ export const useVRCXUpdaterStore = defineStore('VRCXUpdater', () => {
                 // update already downloaded
                 state.VRCXUpdateDialog.updatePendingIsLatest = true;
             } else if (releaseName > currentVersion.value) {
-                let downloadUrl = '';
-                let downloadName = '';
-                let hashUrl = '';
-                let size = 0;
-                for (const asset of json.assets) {
-                    if (asset.state !== 'uploaded') {
-                        continue;
-                    }
-                    if (
-                        !LINUX &&
-                        (asset.content_type === 'application/x-msdownload' ||
-                            asset.content_type ===
-                                'application/x-msdos-program')
-                    ) {
-                        downloadUrl = asset.browser_download_url;
-                        downloadName = asset.name;
-                        size = asset.size;
-                        continue;
-                    }
-                    if (
-                        LINUX &&
-                        asset.content_type === 'application/octet-stream'
-                    ) {
-                        downloadUrl = asset.browser_download_url;
-                        downloadName = asset.name;
-                        size = asset.size;
-                        continue;
-                    }
-                    if (
-                        asset.name === 'SHA256SUMS.txt' &&
-                        asset.content_type === 'text/plain'
-                    ) {
-                        hashUrl = asset.browser_download_url;
-                        continue;
-                    }
-                }
+                const { downloadUrl, hashString, size } = getAssetOfInterest(
+                    json.assets
+                );
                 if (!downloadUrl) {
                     return;
                 }
                 state.pendingVRCXUpdate = true;
                 uiStore.notifyMenu('settings');
-                const type = 'Auto';
                 if (state.autoUpdateVRCX === 'Notify') {
                     // this.showVRCXUpdateDialog();
                 } else if (state.autoUpdateVRCX === 'Auto Download') {
                     await downloadVRCXUpdate(
                         downloadUrl,
-                        downloadName,
-                        hashUrl,
+                        hashString,
                         size,
-                        releaseName,
-                        type
+                        releaseName
                     );
                 }
             }
@@ -323,13 +322,13 @@ export const useVRCXUpdaterStore = defineStore('VRCXUpdater', () => {
             return;
         }
         for (const release of json) {
-            for (const asset of release.assets) {
-                if (
-                    (asset.content_type === 'application/x-msdownload' ||
-                        asset.content_type === 'application/x-msdos-program') &&
-                    asset.state === 'uploaded'
-                ) {
+            if (release.prerelease) {
+                continue;
+            }
+            assetLoop: for (const asset of release.assets) {
+                if (asset.state === 'uploaded') {
                     releases.push(release);
+                    break assetLoop;
                 }
             }
         }
@@ -344,11 +343,9 @@ export const useVRCXUpdaterStore = defineStore('VRCXUpdater', () => {
     }
     async function downloadVRCXUpdate(
         downloadUrl,
-        downloadName,
-        hashUrl,
+        hashString,
         size,
-        releaseName,
-        type
+        releaseName
     ) {
         if (state.updateInProgress) {
             return;
@@ -356,12 +353,7 @@ export const useVRCXUpdaterStore = defineStore('VRCXUpdater', () => {
         try {
             state.updateInProgress = true;
             await downloadFileProgress();
-            await AppApi.DownloadUpdate(
-                downloadUrl,
-                downloadName,
-                hashUrl,
-                size
-            );
+            await AppApi.DownloadUpdate(downloadUrl, hashString, size);
             state.pendingVRCXInstall = releaseName;
         } catch (err) {
             console.error(err);
@@ -385,54 +377,14 @@ export const useVRCXUpdaterStore = defineStore('VRCXUpdater', () => {
             if (release.name !== state.VRCXUpdateDialog.release) {
                 continue;
             }
-            let downloadUrl = '';
-            let downloadName = '';
-            let hashUrl = '';
-            let size = 0;
-            for (const asset of release.assets) {
-                if (asset.state !== 'uploaded') {
-                    continue;
-                }
-                if (
-                    WINDOWS &&
-                    (asset.content_type === 'application/x-msdownload' ||
-                        asset.content_type === 'application/x-msdos-program')
-                ) {
-                    downloadUrl = asset.browser_download_url;
-                    downloadName = asset.name;
-                    size = asset.size;
-                    continue;
-                }
-                if (
-                    LINUX &&
-                    asset.content_type === 'application/octet-stream'
-                ) {
-                    downloadUrl = asset.browser_download_url;
-                    downloadName = asset.name;
-                    size = asset.size;
-                    continue;
-                }
-                if (
-                    asset.name === 'SHA256SUMS.txt' &&
-                    asset.content_type === 'text/plain'
-                ) {
-                    hashUrl = asset.browser_download_url;
-                    continue;
-                }
-            }
+            const { downloadUrl, hashString, size } = getAssetOfInterest(
+                release.assets
+            );
             if (!downloadUrl) {
                 return;
             }
             const releaseName = release.name;
-            const type = 'Manual';
-            downloadVRCXUpdate(
-                downloadUrl,
-                downloadName,
-                hashUrl,
-                size,
-                releaseName,
-                type
-            );
+            downloadVRCXUpdate(downloadUrl, hashString, size, releaseName);
             break;
         }
     }

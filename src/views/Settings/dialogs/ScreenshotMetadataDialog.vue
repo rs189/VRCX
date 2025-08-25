@@ -42,6 +42,13 @@
                 @click="uploadScreenshotToGallery"
                 >{{ t('dialog.screenshot_metadata.upload') }}</el-button
             >
+            <el-button
+                v-if="screenshotMetadataDialog.metadata.filePath"
+                size="small"
+                icon="el-icon-delete"
+                @click="deleteMetadata(screenshotMetadataDialog.metadata.filePath)"
+                >{{ t('dialog.screenshot_metadata.delete_metadata') }}</el-button
+            >
             <br />
             <br />
 
@@ -279,6 +286,26 @@
             });
         });
     }
+    function deleteMetadata(path) {
+        if (!path) {
+            return;
+        }
+        AppApi.DeleteScreenshotMetadata(path).then((result) => {
+            if (!result) {
+                $message({
+                    message: t('message.screenshot_metadata.delete_failed'),
+                    type: 'error'
+                });
+                return;
+            }
+            $message({
+                message: t('message.screenshot_metadata.deleted'),
+                type: 'success'
+            });
+            const D = props.screenshotMetadataDialog;
+            getAndDisplayScreenshot(D.metadata.filePath, true);
+        });
+    }
     function uploadScreenshotToGallery() {
         const D = props.screenshotMetadataDialog;
         if (D.metadata.fileSizeBytes > 10000000) {
@@ -436,8 +463,9 @@
         D.searchIndex = searchIndex;
     }
 
-    function getAndDisplayScreenshot(path, needsCarouselFiles = true) {
-        AppApi.GetScreenshotMetadata(path).then((metadata) => displayScreenshotMetadata(metadata, needsCarouselFiles));
+    async function getAndDisplayScreenshot(path, needsCarouselFiles = true) {
+        const metadata = await AppApi.GetScreenshotMetadata(path);
+        displayScreenshotMetadata(metadata, needsCarouselFiles);
     }
 
     /**
@@ -445,14 +473,20 @@
      * Error checking and and verification of data is done in .NET already; In the case that the data/file is invalid, a JSON object with the token "error" will be returned containing a description of the problem.
      * Example: {"error":"Invalid file selected. Please select a valid VRChat screenshot."}
      * See docs/screenshotMetadata.json for schema
-     * @param {string} metadata - JSON string grabbed from PNG file
-     * @param {string} needsCarouselFiles - Whether or not to get the last/next files for the carousel
-     * @returns {void}
+     * @param {string} json - JSON string grabbed from PNG file
+     * @param {boolean} needsCarouselFiles - Whether or not to get the last/next files for the carousel
+     * @returns {Promise<void>}
      */
     async function displayScreenshotMetadata(json, needsCarouselFiles = true) {
         let time;
         let date;
         const D = props.screenshotMetadataDialog;
+        D.metadata.author = {};
+        D.metadata.world = {};
+        D.metadata.players = [];
+        D.metadata.creationDate = '';
+        D.metadata.application = '';
+
         const metadata = JSON.parse(json);
         if (!metadata?.sourceFile) {
             D.metadata = {};

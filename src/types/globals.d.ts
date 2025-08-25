@@ -123,24 +123,25 @@ declare global {
     };
 
     const Discord: {
-        SetTimestamps(
-            startTimestamp: number,
-            endTimestamp: number
-        ): Promise<void>;
         SetAssets(
+            details: string,
+            state: string,
+            detailsUrl: string,
             bigIcon: string,
             bigIconText: string,
             smallIcon: string,
             smallIconText: string,
+            startTime: number,
+            endTime: number,
             partyId: string,
             partySize: number,
             partyMaxSize: number,
             buttonText: string,
             buttonUrl: string,
             appId: string,
-            activityType: number
+            activityType: number,
+            statusDisplayType: number
         ): Promise<void>;
-        SetText(details: string, state: string): Promise<void>;
         SetActive(active: boolean): Promise<boolean>;
     };
 
@@ -196,7 +197,8 @@ declare global {
         GetColourBulk(userIds: string[]): Promise<Record<string, number>>;
         SetAppLauncherSettings(
             enabled: boolean,
-            killOnExit: boolean
+            killOnExit: boolean,
+            runProcessOnce: boolean
         ): Promise<void>;
         GetFileBase64(path: string): Promise<string | null>;
 
@@ -290,6 +292,8 @@ declare global {
             searchType?: number
         ): Promise<string>;
         GetLastScreenshot(): Promise<string>;
+        DeleteScreenshotMetadata(path: string): Promise<boolean>;
+        DeleteAllScreenshotMetadata(): Promise<void>;
 
         // Moderations
         GetVRChatModerations(
@@ -313,8 +317,7 @@ declare global {
         // Update
         DownloadUpdate(
             fileUrl: string,
-            fileName: string,
-            hashUrl: string,
+            hashString: string,
             downloadSize: number
         ): Promise<void>;
         CancelUpdate(): Promise<void>;

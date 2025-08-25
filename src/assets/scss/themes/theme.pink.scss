@@ -2,7 +2,7 @@
  * VRCX Pink theme by Kamiya
  * https://github.com/kamiya10/VRCX-theme
  */
-@use 'theme.dark';
+
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
 :root {
     --theme: #dfa2a2;
@@ -13,8 +13,13 @@
     --lighter-lighter-lighter-bg: #756060;
     --lighter-lighter-lighter-lighter-bg: #857070;
     --lighter-border: #aa6065;
-    --font: 'Poppins', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans TC',
+    --font:
+        'Poppins', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans TC',
         'Noto Sans SC', sans-serif;
+
+    --group-calendar-event-bg: rgba(223, 162, 162, 0.1);
+    --group-calendar-badge-following: var(--theme);
+    --group-calendar-badge-normal: var(--lighter-border);
 }
 body,
 button,
@@ -223,9 +228,17 @@ i.el-icon-close:hover {
 }
 .el-tag.el-tag--info {
     color: #baa;
+}
+
+.el-tag,
+.el-tag.el-tag--success,
+.el-tag.el-tag--info,
+.el-tag.el-tag--warning,
+.el-tag.el-tag--danger {
     background-color: var(--lighter-lighter-bg);
     border: 1px solid var(--lighter-lighter-lighter-lighter-bg);
 }
+
 .el-collapse-item__header > span + span,
 .el-form-item__label,
 .el-pagination__total,
@@ -364,7 +377,7 @@ input[type='checkbox']:checked + .el-switch__core {
 
 .el-collapse-item .el-tag--mini {
     border: transparent;
-    background-color: #333;
+    background-color: var(--lighter-lighter-bg);
 }
 .el-divider {
     background-color: #606266;
@@ -375,7 +388,7 @@ input[type='checkbox']:checked + .el-switch__core {
 }
 .el-backtop {
     background: var(--lighter-bg);
-    color: var(--theme)
+    color: var(--theme);
 }
 
 // Date picker
@@ -393,15 +406,17 @@ input[type='checkbox']:checked + .el-switch__core {
     color: #fff;
 }
 .el-date-table td.available:hover {
-    color: #fff
+    color: #fff;
 }
-.el-year-table td .cell:hover, .el-year-table td.current:not(.disabled) .cell {
+.el-year-table td .cell:hover,
+.el-year-table td.current:not(.disabled) .cell {
     color: var(--theme);
 }
 .el-month-table td.current:not(.disabled) .cell {
     color: var(--theme);
 }
-.el-date-picker__header-label.active, .el-date-picker__header-label:hover {
+.el-date-picker__header-label.active,
+.el-date-picker__header-label:hover {
     color: var(--theme);
 }
 .el-picker-panel__icon-btn:hover {
@@ -411,11 +426,83 @@ input[type='checkbox']:checked + .el-switch__core {
     color: var(--theme);
 }
 .el-date-table td.disabled div {
-    background-color: #3a2b2b
+    background-color: #3a2b2b;
 }
 
 .el-skeleton.is-animated .el-skeleton__item {
     background: linear-gradient(90deg, #4a3d3d 25%, #665252 37%, #4a3d3d 63%);
     background-size: 400% 100%;
     animation: el-skeleton-loading 1.4s ease infinite;
+}
+
+.el-calendar {
+    background-color: var(--lighter-bg) !important;
+}
+
+.el-calendar__title {
+    color: var(--theme) !important;
+}
+
+.el-card {
+    background-color: var(--light-bg) !important;
+    border-color: var(--lighter-bg) !important;
+}
+
+.el-descriptions__body {
+    background-color: var(--bg) !important;
+    color: var(--theme) !important;
+}
+
+.el-timeline-item__tail {
+    border-left-color: var(--lighter-border) !important;
+}
+
+.el-timeline-item__node {
+    background-color: var(--lighter-border) !important;
+}
+
+.el-popover {
+    background-color: var(--bg) !important;
+    border-color: var(--lighter-bg) !important;
+}
+
+.el-popper[x-placement^='top'] .popper__arrow {
+    border-top-color: var(--bg) !important;
+}
+
+.el-popper[x-placement^='top'] .popper__arrow::after {
+    border-top-color: var(--bg) !important;
+}
+
+.el-popper[x-placement^='bottom'] .popper__arrow {
+    border-bottom-color: var(--bg) !important;
+}
+
+.el-popper[x-placement^='bottom'] .popper__arrow::after {
+    border-bottom-color: var(--bg) !important;
+}
+
+.el-popper[x-placement^='left'] .popper__arrow {
+    border-left-color: var(--bg) !important;
+}
+
+.el-popper[x-placement^='left'] .popper__arrow::after {
+    border-left-color: var(--bg) !important;
+}
+
+.el-popper[x-placement^='right'] .popper__arrow {
+    border-right-color: var(--bg) !important;
+}
+
+.el-popper[x-placement^='right'] .popper__arrow::after {
+    border-right-color: var(--bg) !important;
+}
+
+// Group Calendar Dialog borders
+.search-container {
+    border-bottom: 1px solid var(--lighter-bg) !important;
+}
+
+.group-header {
+    border-bottom: 2px solid var(--lighter-bg) !important;
 }

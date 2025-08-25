@@ -224,11 +224,13 @@ export const useUserStore = defineStore('User', () => {
                 fileCreatedAt: ''
             },
             representedGroup: {
+                bannerId: '',
                 bannerUrl: '',
                 description: '',
                 discriminator: '',
                 groupId: '',
                 iconUrl: '',
+                id: '',
                 isRepresenting: false,
                 memberCount: 0,
                 memberVisibility: '',
@@ -236,7 +238,8 @@ export const useUserStore = defineStore('User', () => {
                 ownerId: '',
                 privacy: '',
                 shortCode: '',
-                $thumbnailUrl: ''
+                $thumbnailUrl: '',
+                $memberId: ''
             },
             isRepresentedGroupLoading: false,
             joinCount: 0,
@@ -520,8 +523,8 @@ export const useUserStore = defineStore('User', () => {
                 $customTag: '',
                 $customTagColour: '',
                 $friendNumber: 0,
-                $lastFetch: Date.now(),
                 $platform: '',
+                $moderations: {},
                 //
                 ...json
             };
@@ -552,7 +555,6 @@ export const useUserStore = defineStore('User', () => {
             }
             state.cachedUsers.set(ref.id, ref);
         } else {
-            json.$lastFetch = Date.now(); // todo: make this not suck
             if (json.state !== 'online') {
                 // offline event before GPS to offline location
                 friendStore.updateFriend(ref.id, json.state);
@@ -593,10 +595,15 @@ export const useUserStore = defineStore('User', () => {
             }
             Object.assign(ref, json);
         }
+        ref.$moderations = moderationStore.getUserModerations(ref.id);
         ref.$isVRCPlus = ref.tags.includes('system_supporter');
         appearanceSettingsStore.applyUserTrustLevel(ref);
         applyUserLanguage(ref);
-        if (ref.platform && ref.platform !== 'offline') {
+        if (
+            ref.platform &&
+            ref.platform !== 'offline' &&
+            ref.platform !== 'web'
+        ) {
             ref.$platform = ref.platform;
         } else {
             ref.$platform = ref.last_platform;
@@ -773,10 +780,12 @@ export const useUserStore = defineStore('User', () => {
         };
         D.isRepresentedGroupLoading = true;
         D.representedGroup = {
+            bannerId: '',
             bannerUrl: '',
             description: '',
             discriminator: '',
             groupId: '',
+            id: '',
             iconUrl: '',
             isRepresenting: false,
             memberCount: 0,
@@ -785,7 +794,8 @@ export const useUserStore = defineStore('User', () => {
             ownerId: '',
             privacy: '',
             shortCode: '',
-            $thumbnailUrl: ''
+            $thumbnailUrl: '',
+            $memberId: ''
         };
         D.lastSeen = '';
         D.joinCount = 0;
@@ -838,8 +848,6 @@ export const useUserStore = defineStore('User', () => {
                                     D.isBlock = true;
                                 } else if (ref.type === 'mute') {
                                     D.isMute = true;
-                                } else if (ref.type === 'hideAvatar') {
-                                    D.isHideAvatar = true;
                                 } else if (ref.type === 'interactOff') {
                                     D.isInteractOff = true;
                                 } else if (ref.type === 'muteChat') {
@@ -998,7 +1006,7 @@ export const useUserStore = defineStore('User', () => {
         if (!D.visible) {
             return;
         }
-        const L = parseLocation(D.ref.$location.tag);
+        const L = parseLocation(D.ref.$location?.tag);
         if (updateInstanceOccupants && L.isRealInstance) {
             instanceRequest.getInstance({
                 worldId: L.worldId,

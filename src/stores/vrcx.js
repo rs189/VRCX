@@ -7,12 +7,7 @@ import { database } from '../service/database';
 import { AppGlobal } from '../service/appConfig';
 import { failedGetRequests } from '../service/request';
 import { watchState } from '../service/watchState';
-import {
-    debounce,
-    parseLocation,
-    refreshCustomCss,
-    removeFromArray
-} from '../shared/utils';
+import { debounce, parseLocation, refreshCustomCss } from '../shared/utils';
 import { useAvatarStore } from './avatar';
 import { useAvatarProviderStore } from './avatarProvider';
 import { useFavoriteStore } from './favorite';
@@ -82,14 +77,10 @@ export const useVrcxStore = defineStore('Vrcx', () => {
                 debounce(saveVRCXWindowOption, 300)();
             });
 
-            window.electron.onWindowStateChange((event, state) => {
-                state.windowState = state;
+            window.electron.onWindowStateChange((event, newState) => {
+                state.windowState = newState.windowState;
                 debounce(saveVRCXWindowOption, 300)();
             });
-
-            // window.electron.onWindowClosed((event) => {
-            //    window.$app.saveVRCXWindowOption();
-            // });
         }
 
         state.databaseVersion = await configRepository.getInt(
@@ -121,10 +112,13 @@ export const useVrcxStore = defineStore('Vrcx', () => {
             );
         }
         state.proxyServer = await VRCXStorage.Get('VRCX_ProxyServer');
-        state.locationX = await VRCXStorage.Get('VRCX_LocationX');
-        state.locationY = await VRCXStorage.Get('VRCX_LocationY');
-        state.sizeWidth = await VRCXStorage.Get('VRCX_SizeWidth');
-        state.sizeHeight = await VRCXStorage.Get('VRCX_SizeHeight');
+        state.locationX = parseInt(await VRCXStorage.Get('VRCX_LocationX'), 10);
+        state.locationY = parseInt(await VRCXStorage.Get('VRCX_LocationY'), 10);
+        state.sizeWidth = parseInt(await VRCXStorage.Get('VRCX_SizeWidth'), 10);
+        state.sizeHeight = parseInt(
+            await VRCXStorage.Get('VRCX_SizeHeight'),
+            10
+        );
         state.windowState = await VRCXStorage.Get('VRCX_WindowState');
 
         state.maxTableSize = await configRepository.getInt(
@@ -202,19 +196,6 @@ export const useVrcxStore = defineStore('Vrcx', () => {
             state.isRunningUnderWine = value;
         }
     });
-
-    async function applyWineEmojis() {
-        if (document.contains(document.getElementById('app-emoji-font'))) {
-            document.getElementById('app-emoji-font').remove();
-        }
-        if (state.isRunningUnderWine) {
-            const $appEmojiFont = document.createElement('link');
-            $appEmojiFont.setAttribute('id', 'app-emoji-font');
-            $appEmojiFont.rel = 'stylesheet';
-            $appEmojiFont.href = 'emoji.font.css';
-            document.head.appendChild($appEmojiFont);
-        }
-    }
 
     function showConsole() {
         AppApi.ShowDevTools();
@@ -373,6 +354,7 @@ export const useVrcxStore = defineStore('Vrcx', () => {
                 break;
             case 'External': {
                 const displayName = data.DisplayName ?? '';
+                const notify = data.notify ?? true;
                 entry = {
                     created_at: new Date().toJSON(),
                     type: 'External',
@@ -382,7 +364,9 @@ export const useVrcxStore = defineStore('Vrcx', () => {
                     location: locationStore.lastLocation.location
                 };
                 database.addGamelogExternalToDatabase(entry);
-                notificationStore.queueGameLogNoty(entry);
+                if (notify) {
+                    notificationStore.queueGameLogNoty(entry);
+                }
                 gameLogStore.addGameLog(entry);
                 break;
             }
@@ -394,10 +378,10 @@ export const useVrcxStore = defineStore('Vrcx', () => {
 
     async function saveVRCXWindowOption() {
         if (LINUX) {
-            VRCXStorage.Set('VRCX_LocationX', state.locationX);
-            VRCXStorage.Set('VRCX_LocationY', state.locationY);
-            VRCXStorage.Set('VRCX_SizeWidth', state.sizeWidth);
-            VRCXStorage.Set('VRCX_SizeHeight', state.sizeHeight);
+            VRCXStorage.Set('VRCX_LocationX', state.locationX.toString());
+            VRCXStorage.Set('VRCX_LocationY', state.locationY.toString());
+            VRCXStorage.Set('VRCX_SizeWidth', state.sizeWidth.toString());
+            VRCXStorage.Set('VRCX_SizeHeight', state.sizeHeight.toString());
             VRCXStorage.Set('VRCX_WindowState', state.windowState);
             VRCXStorage.Flush();
         }
@@ -683,7 +667,10 @@ export const useVrcxStore = defineStore('Vrcx', () => {
     }
 
     async function checkAutoBackupRestoreVrcRegistry() {
-        if (!advancedSettingsStore.vrcRegistryAutoBackup) {
+        if (
+            !advancedSettingsStore.vrcRegistryAutoBackup ||
+            !advancedSettingsStore.vrcRegistryAskRestore
+        ) {
             return;
         }
 
@@ -717,7 +704,7 @@ export const useVrcxStore = defineStore('Vrcx', () => {
                 lastBackupDate
             );
         } else {
-            await autoBackupVrcRegistry();
+            await tryAutoBackupVrcRegistry();
         }
     }
 
@@ -725,7 +712,10 @@ export const useVrcxStore = defineStore('Vrcx', () => {
         state.isRegistryBackupDialogVisible = true;
     }
 
-    async function autoBackupVrcRegistry() {
+    async function tryAutoBackupVrcRegistry() {
+        if (!advancedSettingsStore.vrcRegistryAutoBackup) {
+            return;
+        }
         const date = new Date();
         const lastBackupDate = await configRepository.getString(
             'VRCX_VRChatRegistryLastBackupDate'
@@ -734,7 +724,7 @@ export const useVrcxStore = defineStore('Vrcx', () => {
             const lastBackup = new Date(lastBackupDate);
             const diff = date.getTime() - lastBackup.getTime();
             const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
-            if (diffDays < 7) {
+            if (diffDays < 3) {
                 return;
             }
         }
@@ -745,12 +735,16 @@ export const useVrcxStore = defineStore('Vrcx', () => {
             backupsJson = JSON.stringify([]);
         }
         const backups = JSON.parse(backupsJson);
-        backups.forEach((backup) => {
-            if (backup.name === 'Auto Backup') {
-                // remove old auto backup
-                removeFromArray(backups, backup);
+        for (let i = backups.length - 1; i >= 0; i--) {
+            const backupDate = new Date(backups[i].date);
+            // remove backups older than 2 weeks
+            if (
+                backups[i].name === 'Auto Backup' &&
+                backupDate.getTime() < date.getTime() - 1209600000 // 2 weeks in milliseconds
+            ) {
+                backups.splice(i, 1);
             }
-        });
+        }
         await configRepository.setString(
             'VRCX_VRChatRegistryBackups',
             JSON.stringify(backups)
@@ -771,12 +765,12 @@ export const useVrcxStore = defineStore('Vrcx', () => {
         clearVRCXCacheFrequency,
         maxTableSize,
         showConsole,
-        applyWineEmojis,
         clearVRCXCache,
         startupLaunchCommand,
         eventVrcxMessage,
         showRegistryBackupDialog,
         checkAutoBackupRestoreVrcRegistry,
+        tryAutoBackupVrcRegistry,
         processScreenshot,
         ipcEvent,
         dragEnterCef,

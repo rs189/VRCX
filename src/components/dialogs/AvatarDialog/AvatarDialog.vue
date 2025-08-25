@@ -22,7 +22,17 @@
                 <div style="flex: 1; display: flex; align-items: center; margin-left: 15px">
                     <div style="flex: 1">
                         <div>
-                            <span class="dialog-title" v-text="avatarDialog.ref.name"></span>
+                            <el-popover placement="top" trigger="click">
+                                <span
+                                    slot="reference"
+                                    class="dialog-title"
+                                    style="margin-right: 5px; cursor: pointer"
+                                    v-text="avatarDialog.ref.name"
+                                    @click="copyToClipboard(avatarDialog.ref.name)"></span>
+                                <span style="display: block; text-align: center; font-family: monospace">{{
+                                    textToHex(avatarDialog.ref.name)
+                                }}</span>
+                            </el-popover>
                         </div>
                         <div style="margin-top: 5px">
                             <span
@@ -553,18 +563,6 @@
                         icon="el-icon-refresh"
                         circle
                         @click="refreshAvatarDialogTreeData"></el-button>
-                    <el-tooltip
-                        placement="top"
-                        :content="t('dialog.avatar.json.file_analysis')"
-                        :disabled="hideTooltips">
-                        <el-button
-                            type="default"
-                            size="mini"
-                            icon="el-icon-s-data"
-                            circle
-                            style="margin-left: 5px"
-                            @click="getAvatarFileAnalysis"></el-button>
-                    </el-tooltip>
                     <el-button
                         type="default"
                         size="mini"
@@ -573,8 +571,8 @@
                         style="margin-left: 5px"
                         @click="downloadAndSaveJson(avatarDialog.id, avatarDialog.ref)"></el-button>
                     <el-tree
-                        v-if="Object.keys(fileAnalysis).length > 0"
-                        :data="fileAnalysis"
+                        v-if="Object.keys(avatarDialog.fileAnalysis).length > 0"
+                        :data="avatarDialog.fileAnalysis"
                         style="margin-top: 5px; font-size: 12px">
                         <template #default="scope">
                             <span>
@@ -625,7 +623,8 @@
         storeAvatarImage,
         timeToText,
         moveArrayItem,
-        formatDateFilter
+        formatDateFilter,
+        textToHex
     } from '../../../shared/utils';
     import {
         useAppearanceSettingsStore,
@@ -665,7 +664,6 @@
     const treeData = ref([]);
     const timeSpent = ref(0);
     const memo = ref('');
-    const fileAnalysis = ref({});
     const setAvatarTagsDialog = reactive({
         visible: false,
         loading: false,
@@ -740,7 +738,7 @@
     }
 
     function handleDialogOpen() {
-        fileAnalysis.value = {};
+        avatarDialog.value.fileAnalysis = {};
         memo.value = '';
         treeData.value = [];
         getAvatarTimeSpent();
@@ -1083,66 +1081,6 @@
 
     function refreshAvatarDialogTreeData() {
         treeData.value = buildTreeData(avatarDialog.value.ref);
-    }
-
-    function getAvatarFileAnalysis() {
-        let unityPackage;
-        const D = avatarDialog.value;
-        const avatarId = D.ref.id;
-        let assetUrl = '';
-        let variant = 'security';
-        for (let i = D.ref.unityPackages.length - 1; i > -1; i--) {
-            unityPackage = D.ref.unityPackages[i];
-            if (unityPackage.variant !== 'security') {
-                continue;
-            }
-            if (unityPackage.platform === 'standalonewindows' && compareUnityVersion(unityPackage.unitySortNumber)) {
-                assetUrl = unityPackage.assetUrl;
-                break;
-            }
-        }
-        if (!assetUrl) {
-            for (let i = D.ref.unityPackages.length - 1; i > -1; i--) {
-                unityPackage = D.ref.unityPackages[i];
-                if (unityPackage.variant !== 'standard') {
-                    continue;
-                }
-                if (
-                    unityPackage.platform === 'standalonewindows' &&
-                    compareUnityVersion(unityPackage.unitySortNumber)
-                ) {
-                    variant = 'standard';
-                    assetUrl = unityPackage.assetUrl;
-                    break;
-                }
-            }
-        }
-        const fileId = extractFileId(assetUrl);
-        const version = parseInt(extractFileVersion(assetUrl), 10);
-        if (!fileId || !version) {
-            $message({
-                message: 'File Analysis unavailable',
-                type: 'error'
-            });
-            return;
-        }
-        miscRequest.getFileAnalysis({ fileId, version, variant }).then((args) => {
-            if (!avatarDialog.value.visible || avatarDialog.value.id !== avatarId) {
-                return;
-            }
-            const ref = args.json;
-            if (typeof ref.fileSize !== 'undefined') {
-                ref._fileSize = `${(ref.fileSize / 1048576).toFixed(2)} MB`;
-            }
-            if (typeof ref.uncompressedSize !== 'undefined') {
-                ref._uncompressedSize = `${(ref.uncompressedSize / 1048576).toFixed(2)} MB`;
-            }
-            if (typeof ref.avatarStats?.totalTextureUsage !== 'undefined') {
-                ref._totalTextureUsage = `${(ref.avatarStats.totalTextureUsage / 1048576).toFixed(2)} MB`;
-            }
-
-            fileAnalysis.value = buildTreeData(args.json);
-        });
     }
 
     function showSetAvatarTagsDialog(avatarId) {

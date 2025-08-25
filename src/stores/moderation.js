@@ -1,16 +1,13 @@
 import { defineStore } from 'pinia';
-import Vue, { computed, reactive, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import { avatarModerationRequest, playerModerationRequest } from '../api';
-import { $app } from '../app';
 import { watchState } from '../service/watchState';
 import { useAvatarStore } from './avatar';
 import { useUserStore } from './user';
-import { useI18n } from 'vue-i18n-bridge';
 
 export const useModerationStore = defineStore('Moderation', () => {
     const avatarStore = useAvatarStore();
     const userStore = useUserStore();
-    const { t } = useI18n();
 
     const state = reactive({
         cachedPlayerModerations: new Map(),
@@ -64,53 +61,25 @@ export const useModerationStore = defineStore('Moderation', () => {
         { flush: 'sync' }
     );
 
-    function handlePlayerModeration(args) {
-        args.ref = applyPlayerModeration(args.json);
-        const { ref } = args;
-        const array = state.playerModerationTable.data;
-        const { length } = array;
-        for (let i = 0; i < length; ++i) {
-            if (array[i].id === ref.id) {
-                Vue.set(array, i, ref);
-                return;
-            }
-        }
-        state.playerModerationTable.data.push(ref);
-    }
-
-    /**
-     *
-     * @param args
-     */
-    function handlePlayerModerationAtSend(args) {
-        const { ref } = args;
-        const D = userStore.userDialog;
-        if (
-            D.visible === false ||
-            (ref.targetUserId !== D.id &&
-                ref.sourceUserId !== userStore.currentUser.id)
-        ) {
-            return;
-        }
-        if (ref.type === 'block') {
-            D.isBlock = true;
-        } else if (ref.type === 'mute') {
-            D.isMute = true;
-        } else if (ref.type === 'hideAvatar') {
-            D.isHideAvatar = true;
-        } else if (ref.type === 'interactOff') {
-            D.isInteractOff = true;
-        } else if (ref.type === 'muteChat') {
-            D.isMuteChat = true;
-        }
-        $app.$message({
-            message: t('message.user.moderated'),
-            type: 'success'
-        });
-    }
-
     function handlePlayerModerationAtDelete(args) {
         const { ref } = args;
+
+        let hasModeration = false;
+        for (const ref of state.cachedPlayerModerations.values()) {
+            if (ref.targetUserId === ref.targetUserId) {
+                hasModeration = true;
+                break;
+            }
+        }
+        if (!hasModeration) {
+            state.cachedPlayerModerationsUserIds.delete(ref.targetUserId);
+        }
+
+        const userRef = userStore.cachedUsers.get(ref.targetUserId);
+        if (typeof userRef !== 'undefined') {
+            userRef.$moderations = getUserModerations(ref.targetUserId);
+        }
+
         const D = userStore.userDialog;
         if (
             D.visible === false ||
@@ -136,7 +105,7 @@ export const useModerationStore = defineStore('Moderation', () => {
         for (let i = 0; i < length; ++i) {
             if (array[i].id === ref.id) {
                 array.splice(i, 1);
-                return;
+                break;
             }
         }
     }
@@ -157,9 +126,9 @@ export const useModerationStore = defineStore('Moderation', () => {
                         playerModerationId: ref.id
                     }
                 });
+                break;
             }
         }
-        state.cachedPlayerModerationsUserIds.delete(moderated);
     }
 
     /**
@@ -190,6 +159,17 @@ export const useModerationStore = defineStore('Moderation', () => {
         }
         if (json.targetUserId) {
             state.cachedPlayerModerationsUserIds.add(json.targetUserId);
+        }
+        const array = state.playerModerationTable.data;
+        const index = array.findIndex((item) => item.id === ref.id);
+        if (index !== -1) {
+            array[index] = ref;
+        } else {
+            array.push(ref);
+        }
+        const userRef = userStore.cachedUsers.get(ref.targetUserId);
+        if (typeof userRef !== 'undefined') {
+            userRef.$moderations = getUserModerations(ref.targetUserId);
         }
         return ref;
     }
@@ -238,19 +218,55 @@ export const useModerationStore = defineStore('Moderation', () => {
                 }
                 if (res[0]?.json) {
                     for (let json of res[0].json) {
-                        handlePlayerModeration({
-                            json,
-                            params: {
-                                playerModerationId: json.id
-                            }
-                        });
+                        applyPlayerModeration(json);
                     }
                 }
                 deleteExpiredPlayerModerations();
             })
             .catch((error) => {
-                console.error('Failed to load player/avatar moderations:', error);
+                console.error(
+                    'Failed to load player/avatar moderations:',
+                    error
+                );
             });
+    }
+
+    /**
+     * Get user moderations
+     * @param {string} userId
+     * @return {object} moderations
+     * @property {boolean} isBlocked
+     * @property {boolean} isMuted
+     * @property {boolean} isAvatarInteractionDisabled
+     * @property {boolean} isChatBoxMuted
+     */
+    function getUserModerations(userId) {
+        let moderations = {
+            isBlocked: false,
+            isMuted: false,
+            isAvatarInteractionDisabled: false,
+            isChatBoxMuted: false
+        };
+        for (let ref of state.cachedPlayerModerations.values()) {
+            if (ref.targetUserId !== userId) {
+                continue;
+            }
+            switch (ref.type) {
+                case 'block':
+                    moderations.isBlocked = true;
+                    break;
+                case 'mute':
+                    moderations.isMuted = true;
+                    break;
+                case 'interactOff':
+                    moderations.isAvatarInteractionDisabled = true;
+                    break;
+                case 'muteChat':
+                    moderations.isChatBoxMuted = true;
+                    break;
+            }
+        }
+        return moderations;
     }
 
     return {
@@ -261,8 +277,8 @@ export const useModerationStore = defineStore('Moderation', () => {
         playerModerationTable,
 
         refreshPlayerModerations,
-        handlePlayerModerationAtSend,
-        handlePlayerModeration,
-        handlePlayerModerationDelete
+        applyPlayerModeration,
+        handlePlayerModerationDelete,
+        getUserModerations
     };
 });

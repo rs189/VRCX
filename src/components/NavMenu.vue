@@ -4,7 +4,7 @@
             <el-progress
                 type="circle"
                 width="50"
-                stroke-width="3"
+                :stroke-width="3"
                 :percentage="updateProgress"
                 :format="updateProgressText"></el-progress>
         </div>
@@ -28,7 +28,7 @@
                 :key="item.index"
                 :index="item.index"
                 :class="{ notify: notifiedMenus.includes(item.index) }">
-                <i :class="item.icon" />
+                <i :class="item.icon"></i>
                 <template #title>
                     <span>{{ $t(item.tooltip) }}</span>
                 </template>

@@ -26,11 +26,6 @@ if (process.platform === 'linux') {
         process.env.DOTNET_ROOT = bundledDotNetPath;
         process.env.PATH = `${bundledDotNetPath}:${process.env.PATH}`;
     }
-
-    const openvrLibPath = path.join(process.resourcesPath, '..', 'bin');
-    if (fs.existsSync(openvrLibPath)) {
-        process.env.LD_LIBRARY_PATH = `${openvrLibPath}:${process.env.LD_LIBRARY_PATH || ''}`;
-    }
 } else if (process.platform === 'darwin') {
     const dotnetPath = path.join('/usr/local/share/dotnet');
     const dotnetPathArm = path.join('/usr/local/share/dotnet/x64');
@@ -189,16 +184,20 @@ ipcMain.handle('app:restart', () => {
 
 ipcMain.handle('app:getWristOverlayWindow', () => {
     if (wristOverlayWindow && wristOverlayWindow.webContents) {
-        return !wristOverlayWindow.webContents.isLoading() && 
-        wristOverlayWindow.webContents.isPainting();
+        return (
+            !wristOverlayWindow.webContents.isLoading() &&
+            wristOverlayWindow.webContents.isPainting()
+        );
     }
     return false;
 });
 
 ipcMain.handle('app:getHmdOverlayWindow', () => {
     if (hmdOverlayWindow && hmdOverlayWindow.webContents) {
-        return !hmdOverlayWindow.webContents.isLoading() && 
-        hmdOverlayWindow.webContents.isPainting();
+        return (
+            !hmdOverlayWindow.webContents.isLoading() &&
+            hmdOverlayWindow.webContents.isPainting()
+        );
     }
     return false;
 });
@@ -616,6 +615,10 @@ async function createDesktopFile() {
     // Download the icon and save it to the target directory
     const iconPath = path.join(homePath, '.local/share/icons/VRCX.png');
     if (!fs.existsSync(iconPath)) {
+        const iconDir = path.dirname(iconPath);
+        if (!fs.existsSync(iconDir)) {
+            fs.mkdirSync(iconDir, { recursive: true });
+        }
         const iconUrl =
             'https://raw.githubusercontent.com/vrcx-team/VRCX/master/VRCX.png';
         await downloadIcon(iconUrl, iconPath)
@@ -871,8 +874,6 @@ function disposeOverlay() {
 
 app.on('before-quit', function () {
     disposeOverlay();
-
-    mainWindow.webContents.send('windowClosed');
 });
 
 app.on('window-all-closed', function () {

@@ -86,7 +86,8 @@
                                     slot="reference"
                                     class="dialog-title"
                                     style="margin-left: 5px; margin-right: 5px; cursor: pointer"
-                                    v-text="userDialog.ref.displayName"></span>
+                                    v-text="userDialog.ref.displayName"
+                                    @click="copyUserDisplayName(userDialog.ref.displayName)"></span>
                                 <span style="display: block; text-align: center; font-family: monospace">{{
                                     textToHex(userDialog.ref.displayName)
                                 }}</span>
@@ -136,8 +137,9 @@
                                 size="mini"
                                 class="name"
                                 :class="userDialog.ref.$trustClass"
-                                style="margin-right: 5px; margin-top: 5px"
-                                v-text="userDialog.ref.$trustLevel"></el-tag>
+                                style="margin-right: 5px; margin-top: 5px">
+                                {{ userDialog.ref.$trustLevel }}
+                            </el-tag>
                             <el-tag
                                 v-if="userDialog.isFriend && userDialog.friend"
                                 type="info"
@@ -239,7 +241,8 @@
                                     'border-color': userDialog.ref.$customTagColour
                                 }"
                                 style="margin-right: 5px; margin-top: 5px"
-                                v-text="userDialog.ref.$customTag"></el-tag>
+                                >{{ userDialog.ref.$customTag }}</el-tag
+                            >
                             <br />
                             <el-tooltip
                                 v-show="!userDialog.loading"
@@ -444,6 +447,9 @@
                                     }}</el-dropdown-item>
                                     <el-dropdown-item icon="el-icon-message" command="Invite To Group">{{
                                         t('dialog.user.actions.invite_to_group')
+                                    }}</el-dropdown-item>
+                                    <el-dropdown-item icon="el-icon-s-operation" command="Group Moderation">{{
+                                        t('dialog.user.actions.group_moderation')
                                     }}</el-dropdown-item>
                                     <!--//- el-dropdown-item(icon="el-icon-thumb" command="Send Boop" :disabled="!currentUser.isBoopingEnabled") {{ t('dialog.user.actions.send_boop') }}-->
                                     <el-dropdown-item icon="el-icon-s-custom" command="Show Avatar Author" divided>{{
@@ -841,7 +847,7 @@
                             <el-tooltip
                                 :disabled="hideTooltips"
                                 placement="top"
-                                :content="t('dialog.user.info.open_previouse_instance')">
+                                :content="t('dialog.user.info.open_previous_instance')">
                                 <div class="x-friend-item" @click="showPreviousInstancesUserDialog(userDialog.ref)">
                                     <div class="detail">
                                         <span class="name">
@@ -880,7 +886,7 @@
                             <el-tooltip
                                 :disabled="hideTooltips || currentUser.id !== userDialog.id"
                                 placement="top"
-                                :content="t('dialog.user.info.open_previouse_instance')">
+                                :content="t('dialog.user.info.open_previous_instance')">
                                 <div class="x-friend-item" @click="showPreviousInstancesUserDialog(userDialog.ref)">
                                     <div class="detail">
                                         <span class="name">
@@ -1521,8 +1527,8 @@
                                     <el-dropdown-item
                                         v-for="(item, key) in userDialogWorldSortingOptions"
                                         :key="key"
-                                        @click.native="setUserDialogWorldSorting(item)"
-                                        v-text="t(item.name)">
+                                        @click.native="setUserDialogWorldSorting(item)">
+                                        {{ t(item.name) }}
                                     </el-dropdown-item>
                                 </el-dropdown-menu>
                             </el-dropdown>
@@ -1543,8 +1549,8 @@
                                     <el-dropdown-item
                                         v-for="(item, key) in userDialogWorldOrderOptions"
                                         :key="key"
-                                        @click.native="setUserDialogWorldOrder(item)"
-                                        v-text="t(item.name)">
+                                        @click.native="setUserDialogWorldOrder(item)">
+                                        {{ t(item.name) }}
                                     </el-dropdown-item>
                                 </el-dropdown-menu>
                             </el-dropdown>
@@ -1669,13 +1675,11 @@
                                         ></span>
                                     </el-button>
                                     <el-dropdown-menu slot="dropdown">
-                                        <el-dropdown-item
-                                            @click.native="changeUserDialogAvatarSorting('name')"
-                                            v-text="t('dialog.user.avatars.sort_by_name')">
+                                        <el-dropdown-item @click.native="changeUserDialogAvatarSorting('name')">
+                                            {{ t('dialog.user.avatars.sort_by_name') }}
                                         </el-dropdown-item>
-                                        <el-dropdown-item
-                                            @click.native="changeUserDialogAvatarSorting('update')"
-                                            v-text="t('dialog.user.avatars.sort_by_update')">
+                                        <el-dropdown-item @click.native="changeUserDialogAvatarSorting('update')">
+                                            {{ t('dialog.user.avatars.sort_by_update') }}
                                         </el-dropdown-item>
                                     </el-dropdown-menu>
                                 </el-dropdown>
@@ -1695,17 +1699,14 @@
                                         ></span>
                                     </el-button>
                                     <el-dropdown-menu slot="dropdown">
-                                        <el-dropdown-item
-                                            @click.native="userDialog.avatarReleaseStatus = 'all'"
-                                            v-text="t('dialog.user.avatars.all')">
+                                        <el-dropdown-item @click.native="userDialog.avatarReleaseStatus = 'all'">
+                                            {{ t('dialog.user.avatars.all') }}
                                         </el-dropdown-item>
-                                        <el-dropdown-item
-                                            @click.native="userDialog.avatarReleaseStatus = 'public'"
-                                            v-text="t('dialog.user.avatars.public')">
+                                        <el-dropdown-item @click.native="userDialog.avatarReleaseStatus = 'public'">
+                                            {{ t('dialog.user.avatars.public') }}
                                         </el-dropdown-item>
-                                        <el-dropdown-item
-                                            @click.native="userDialog.avatarReleaseStatus = 'private'"
-                                            v-text="t('dialog.user.avatars.private')">
+                                        <el-dropdown-item @click.native="userDialog.avatarReleaseStatus = 'private'">
+                                            {{ t('dialog.user.avatars.private') }}
                                         </el-dropdown-item>
                                     </el-dropdown-menu>
                                 </el-dropdown>
@@ -1785,6 +1786,7 @@
         <LanguageDialog />
         <BioDialog :bio-dialog="bioDialog" />
         <PronounsDialog :pronouns-dialog="pronounsDialog" />
+        <ModerateGroupDialog />
     </safe-dialog>
 </template>
 
@@ -1858,6 +1860,7 @@
     import PronounsDialog from './PronounsDialog.vue';
     import SendInviteRequestDialog from './SendInviteRequestDialog.vue';
     import SocialStatusDialog from './SocialStatusDialog.vue';
+    import ModerateGroupDialog from '../ModerateGroupDialog.vue';
 
     const { t } = useI18n();
 
@@ -1883,7 +1886,8 @@
         leaveGroup,
         leaveGroupPrompt,
         setGroupVisibility,
-        handleGroupList
+        handleGroupList,
+        showModerateGroupDialog
     } = useGroupStore();
     const { currentUserGroups, inviteGroupDialog, inGameGroupOrder } = storeToRefs(useGroupStore());
     const { lastLocation, lastLocationDestination } = storeToRefs(useLocationStore());
@@ -1896,7 +1900,7 @@
     const { isGameRunning } = storeToRefs(useGameStore());
     const { logout } = useAuthStore();
     const { cachedConfig } = storeToRefs(useAuthStore());
-    const { handlePlayerModerationAtSend, handlePlayerModeration, handlePlayerModerationDelete } = useModerationStore();
+    const { applyPlayerModeration, handlePlayerModerationDelete } = useModerationStore();
     const { shiftHeld } = storeToRefs(useUiStore());
 
     watch(
@@ -2302,6 +2306,8 @@
             showInviteGroupDialog('', D.id);
             // } else if (command === 'Send Boop') {
             //     this.showSendBoopDialog(D.id);
+        } else if (command === 'Group Moderation') {
+            showModerateGroupDialog(D.id);
         } else if (command === 'Hide Avatar') {
             if (D.isHideAvatar) {
                 setPlayerModeration(D.id, 0);
@@ -2386,14 +2392,24 @@
     }
 
     function handleSendPlayerModeration(args) {
-        const ref = {
-            json: args.json,
-            params: {
-                playerModerationId: args.json.id
-            }
-        };
-        handlePlayerModeration();
-        handlePlayerModerationAtSend(ref);
+        const ref = applyPlayerModeration(args.json);
+        const D = userDialog.value;
+        if (D.visible === false || (ref.targetUserId !== D.id && ref.sourceUserId !== currentUser.value.id)) {
+            return;
+        }
+        if (ref.type === 'block') {
+            D.isBlock = true;
+        } else if (ref.type === 'mute') {
+            D.isMute = true;
+        } else if (ref.type === 'interactOff') {
+            D.isInteractOff = true;
+        } else if (ref.type === 'muteChat') {
+            D.isMuteChat = true;
+        }
+        $message({
+            message: t('message.user.moderated'),
+            type: 'success'
+        });
     }
 
     async function performUserDialogCommand(command, userId) {
@@ -2446,10 +2462,11 @@
                 break;
             }
             case 'Moderation Unblock':
-                playerModerationRequest.deletePlayerModeration({
+                args = await playerModerationRequest.deletePlayerModeration({
                     moderated: userId,
                     type: 'block'
                 });
+                handlePlayerModerationDelete(args);
                 break;
             case 'Moderation Block': {
                 args = await playerModerationRequest.sendPlayerModeration({
