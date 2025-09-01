@@ -7,7 +7,7 @@
 [![GitHub Workflow Status](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml/badge.svg)](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml)
 [![VRCX Discord Invite](https://img.shields.io/discord/854071236363550763?color=%237289DA&logo=discord&logoColor=white&label=discord)](https://vrcx.app/discord)
 
-| [English](./README.md) | [Français](./README.fr.md) | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | **Italiano** | [Русский](./README.ru_RU.md) | [Español](./README.es.md) | [Polski](./README.pl.md)
+| [English](./README.md) | [Français](./README.fr.md) | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | **Italiano** | [Русский](./README.ru_RU.md) | [Español](./README.es.md) | [Polski](./README.pl.md) | [ภาษาไทย](./README.th.md)
 
 VRCX è un'applicazione di assistenza/accompagnamento per VRChat che fornisce informazioni e aiuta a compiere varie operazioni relative a VRChat in modo più conveniente rispetto all'uso del solo client VRChat (desktop o VR) o del sito web. Include anche alcune altre funzioni interessanti descritte di seguito.
 
@@ -31,10 +31,6 @@ Scarica e installa l'ultimo installer (`VRCX_Setup.exe`) da [qui](https://github
 - :electric_plug: Avvio automatico delle applicazioni all'avvio di VRChat
     - È possibile configurare VRCX per avviare altre applicazioni quando si avvia VRChat.
     - Ad esempio, si può fare in modo che VRCX lanci un'applicazione OSC o un cambiavoce all'apertura di VRChat.
-- :floppy_disk: Persistenza del mondo
-    - Per i mondi che supportano questa funzione, VRCX può salvare le impostazioni del mondo, gli stati, gli inventari e altri dati!
-    - **Nota**: Per utilizzare questa funzione, è necessario che nelle impostazioni di VRChat sia abilitato "Consenti URL non attendibili".
-    - Per gli sviluppatori: [Pagina Wiki - World Persistence (PWI)](<https://github.com/vrcx-team/VRCX/wiki/World-Persistence-(PWI)>)
 - :mag: Ricerca di avatar, utenti, mondi e gruppi
 - :earth_americas: Costruire un elenco di preferiti locali e non limitati del mondo
 - :camera: Memorizza i dati del mondo nelle foto scattate nel gioco, in modo da poter ricordare quel mondo in cui hai scattato quelle belle foto come... 6 mesi fa!

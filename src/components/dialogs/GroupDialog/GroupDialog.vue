@@ -4,7 +4,6 @@
         :visible.sync="groupDialog.visible"
         :show-close="false"
         width="770px"
-        top="10vh"
         class="x-dialog x-group-dialog">
         <div class="group-banner-image">
             <el-popover placement="right" width="500px" trigger="click">
@@ -36,8 +35,18 @@
                 </el-popover>
                 <div style="flex: 1; display: flex; align-items: center; margin-left: 15px">
                     <div class="group-header" style="flex: 1">
-                        <span v-if="groupDialog.ref.ownerId === API.currentUser.id" style="margin-right: 5px">👑</span>
-                        <span class="dialog-title" style="margin-right: 5px" v-text="groupDialog.ref.name"></span>
+                        <span v-if="groupDialog.ref.ownerId === currentUser.id" style="margin-right: 5px">👑</span>
+                        <el-popover placement="top" trigger="click">
+                            <span
+                                slot="reference"
+                                class="dialog-title"
+                                style="margin-right: 5px; cursor: pointer"
+                                v-text="groupDialog.ref.name"
+                                @click="copyToClipboard(groupDialog.ref.name)"></span>
+                            <span style="display: block; text-align: center; font-family: monospace">{{
+                                textToHex(groupDialog.ref.name)
+                            }}</span>
+                        </el-popover>
                         <span
                             class="group-discriminator x-grey"
                             style="font-family: monospace; font-size: 12px; margin-right: 5px">
@@ -318,7 +327,10 @@
                                                 {{ t('dialog.group.actions.create_post') }}
                                             </el-dropdown-item>
                                         </template>
-                                        <el-dropdown-item icon="el-icon-s-operation" command="Moderation Tools">
+                                        <el-dropdown-item
+                                            :disabled="!hasGroupModerationPermission(groupDialog.ref)"
+                                            icon="el-icon-s-operation"
+                                            command="Moderation Tools">
                                             {{ t('dialog.group.actions.moderation_tools') }}
                                         </el-dropdown-item>
                                         <template
@@ -399,10 +411,8 @@
                         </span>
                         <div v-for="room in groupDialog.instances" :key="room.tag" style="width: 100%">
                             <div style="margin: 5px 0">
-                                <location :location="room.tag" style="display: inline-block" />
-                                <el-tooltip placement="top" content="Invite yourself" :disabled="hideTooltips">
-                                    <invite-yourself :location="room.tag" style="margin-left: 5px" />
-                                </el-tooltip>
+                                <Location :location="room.tag" style="display: inline-block" />
+                                <InviteYourself :location="room.tag" style="margin-left: 5px" />
                                 <el-tooltip placement="top" content="Refresh player count" :disabled="hideTooltips">
                                     <el-button
                                         size="mini"
@@ -411,12 +421,11 @@
                                         circle
                                         @click="refreshInstancePlayerCount(room.tag)" />
                                 </el-tooltip>
-                                <last-join :location="room.tag" :currentlocation="lastLocation.location" />
-                                <instance-info
+                                <LastJoin :location="room.tag" :currentlocation="lastLocation.location" />
+                                <InstanceInfo
                                     :location="room.tag"
                                     :instance="room.ref"
-                                    :friendcount="room.friendCount"
-                                    :updateelement="updateInstanceInfo" />
+                                    :friendcount="room.friendCount" />
                             </div>
                             <div
                                 v-if="room.users.length"
@@ -437,10 +446,10 @@
                                             v-text="user.displayName" />
                                         <span v-if="user.location === 'traveling'" class="extra">
                                             <i class="el-icon-loading" style="margin-right: 5px" />
-                                            <timer :epoch="user.$travelingToTime" />
+                                            <Timer :epoch="user.$travelingToTime" />
                                         </span>
                                         <span v-else class="extra">
-                                            <timer :epoch="user.$location_at" />
+                                            <Timer :epoch="user.$location_at" />
                                         </span>
                                     </div>
                                 </div>
@@ -494,13 +503,14 @@
                                             <span>{{ t('dialog.group.posts.visibility') }}</span>
                                             <br />
                                             <template v-for="roleId in groupDialog.announcement.roleIds">
+                                                <template v-for="role in groupDialog.ref.roles"
+                                                    ><span
+                                                        v-if="role.id === roleId"
+                                                        :key="roleId + role.id"
+                                                        v-text="role.name"
+                                                /></template>
                                                 <span
-                                                    v-for="(role, rIndex) in groupDialog.ref.roles"
-                                                    v-if="role.id === roleId"
-                                                    :key="rIndex"
-                                                    v-text="role.name" />
-                                                <span
-                                                    :key="rIndex"
+                                                    :key="roleId"
                                                     v-if="
                                                         groupDialog.announcement.roleIds.indexOf(roleId) <
                                                         groupDialog.announcement.roleIds.length - 1
@@ -511,18 +521,18 @@
                                         </template>
                                         <i class="el-icon-view" style="margin-right: 5px" />
                                     </el-tooltip>
-                                    <display-name
+                                    <DisplayName
                                         :userid="groupDialog.announcement.authorId"
                                         style="margin-right: 5px" />
                                     <span v-if="groupDialog.announcement.editorId" style="margin-right: 5px">
                                         ({{ t('dialog.group.posts.edited_by') }}
-                                        <display-name :userid="groupDialog.announcement.editorId" />)
+                                        <DisplayName :userid="groupDialog.announcement.editorId" />)
                                     </span>
                                     <el-tooltip placement="bottom">
                                         <template #content>
                                             <span
                                                 >{{ t('dialog.group.posts.created_at') }}
-                                                {{ groupDialog.announcement.createdAt | formatDate('long') }}</span
+                                                {{ formatDateFilter(groupDialog.announcement.createdAt, 'long') }}</span
                                             >
                                             <template
                                                 v-if="
@@ -532,11 +542,13 @@
                                                 <br />
                                                 <span
                                                     >{{ t('dialog.group.posts.edited_at') }}
-                                                    {{ groupDialog.announcement.updatedAt | formatDate('long') }}</span
+                                                    {{
+                                                        formatDateFilter(groupDialog.announcement.updatedAt, 'long')
+                                                    }}</span
                                                 >
                                             </template>
                                         </template>
-                                        <timer :epoch="Date.parse(groupDialog.announcement.updatedAt)" />
+                                        <Timer :epoch="Date.parse(groupDialog.announcement.updatedAt)" />
                                     </el-tooltip>
                                     <template v-if="hasGroupPermission(groupDialog.ref, 'group-announcement-manage')">
                                         <el-tooltip
@@ -593,9 +605,29 @@
                         <div class="x-friend-item" style="cursor: default">
                             <div class="detail">
                                 <span class="name">{{ t('dialog.group.info.created_at') }}</span>
-                                <span class="extra">{{ groupDialog.ref.createdAt | formatDate('long') }}</span>
+                                <span class="extra">{{ formatDateFilter(groupDialog.ref.createdAt, 'long') }}</span>
                             </div>
                         </div>
+                        <el-tooltip
+                            :disabled="hideTooltips"
+                            placement="top"
+                            :content="t('dialog.user.info.open_previous_instance')">
+                            <div class="x-friend-item" @click="showPreviousInstancesGroupDialog(groupDialog.ref)">
+                                <div class="detail">
+                                    <span class="name">
+                                        {{ t('dialog.group.info.last_visited') }}
+                                        <el-tooltip
+                                            v-if="!hideTooltips"
+                                            placement="top"
+                                            style="margin-left: 5px"
+                                            :content="t('dialog.user.info.accuracy_notice')">
+                                            <i class="el-icon-warning"></i>
+                                        </el-tooltip>
+                                    </span>
+                                    <span class="extra">{{ formatDateFilter(groupDialog.lastVisit, 'long') }}</span>
+                                </div>
+                            </div>
+                        </el-tooltip>
                         <div class="x-friend-item" style="cursor: default">
                             <div class="detail">
                                 <span class="name">{{ t('dialog.group.info.links') }}</span>
@@ -667,7 +699,7 @@
                                     <div class="detail">
                                         <span class="name">{{ t('dialog.group.info.joined_at') }}</span>
                                         <span class="extra">{{
-                                            groupDialog.ref.myMember.joinedAt | formatDate('long')
+                                            formatDateFilter(groupDialog.ref.myMember.joinedAt, 'long')
                                         }}</span>
                                     </div>
                                 </div>
@@ -688,18 +720,18 @@
                                                         <br />
                                                         <span v-if="role.updatedAt"
                                                             >{{ t('dialog.group.info.role_updated_at') }}
-                                                            {{ role.updatedAt | formatDate('long') }}</span
+                                                            {{ formatDateFilter(role.updatedAt, 'long') }}</span
                                                         >
                                                         <span v-else
                                                             >{{ t('dialog.group.info.role_created_at') }}
-                                                            {{ role.createdAt | formatDate('long') }}</span
+                                                            {{ formatDateFilter(role.createdAt, 'long') }}</span
                                                         >
                                                         <br />
                                                         <span>{{ t('dialog.group.info.role_permissions') }}</span>
                                                         <br />
                                                         <template v-for="(permission, pIndex) in role.permissions">
                                                             <span :key="pIndex">{{ permission }}</span>
-                                                            <br />
+                                                            <br :key="pIndex + permission" />
                                                         </template>
                                                     </template>
                                                     <span
@@ -776,38 +808,40 @@
                                                 <span>{{ t('dialog.group.posts.visibility') }}</span>
                                                 <br />
                                                 <template v-for="roleId in post.roleIds">
-                                                    <span
-                                                        v-for="(role, rIndex) in groupDialog.ref.roles"
-                                                        v-if="role.id === roleId"
-                                                        :key="rIndex"
-                                                        v-text="role.name" />
-                                                    <span v-if="post.roleIds.indexOf(roleId) < post.roleIds.length - 1"
-                                                        >,&nbsp;</span
+                                                    <template v-for="role in groupDialog.ref.roles"
+                                                        ><span
+                                                            v-if="role.id === roleId"
+                                                            :key="role.id + roleId"
+                                                            v-text="role.name" />
+                                                    </template>
+                                                    <template
+                                                        v-if="post.roleIds.indexOf(roleId) < post.roleIds.length - 1"
+                                                        ><span :key="roleId">,&nbsp;</span></template
                                                     >
                                                 </template>
                                             </template>
                                             <i class="el-icon-view" style="margin-right: 5px" />
                                         </el-tooltip>
-                                        <display-name :userid="post.authorId" style="margin-right: 5px" />
+                                        <DisplayName :userid="post.authorId" style="margin-right: 5px" />
                                         <span v-if="post.editorId" style="margin-right: 5px"
                                             >({{ t('dialog.group.posts.edited_by') }}
-                                            <display-name :userid="post.editorId" />)</span
+                                            <DisplayName :userid="post.editorId" />)</span
                                         >
                                         <el-tooltip placement="bottom">
                                             <template slot="content">
                                                 <span
                                                     >{{ t('dialog.group.posts.created_at') }}
-                                                    {{ post.createdAt | formatDate('long') }}</span
+                                                    {{ formatDateFilter(post.createdAt, 'long') }}</span
                                                 >
                                                 <template v-if="post.updatedAt !== post.createdAt">
                                                     <br />
                                                     <span
                                                         >{{ t('dialog.group.posts.edited_at') }}
-                                                        {{ post.updatedAt | formatDate('long') }}</span
+                                                        {{ formatDateFilter(post.updatedAt, 'long') }}</span
                                                     >
                                                 </template>
                                             </template>
-                                            <timer :epoch="Date.parse(post.updatedAt)" />
+                                            <Timer :epoch="Date.parse(post.updatedAt)" />
                                         </el-tooltip>
                                         <template
                                             v-if="hasGroupPermission(groupDialog.ref, 'group-announcement-manage')">
@@ -885,7 +919,7 @@
                                     @click.native.stop>
                                     <el-button size="mini">
                                         <span
-                                            >{{ groupDialog.memberSortOrder.name }}
+                                            >{{ t(groupDialog.memberSortOrder.name) }}
                                             <i class="el-icon-arrow-down el-icon--right"
                                         /></span>
                                     </el-button>
@@ -894,7 +928,7 @@
                                             v-for="item in groupDialogSortingOptions"
                                             :key="item.name"
                                             @click.native="setGroupMemberSortOrder(item)"
-                                            v-text="item.name" />
+                                            v-text="t(item.name)" />
                                     </el-dropdown-menu>
                                 </el-dropdown>
                                 <span style="margin-right: 5px">{{ t('dialog.group.members.filter') }}</span>
@@ -906,7 +940,7 @@
                                     @click.native.stop>
                                     <el-button size="mini">
                                         <span
-                                            >{{ groupDialog.memberFilter.name }}
+                                            >{{ t(groupDialog.memberFilter.name) }}
                                             <i class="el-icon-arrow-down el-icon--right"
                                         /></span>
                                     </el-button>
@@ -915,7 +949,7 @@
                                             v-for="item in groupDialogFilterOptions"
                                             :key="item.name"
                                             @click.native="setGroupMemberFilter(item)"
-                                            v-text="item.name" />
+                                            v-text="t(item.name)" />
                                         <el-dropdown-item
                                             v-for="item in groupDialog.ref.roles"
                                             v-if="!item.defaultRole"
@@ -984,13 +1018,13 @@
                                             </el-tooltip>
                                         </template>
                                         <template v-for="roleId in user.roleIds">
-                                            <span
-                                                v-for="(role, rIndex) in groupDialog.ref.roles"
-                                                v-if="role.id === roleId"
-                                                :key="rIndex"
-                                                v-text="role.name" />
-                                            <span v-if="user.roleIds.indexOf(roleId) < user.roleIds.length - 1"
-                                                >,&nbsp;</span
+                                            <template v-for="role in groupDialog.ref.roles"
+                                                ><span
+                                                    v-if="role.id === roleId"
+                                                    :key="role.id + roleId"
+                                                    v-text="role.name" /></template
+                                            ><template v-if="user.roleIds.indexOf(roleId) < user.roleIds.length - 1"
+                                                ><span :key="roleId">,&nbsp;</span></template
                                             >
                                         </template>
                                     </span>
@@ -1048,19 +1082,18 @@
                                             </el-tooltip>
                                         </template>
                                         <template v-for="roleId in user.roleIds">
-                                            <span
-                                                v-for="(role, rIndex) in groupDialog.ref.roles"
-                                                v-if="role.id === roleId"
-                                                :key="rIndex"
-                                                v-text="role.name" />
-                                            <span v-if="user.roleIds.indexOf(roleId) < user.roleIds.length - 1"
-                                                >,&nbsp;</span
+                                            <template v-for="role in groupDialog.ref.roles"
+                                                ><span
+                                                    v-if="role.id === roleId"
+                                                    :key="roleId + role"
+                                                    v-text="role.name" /></template
+                                            ><template v-if="user.roleIds.indexOf(roleId) < user.roleIds.length - 1"
+                                                ><span :key="roleId">&nbsp;</span></template
                                             >
                                         </template>
                                     </span>
                                 </div>
                             </li>
-                            <!--FIXME: div in ul-->
                             <div
                                 v-if="!isGroupMembersDone"
                                 v-loading="isGroupMembersLoading"
@@ -1149,114 +1182,78 @@
         </div>
         <!--Nested-->
         <GroupPostEditDialog :dialog-data.sync="groupPostEditDialog" :selected-gallery-file="selectedGalleryFile" />
-        <GroupMemberModerationDialog
-            :group-dialog="groupDialog"
-            :is-group-members-loading.sync="isGroupMembersLoading"
-            :group-dialog-filter-options="groupDialogFilterOptions"
-            :group-dialog-sorting-options="groupDialogSortingOptions"
-            :random-user-colours="randomUserColours"
-            :group-member-moderation="groupMemberModeration"
-            @close-dialog="closeMemberModerationDialog"
-            @group-members-search="groupMembersSearch"
-            @load-all-group-members="loadAllGroupMembers"
-            @set-group-member-filter="setGroupMemberFilter"
-            @set-group-member-sort-order="setGroupMemberSortOrder" />
-        <InviteGroupDialog
-            :dialog-data.sync="inviteGroupDialog"
-            :vip-friends="vipFriends"
-            :online-friends="onlineFriends"
-            :offline-friends="offlineFriends"
-            :active-friends="activeFriends" />
+        <InviteGroupDialog />
+        <PreviousInstancesGroupDialog
+            :previous-instances-group-dialog.sync="previousInstancesGroupDialog"
+            :current-user="currentUser" />
     </safe-dialog>
 </template>
 
 <script setup>
-    import { getCurrentInstance, inject, nextTick, reactive, ref, watch } from 'vue';
+    import { storeToRefs } from 'pinia';
+    import { getCurrentInstance, nextTick, reactive, ref, watch } from 'vue';
     import { useI18n } from 'vue-i18n-bridge';
     import * as workerTimers from 'worker-timers';
     import { groupRequest } from '../../../api';
-    import utils from '../../../classes/utils';
-    import { hasGroupPermission } from '../../../composables/group/utils';
-    import { refreshInstancePlayerCount } from '../../../composables/instance/utils';
-    import { copyToClipboard, downloadAndSaveJson, getFaviconUrl } from '../../../composables/shared/utils';
-    import { languageClass } from '../../../composables/user/utils';
-    import Location from '../../Location.vue';
+    import { $app } from '../../../app';
+    import { groupDialogFilterOptions, groupDialogSortingOptions } from '../../../shared/constants';
+    import {
+        adjustDialogZ,
+        buildTreeData,
+        copyToClipboard,
+        downloadAndSaveJson,
+        getFaviconUrl,
+        hasGroupPermission,
+        hasGroupModerationPermission,
+        languageClass,
+        openExternalLink,
+        refreshInstancePlayerCount,
+        removeFromArray,
+        userImage,
+        userStatusClass,
+        formatDateFilter,
+        textToHex,
+        debounce
+    } from '../../../shared/utils';
+    import {
+        useAppearanceSettingsStore,
+        useGalleryStore,
+        useGroupStore,
+        useLocationStore,
+        useUserStore
+    } from '../../../stores';
     import InviteGroupDialog from '../InviteGroupDialog.vue';
-    import GroupMemberModerationDialog from './GroupMemberModerationDialog.vue';
     import GroupPostEditDialog from './GroupPostEditDialog.vue';
-
-    const API = inject('API');
-    const showFullscreenImageDialog = inject('showFullscreenImageDialog');
-    const showUserDialog = inject('showUserDialog');
-    const userStatusClass = inject('userStatusClass');
-    const userImage = inject('userImage');
-    const openExternalLink = inject('openExternalLink');
-    const adjustDialogZ = inject('adjustDialogZ');
+    import PreviousInstancesGroupDialog from '../PreviousInstancesDialog/PreviousInstancesGroupDialog.vue';
 
     const { t } = useI18n();
+
+    const { hideTooltips } = storeToRefs(useAppearanceSettingsStore());
+    const { showUserDialog } = useUserStore();
+    const { currentUser } = storeToRefs(useUserStore());
+    const { groupDialog, inviteGroupDialog } = storeToRefs(useGroupStore());
+    const {
+        getGroupDialogGroup,
+        updateGroupPostSearch,
+        showGroupDialog,
+        leaveGroupPrompt,
+        setGroupVisibility,
+        applyGroupMember,
+        handleGroupMember,
+        handleGroupMemberProps,
+        showGroupMemberModerationDialog
+    } = useGroupStore();
+
+    const { lastLocation } = storeToRefs(useLocationStore());
+    const { showFullscreenImageDialog } = useGalleryStore();
+
     const instance = getCurrentInstance();
     const $confirm = instance.proxy.$confirm;
     const $message = instance.proxy.$message;
 
-    const props = defineProps({
-        groupDialog: {
-            type: Object,
-            required: true
-        },
-        hideTooltips: {
-            type: Boolean,
-            default: false
-        },
-        lastLocation: {
-            type: Object,
-            required: true
-        },
-        updateInstanceInfo: {
-            type: Number,
-            required: true
-        },
-        groupDialogSortingOptions: {
-            type: Object,
-            required: true
-        },
-        groupDialogFilterOptions: {
-            type: Object,
-            required: true
-        },
-        randomUserColours: {
-            type: Boolean,
-            default: true
-        },
-        vipFriends: {
-            type: Array,
-            default: () => []
-        },
-        onlineFriends: {
-            type: Array,
-            default: () => []
-        },
-        offlineFriends: {
-            type: Array,
-            default: () => []
-        },
-        activeFriends: {
-            type: Array,
-            default: () => []
-        }
-    });
-
-    const emit = defineEmits([
-        'update:group-dialog',
-        'groupDialogCommand',
-        'getGroupDialogGroup',
-        'updateGroupPostSearch'
-    ]);
-
     const groupDialogRef = ref(null);
     const isGroupMembersDone = ref(false);
     const isGroupMembersLoading = ref(false);
-    const groupMembersSearchTimer = ref(null);
-    const groupMembersSearchPending = ref(false);
     const groupDialogGalleryCurrentName = ref('0');
     const groupDialogTabCurrentName = ref('0');
     const isGroupGalleryLoading = ref(false);
@@ -1275,28 +1272,23 @@
         postId: '',
         groupId: ''
     });
-    const groupMemberModeration = reactive({
+
+    const previousInstancesGroupDialog = ref({
         visible: false,
-        loading: false,
-        id: '',
-        groupRef: {},
-        auditLogTypes: []
+        openFlg: false,
+        groupRef: {}
     });
 
-    const inviteGroupDialog = ref({
-        visible: false,
-        loading: false,
+    let loadMoreGroupMembersParams = ref({
+        n: 100,
+        offset: 0,
         groupId: '',
-        groupName: '',
-        userId: '',
-        userIds: [],
-        userObject: {}
+        sort: '',
+        roleId: ''
     });
-
-    let loadMoreGroupMembersParams = {};
 
     watch(
-        () => props.groupDialog.loading,
+        () => groupDialog.value.loading,
         (val) => {
             if (val) {
                 nextTick(() => adjustDialogZ(groupDialogRef.value.$el));
@@ -1305,7 +1297,7 @@
     );
 
     watch(
-        () => props.groupDialog.isGetGroupDialogGroupLoading,
+        () => groupDialog.value.isGetGroupDialogGroupLoading,
         (val) => {
             if (val) {
                 getCurrentTabData();
@@ -1314,14 +1306,17 @@
     );
 
     function showInviteGroupDialog(groupId, userId) {
-        const D = inviteGroupDialog.value;
-        D.userIds = '';
-        D.groups = [];
-        D.groupId = groupId;
-        D.groupName = groupId;
-        D.userId = userId;
-        D.userObject = {};
+        inviteGroupDialog.value.groupId = groupId;
+        inviteGroupDialog.value.userId = userId;
+        inviteGroupDialog.value.visible = true;
+    }
+
+    function showPreviousInstancesGroupDialog(groupRef) {
+        const D = previousInstancesGroupDialog.value;
+        D.groupRef = groupRef;
         D.visible = true;
+        D.openFlg = true;
+        nextTick(() => (D.openFlg = false));
     }
 
     function setGroupRepresentation(groupId) {
@@ -1331,42 +1326,23 @@
         handleGroupRepresentationChange(groupId, false);
     }
 
-    function closeMemberModerationDialog() {
-        groupMemberModeration.visible = false;
-    }
-
     function groupMembersSearch() {
-        if (groupMembersSearchTimer.value) {
-            groupMembersSearchPending.value = true;
-        } else {
-            groupMembersSearchExecute();
-            groupMembersSearchTimer.value = setTimeout(() => {
-                if (groupMembersSearchPending.value) {
-                    groupMembersSearchExecute();
-                }
-                groupMembersSearchTimer.value = null;
-            }, 500);
+        if (groupDialog.value.memberSearch.length < 3) {
+            groupDialog.value.memberSearchResults = [];
+            isGroupMembersLoading.value = false;
+            return;
         }
+        debounce(groupMembersSearchDebounced, 200)();
     }
 
-    function groupMembersSearchExecute() {
-        try {
-            groupMembersSearchDebounce();
-        } catch (err) {
-            console.error(err);
-        }
-        groupMembersSearchTimer.value = null;
-        groupMembersSearchPending.value = false;
-    }
-
-    function groupMembersSearchDebounce() {
-        const D = props.groupDialog;
+    function groupMembersSearchDebounced() {
+        const D = groupDialog.value;
         const search = D.memberSearch;
         D.memberSearchResults = [];
         if (!search || search.length < 3) {
             return;
         }
-        isGroupMembersLoading.value = false;
+        isGroupMembersLoading.value = true;
         groupRequest
             .getGroupMembersSearch({
                 groupId: D.id,
@@ -1375,16 +1351,14 @@
                 offset: 0
             })
             .then((args) => {
-                // API.$on('GROUP:MEMBERS:SEARCH', function (args) {
                 for (const json of args.json.results) {
-                    API.$emit('GROUP:MEMBER', {
+                    handleGroupMember({
                         json,
                         params: {
                             groupId: args.params.groupId
                         }
                     });
                 }
-                // });
                 if (D.id === args.params.groupId) {
                     D.memberSearchResults = args.json.results;
                 }
@@ -1400,11 +1374,10 @@
                 isRepresenting: isSet
             })
             .then((args) => {
-                // API.$on('GROUP:SETREPRESENTATION', function (args) {
-                if (props.groupDialog.visible && props.groupDialog.id === groupId) {
+                if (groupDialog.value.visible && groupDialog.value.id === args.groupId) {
                     updateGroupDialogData({
-                        ...props.groupDialog,
-                        ref: { ...props.groupDialog.ref, isRepresenting: args.params.isRepresenting }
+                        ...groupDialog.value,
+                        ref: { ...groupDialog.value.ref, isRepresenting: args.params.isRepresenting }
                     });
                     getGroupDialogGroup(groupId);
                 }
@@ -1417,11 +1390,9 @@
                 groupId: id
             })
             .then((args) => {
-                // API.$on('GROUP:CANCELJOINREQUEST', function (args) {
-                if (props.groupDialog.visible && props.groupDialog.id === id) {
+                if (groupDialog.value.visible && groupDialog.value.id === id) {
                     getGroupDialogGroup(id);
                 }
-                // });
             });
     }
     function confirmDeleteGroupPost(post) {
@@ -1437,8 +1408,7 @@
                             postId: post.id
                         })
                         .then((args) => {
-                            // API.$on('GROUP:POST:DELETE', function (args) {
-                            const D = props.groupDialog;
+                            const D = groupDialog.value;
                             if (D.id !== args.params.groupId) {
                                 return;
                             }
@@ -1447,7 +1417,7 @@
                             // remove existing post
                             for (const item of D.posts) {
                                 if (item.id === postId) {
-                                    utils.removeFromArray(D.posts, item);
+                                    removeFromArray(D.posts, item);
                                     break;
                                 }
                             }
@@ -1460,7 +1430,6 @@
                                 }
                             }
                             updateGroupPostSearch();
-                            // });
                         });
                 }
             }
@@ -1480,52 +1449,111 @@
     }
 
     function groupDialogCommand(command) {
-        const D = props.groupDialog;
+        const D = groupDialog.value;
         if (D.visible === false) {
             return;
         }
         switch (command) {
             case 'Share':
-                copyToClipboard(props.groupDialog.ref.$url);
+                copyToClipboard(groupDialog.value.ref.$url);
                 break;
             case 'Create Post':
-                showGroupPostEditDialog(props.groupDialog.id, null);
+                showGroupPostEditDialog(groupDialog.value.id, null);
                 break;
             case 'Moderation Tools':
-                showGroupMemberModerationDialog(props.groupDialog.id);
+                showGroupMemberModerationDialog(groupDialog.value.id);
                 break;
             case 'Invite To Group':
                 showInviteGroupDialog(D.id, '');
                 break;
-            default:
-                emit('groupDialogCommand', command);
+            case 'Refresh':
+                showGroupDialog(D.id);
+                break;
+            case 'Leave Group':
+                leaveGroupPrompt(D.id);
+                break;
+            case 'Block Group':
+                blockGroup(D.id);
+                break;
+            case 'Unblock Group':
+                unblockGroup(D.id);
+                break;
+            case 'Visibility Everyone':
+                setGroupVisibility(D.id, 'visible');
+                break;
+            case 'Visibility Friends':
+                setGroupVisibility(D.id, 'friends');
+                break;
+            case 'Visibility Hidden':
+                setGroupVisibility(D.id, 'hidden');
+                break;
+            case 'Subscribe To Announcements':
+                setGroupSubscription(D.id, true);
+                break;
+            case 'Unsubscribe To Announcements':
+                setGroupSubscription(D.id, false);
+                break;
         }
     }
 
-    function showGroupMemberModerationDialog(groupId) {
-        if (groupId !== props.groupDialog.id) {
-            return;
-        }
-        const D = groupMemberModeration;
-        D.id = groupId;
-
-        D.groupRef = {};
-        D.auditLogTypes = [];
-        API.getCachedGroup({ groupId }).then((args) => {
-            D.groupRef = args.ref;
-            if (hasGroupPermission(D.groupRef, 'group-audit-view')) {
-                groupRequest.getGroupAuditLogTypes({ groupId }).then((args) => {
-                    // API.$on('GROUP:AUDITLOGTYPES', function (args) {
-                    if (groupMemberModeration.id !== args.params.groupId) {
-                        return;
-                    }
-                    groupMemberModeration.auditLogTypes = args.json;
-                    // });
+    function setGroupSubscription(groupId, subscribe) {
+        return groupRequest
+            .setGroupMemberProps(currentUser.value.id, groupId, {
+                isSubscribedToAnnouncements: subscribe
+            })
+            .then((args) => {
+                handleGroupMemberProps(args);
+                $app.$message({
+                    message: 'Group subscription updated',
+                    type: 'success'
                 });
+                return args;
+            });
+    }
+
+    function blockGroup(groupId) {
+        $app.$confirm('Are you sure you want to block this group?', 'Confirm', {
+            confirmButtonText: 'Confirm',
+            cancelButtonText: 'Cancel',
+            type: 'info',
+            callback: (action) => {
+                if (action === 'confirm') {
+                    groupRequest
+                        .blockGroup({
+                            groupId
+                        })
+                        .then((args) => {
+                            if (groupDialog.value.visible && groupDialog.value.id === args.params.groupId) {
+                                showGroupDialog(args.params.groupId);
+                            }
+                        });
+                }
             }
         });
-        D.visible = true;
     }
+
+    function unblockGroup(groupId) {
+        $app.$confirm('Are you sure you want to unblock this group?', 'Confirm', {
+            confirmButtonText: 'Confirm',
+            cancelButtonText: 'Cancel',
+            type: 'info',
+            callback: (action) => {
+                if (action === 'confirm') {
+                    groupRequest
+                        .unblockGroup({
+                            groupId,
+                            userId: currentUser.value.id
+                        })
+                        .then((args) => {
+                            if (groupDialog.value.visible && groupDialog.value.id === args.params.groupId) {
+                                showGroupDialog(args.params.groupId);
+                            }
+                        });
+                }
+            }
+        });
+    }
+
     function joinGroup(id) {
         if (!id) {
             return null;
@@ -1535,16 +1563,14 @@
                 groupId: id
             })
             .then((args) => {
-                // API.$on('GROUP:JOIN', function (args) {
-                if (props.groupDialog.visible && props.groupDialog.id === id) {
+                if (groupDialog.value.visible && groupDialog.value.id === id) {
                     updateGroupDialogData({
-                        ...props.groupDialog,
+                        ...groupDialog.value,
                         inGroup: args.json.membershipStatus === 'member'
                     });
-                    // props.groupDialog.inGroup = args.json.membershipStatus === 'member';
+                    // groupDialog.value.inGroup = json.membershipStatus === 'member';
                     getGroupDialogGroup(id);
                 }
-                // });
                 if (args.json.membershipStatus === 'member') {
                     $message({
                         message: 'Group joined',
@@ -1595,37 +1621,39 @@
                 selectedImageUrl: post.imageUrl
             };
         }
-        API.getCachedGroup({ groupId }).then((args) => {
+        groupRequest.getCachedGroup({ groupId }).then((args) => {
             D.groupRef = args.ref;
         });
         D.visible = true;
     }
 
     async function getGroupDialogGroupMembers() {
-        const D = props.groupDialog;
+        const D = groupDialog.value;
         D.members = [];
         isGroupMembersDone.value = false;
-        loadMoreGroupMembersParams = {
+        loadMoreGroupMembersParams.value = {
+            sort: '',
+            roleId: '',
             n: 100,
             offset: 0,
             groupId: D.id
         };
         if (D.memberSortOrder.value) {
-            loadMoreGroupMembersParams.sort = D.memberSortOrder.value;
+            loadMoreGroupMembersParams.value.sort = D.memberSortOrder.value;
         }
         if (D.memberFilter.id !== null) {
-            loadMoreGroupMembersParams.roleId = D.memberFilter.id;
+            loadMoreGroupMembersParams.value.roleId = D.memberFilter.id;
         }
         if (D.inGroup) {
             await groupRequest
                 .getGroupMember({
                     groupId: D.id,
-                    userId: API.currentUser.id
+                    userId: currentUser.value.id
                 })
                 .then((args) => {
-                    args.ref = API.applyGroupMember(args.json);
+                    args.ref = applyGroupMember(args.json);
                     if (args.json) {
-                        args.json.user = API.currentUser;
+                        args.json.user = currentUser.value;
                         if (D.memberFilter.id === null) {
                             // when flitered by role don't include self
                             D.members.push(args.json);
@@ -1641,8 +1669,11 @@
         if (isGroupMembersDone.value || isGroupMembersLoading.value) {
             return;
         }
-        const D = props.groupDialog;
-        const params = loadMoreGroupMembersParams;
+        const D = groupDialog.value;
+        const params = loadMoreGroupMembersParams.value;
+        if (params.roleId === '') {
+            delete params.roleId;
+        }
         D.memberSearch = '';
         isGroupMembersLoading.value = true;
         await groupRequest
@@ -1651,10 +1682,18 @@
                 isGroupMembersLoading.value = false;
             })
             .then((args) => {
+                for (const json of args.json) {
+                    handleGroupMember({
+                        json,
+                        params: {
+                            groupId: args.params.groupId
+                        }
+                    });
+                }
                 for (let i = 0; i < args.json.length; i++) {
                     const member = args.json[i];
-                    if (member.userId === API.currentUser.id) {
-                        if (D.members.length > 0 && D.members[0].userId === API.currentUser.id) {
+                    if (member.userId === currentUser.value.id) {
+                        if (D.members.length > 0 && D.members[0].userId === currentUser.value.id) {
                             // remove duplicate and keep sort order
                             D.members.splice(0, 1);
                         }
@@ -1685,12 +1724,12 @@
     }
 
     async function getGroupGalleries() {
-        updateGroupDialogData({ ...props.groupDialog, galleries: {} });
+        updateGroupDialogData({ ...groupDialog.value, galleries: {} });
         groupDialogGalleryCurrentName.value = '0';
         isGroupGalleryLoading.value = true;
-        for (let i = 0; i < props.groupDialog.ref.galleries.length; i++) {
-            const gallery = props.groupDialog.ref.galleries[i];
-            await getGroupGallery(props.groupDialog.id, gallery.id);
+        for (let i = 0; i < groupDialog.value.ref.galleries.length; i++) {
+            const gallery = groupDialog.value.ref.galleries[i];
+            await getGroupGallery(groupDialog.value.id, gallery.id);
         }
         isGroupGalleryLoading.value = false;
     }
@@ -1707,16 +1746,14 @@
             for (let i = 0; i < count; i++) {
                 const args = await groupRequest.getGroupGallery(params);
                 if (args) {
-                    // API.$on('GROUP:GALLERY', function (args) {
                     for (const json of args.json) {
-                        if (props.groupDialog.id === json.groupId) {
-                            if (!props.groupDialog.galleries[json.galleryId]) {
-                                props.groupDialog.galleries[json.galleryId] = [];
+                        if (groupDialog.value.id === json.groupId) {
+                            if (!groupDialog.value.galleries[json.galleryId]) {
+                                groupDialog.value.galleries[json.galleryId] = [];
                             }
-                            props.groupDialog.galleries[json.galleryId].push(json);
+                            groupDialog.value.galleries[json.galleryId].push(json);
                         }
                     }
-                    // });
                 }
                 params.offset += 100;
                 if (args.json.length < 100) {
@@ -1729,8 +1766,8 @@
     }
 
     function refreshGroupDialogTreeData() {
-        const D = props.groupDialog;
-        const treeData = utils.buildTreeData({
+        const D = groupDialog.value;
+        const treeData = buildTreeData({
             group: D.ref,
             posts: D.posts,
             instances: D.instances,
@@ -1738,7 +1775,7 @@
             galleries: D.galleries
         });
         updateGroupDialogData({
-            ...props.groupDialog,
+            ...groupDialog.value,
             treeData
         });
     }
@@ -1748,19 +1785,19 @@
             return;
         }
         await getGroupDialogGroupMembers();
-        while (props.groupDialog.visible && !isGroupMembersDone.value) {
+        while (groupDialog.value.visible && !isGroupMembersDone.value) {
             isGroupMembersLoading.value = true;
             await new Promise((resolve) => {
                 workerTimers.setTimeout(resolve, 1000);
             });
             isGroupMembersLoading.value = false;
-            await this.loadMoreGroupMembers();
+            await loadMoreGroupMembers();
         }
     }
 
     async function setGroupMemberSortOrder(sortOrder) {
-        const D = props.groupDialog;
-        if (D.memberSortOrder === sortOrder) {
+        const D = groupDialog.value;
+        if (D.memberSortOrder.value === sortOrder) {
             return;
         }
         D.memberSortOrder = sortOrder;
@@ -1768,7 +1805,7 @@
     }
 
     async function setGroupMemberFilter(filter) {
-        const D = props.groupDialog;
+        const D = groupDialog.value;
         if (D.memberFilter === filter) {
             return;
         }
@@ -1777,13 +1814,9 @@
     }
 
     function updateGroupDialogData(obj) {
-        // Be careful with the deep merge
-        emit('update:group-dialog', obj);
-    }
-    function getGroupDialogGroup(groupId) {
-        emit('getGroupDialogGroup', groupId);
-    }
-    function updateGroupPostSearch() {
-        emit('updateGroupPostSearch');
+        groupDialog.value = {
+            ...groupDialog.value,
+            ...obj
+        };
     }
 </script>

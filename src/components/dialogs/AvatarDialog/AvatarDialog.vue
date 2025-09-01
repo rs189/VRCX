@@ -22,7 +22,17 @@
                 <div style="flex: 1; display: flex; align-items: center; margin-left: 15px">
                     <div style="flex: 1">
                         <div>
-                            <span class="dialog-title" v-text="avatarDialog.ref.name"></span>
+                            <el-popover placement="top" trigger="click">
+                                <span
+                                    slot="reference"
+                                    class="dialog-title"
+                                    style="margin-right: 5px; cursor: pointer"
+                                    v-text="avatarDialog.ref.name"
+                                    @click="copyToClipboard(avatarDialog.ref.name)"></span>
+                                <span style="display: block; text-align: center; font-family: monospace">{{
+                                    textToHex(avatarDialog.ref.name)
+                                }}</span>
+                            </el-popover>
                         </div>
                         <div style="margin-top: 5px">
                             <span
@@ -261,9 +271,9 @@
                                 type="default"
                                 icon="el-icon-check"
                                 circle
-                                :disabled="API.currentUser.currentAvatar === avatarDialog.id"
+                                :disabled="currentUser.currentAvatar === avatarDialog.id"
                                 style="margin-left: 5px"
-                                @click="selectAvatar(avatarDialog.id)"></el-button>
+                                @click="selectAvatarWithoutConfirmation(avatarDialog.id)"></el-button>
                         </el-tooltip>
                         <el-dropdown
                             trigger="click"
@@ -274,7 +284,7 @@
                                 :type="avatarDialog.isBlocked ? 'danger' : 'default'"
                                 icon="el-icon-more"
                                 circle></el-button>
-                            <el-dropdown-menu v-slot="dropdown">
+                            <el-dropdown-menu>
                                 <el-dropdown-item icon="el-icon-refresh" command="Refresh">{{
                                     t('dialog.avatar.actions.refresh')
                                 }}</el-dropdown-item>
@@ -299,12 +309,12 @@
                                     >{{ t('dialog.avatar.actions.select_fallback') }}</el-dropdown-item
                                 >
                                 <el-dropdown-item
-                                    v-if="avatarDialog.ref.authorId !== API.currentUser.id"
+                                    v-if="avatarDialog.ref.authorId !== currentUser.id"
                                     icon="el-icon-picture-outline"
                                     command="Previous Images"
                                     >{{ t('dialog.avatar.actions.show_previous_images') }}</el-dropdown-item
                                 >
-                                <template v-if="avatarDialog.ref.authorId === API.currentUser.id">
+                                <template v-if="avatarDialog.ref.authorId === currentUser.id">
                                     <el-dropdown-item
                                         v-if="avatarDialog.ref.releaseStatus === 'public'"
                                         icon="el-icon-user-solid"
@@ -363,11 +373,11 @@
                     </div>
                 </div>
             </div>
-            <el-tabs>
-                <el-tab-pane :label="t('dialog.avatar.info.header')">
+            <el-tabs ref="avatarDialogTabsRef" @tab-click="avatarDialogTabClick">
+                <el-tab-pane name="Info" :label="t('dialog.avatar.info.header')">
                     <div class="x-friend-list" style="max-height: unset">
                         <div
-                            v-if="avatarDialog.galleryImages.length || avatarDialog.ref.authorId === API.currentUser.id"
+                            v-if="avatarDialog.galleryImages.length || avatarDialog.ref.authorId === currentUser.id"
                             style="width: 100%">
                             <span class="name">{{ t('dialog.avatar.info.gallery') }}</span>
                             <input
@@ -377,8 +387,8 @@
                                 style="display: none"
                                 @change="onFileChangeAvatarGallery" />
                             <el-button
-                                v-if="avatarDialog.ref.authorId === API.currentUser.id"
-                                v-loading="avatarDialog.galleryLoading"
+                                v-if="avatarDialog.ref.authorId === currentUser.id"
+                                :disabled="!!avatarDialog.galleryLoading"
                                 size="small"
                                 icon="el-icon-upload2"
                                 style="margin-left: 5px"
@@ -396,28 +406,28 @@
                                         style="width: 100%; height: 100%; object-fit: contain"
                                         @click="showFullscreenImageDialog(imageUrl)" />
                                     <div
-                                        v-if="avatarDialog.ref.authorId === API.currentUser.id"
+                                        v-if="avatarDialog.ref.authorId === currentUser.id"
                                         style="position: absolute; bottom: 5px; left: 33.3%">
                                         <el-button
                                             size="mini"
                                             icon="el-icon-back"
                                             circle
                                             class="x-link"
-                                            style="margin-left: 0px"
+                                            style="margin-left: 0"
                                             @click.stop="reorderAvatarGalleryImage(imageUrl, -1)"></el-button>
                                         <el-button
                                             size="mini"
                                             icon="el-icon-right"
                                             circle
                                             class="x-link"
-                                            style="margin-left: 0px"
+                                            style="margin-left: 0"
                                             @click.stop="reorderAvatarGalleryImage(imageUrl, 1)"></el-button>
                                         <el-button
                                             size="mini"
                                             icon="el-icon-delete"
                                             circle
                                             class="x-link"
-                                            style="margin-left: 0px"
+                                            style="margin-left: 0"
                                             @click.stop="deleteAvatarGalleryImage(imageUrl)"></el-button>
                                     </div>
                                 </el-carousel-item>
@@ -481,7 +491,7 @@
                                                 icon="el-icon-s-order"
                                                 size="mini"
                                                 circle></el-button>
-                                            <el-dropdown-menu v-slot="dropdown">
+                                            <el-dropdown-menu>
                                                 <el-dropdown-item @click.native="copyAvatarId(avatarDialog.id)">{{
                                                     t('dialog.avatar.info.copy_id')
                                                 }}</el-dropdown-item>
@@ -497,16 +507,18 @@
                         <div class="x-friend-item" style="cursor: default">
                             <div class="detail">
                                 <span class="name">{{ t('dialog.avatar.info.created_at') }}</span>
-                                <span class="extra">{{ avatarDialog.ref.created_at | formatDate('long') }}</span>
+                                <span class="extra">{{ formatDateFilter(avatarDialog.ref.created_at, 'long') }}</span>
                             </div>
                         </div>
                         <div class="x-friend-item" style="cursor: default">
                             <div class="detail">
                                 <span class="name">{{ t('dialog.avatar.info.last_updated') }}</span>
                                 <span v-if="avatarDialog.lastUpdated" class="extra">{{
-                                    avatarDialog.lastUpdated | formatDate('long')
+                                    formatDateFilter(avatarDialog.lastUpdated, 'long')
                                 }}</span>
-                                <span v-else class="extra">{{ avatarDialog.ref.updated_at | formatDate('long') }}</span>
+                                <span v-else class="extra">{{
+                                    formatDateFilter(avatarDialog.ref.updated_at, 'long')
+                                }}</span>
                             </div>
                         </div>
                         <div class="x-friend-item" style="cursor: default">
@@ -544,25 +556,13 @@
                         </div>
                     </div>
                 </el-tab-pane>
-                <el-tab-pane :label="t('dialog.avatar.json.header')">
+                <el-tab-pane name="JSON" :label="t('dialog.avatar.json.header')" style="max-height: 50vh" lazy>
                     <el-button
                         type="default"
                         size="mini"
                         icon="el-icon-refresh"
                         circle
                         @click="refreshAvatarDialogTreeData"></el-button>
-                    <el-tooltip
-                        placement="top"
-                        :content="t('dialog.avatar.json.file_analysis')"
-                        :disabled="hideTooltips">
-                        <el-button
-                            type="default"
-                            size="mini"
-                            icon="el-icon-s-data"
-                            circle
-                            style="margin-left: 5px"
-                            @click="getAvatarFileAnalysis"></el-button>
-                    </el-tooltip>
                     <el-button
                         type="default"
                         size="mini"
@@ -571,8 +571,8 @@
                         style="margin-left: 5px"
                         @click="downloadAndSaveJson(avatarDialog.id, avatarDialog.ref)"></el-button>
                     <el-tree
-                        v-if="Object.keys(fileAnalysis).length > 0"
-                        :data="fileAnalysis"
+                        v-if="Object.keys(avatarDialog.fileAnalysis).length > 0"
+                        :data="avatarDialog.fileAnalysis"
                         style="margin-top: 5px; font-size: 12px">
                         <template #default="scope">
                             <span>
@@ -596,76 +596,76 @@
         <SetAvatarStylesDialog :set-avatar-styles-dialog="setAvatarStylesDialog" />
         <ChangeAvatarImageDialog
             :change-avatar-image-dialog-visible.sync="changeAvatarImageDialogVisible"
-            :previous-images-table="previousImagesTable"
-            :avatar-dialog="avatarDialog"
             :previous-images-file-id="previousImagesFileId"
             @refresh="displayPreviousImages" />
-        <PreviousImagesDialog
-            :previous-images-dialog-visible.sync="previousImagesDialogVisible"
-            :previous-images-table="previousImagesTable" />
+        <PreviousImagesDialog />
     </safe-dialog>
 </template>
 
 <script setup>
-    import { computed, getCurrentInstance, inject, nextTick, reactive, ref, watch } from 'vue';
+    import { storeToRefs } from 'pinia';
+    import { computed, getCurrentInstance, nextTick, reactive, ref, watch } from 'vue';
     import { useI18n } from 'vue-i18n-bridge';
     import { avatarModerationRequest, avatarRequest, favoriteRequest, imageRequest, miscRequest } from '../../../api';
-    import utils from '../../../classes/utils';
-    import { compareUnityVersion, storeAvatarImage } from '../../../composables/avatar/utils';
+    import { database } from '../../../service/database';
     import {
+        adjustDialogZ,
+        buildTreeData,
+        commaNumber,
+        compareUnityVersion,
         copyToClipboard,
         downloadAndSaveJson,
         extractFileId,
         extractFileVersion,
-        replaceVrcPackageUrl
-    } from '../../../composables/shared/utils';
-    import database from '../../../service/database';
+        openExternalLink,
+        openFolderGeneric,
+        replaceVrcPackageUrl,
+        storeAvatarImage,
+        timeToText,
+        moveArrayItem,
+        formatDateFilter,
+        textToHex
+    } from '../../../shared/utils';
+    import {
+        useAppearanceSettingsStore,
+        useAvatarStore,
+        useFavoriteStore,
+        useGalleryStore,
+        useGameStore,
+        useUserStore
+    } from '../../../stores';
     import PreviousImagesDialog from '../PreviousImagesDialog.vue';
     import ChangeAvatarImageDialog from './ChangeAvatarImageDialog.vue';
     import SetAvatarStylesDialog from './SetAvatarStylesDialog.vue';
     import SetAvatarTagsDialog from './SetAvatarTagsDialog.vue';
 
-    const API = inject('API');
-    const showFullscreenImageDialog = inject('showFullscreenImageDialog');
-    const showUserDialog = inject('showUserDialog');
-    const showAvatarDialog = inject('showAvatarDialog');
-    const showFavoriteDialog = inject('showFavoriteDialog');
-    const openExternalLink = inject('openExternalLink');
-    const adjustDialogZ = inject('adjustDialogZ');
-    const getImageUrlFromImageId = inject('getImageUrlFromImageId');
-    const getAvatarGallery = inject('getAvatarGallery');
+    const { hideTooltips } = storeToRefs(useAppearanceSettingsStore());
+    const { showUserDialog, sortUserDialogAvatars } = useUserStore();
+    const { userDialog, currentUser } = storeToRefs(useUserStore());
+    const { avatarDialog, cachedAvatarModerations, cachedAvatars, cachedAvatarNames } = storeToRefs(useAvatarStore());
+    const { showAvatarDialog, getAvatarGallery, applyAvatarModeration, applyAvatar, selectAvatarWithoutConfirmation } =
+        useAvatarStore();
+    const { showFavoriteDialog } = useFavoriteStore();
+    const { isGameRunning } = storeToRefs(useGameStore());
+    const { deleteVRChatCache } = useGameStore();
+    const { previousImagesDialogVisible, previousImagesTable } = storeToRefs(useGalleryStore());
+    const { showFullscreenImageDialog, checkPreviousImageAvailable } = useGalleryStore();
 
     const { t } = useI18n();
     const instance = getCurrentInstance();
     const { $message, $confirm, $prompt } = instance.proxy;
 
-    const emit = defineEmits(['openFolderGeneric', 'deleteVRChatCache', 'openPreviousImagesDialog']);
-
-    const props = defineProps({
-        avatarDialog: {
-            type: Object,
-            required: true
-        },
-        hideTooltips: {
-            type: Boolean,
-            default: false
-        },
-        isGameRunning: {
-            type: Boolean,
-            default: false
-        }
-    });
+    defineEmits(['openPreviousImagesDialog']);
 
     const avatarDialogRef = ref(null);
+    const avatarDialogTabsRef = ref(null);
+    const avatarDialogLastActiveTab = ref('Info');
     const changeAvatarImageDialogVisible = ref(false);
     const previousImagesFileId = ref('');
-    const previousImagesDialogVisible = ref(false);
-    const previousImagesTable = ref([]);
 
     const treeData = ref([]);
     const timeSpent = ref(0);
     const memo = ref('');
-    const fileAnalysis = ref({});
     const setAvatarTagsDialog = reactive({
         visible: false,
         loading: false,
@@ -695,7 +695,7 @@
     });
 
     const avatarDialogPlatform = computed(() => {
-        const { ref } = props.avatarDialog;
+        const { ref } = avatarDialog.value;
         const platforms = [];
         if (ref.unityPackages) {
             for (const unityPackage of ref.unityPackages) {
@@ -721,22 +721,51 @@
     });
 
     watch(
-        () => props.avatarDialog.loading,
-        (newVal) => {
-            if (newVal) {
+        () => avatarDialog.value.loading,
+        () => {
+            if (avatarDialog.value.visible) {
                 nextTick(() => {
-                    const D = props.avatarDialog;
-                    if (D.visible) {
+                    if (avatarDialogRef.value?.$el) {
                         adjustDialogZ(avatarDialogRef.value.$el);
                     }
                 });
                 handleDialogOpen();
+                !avatarDialog.value.loading && toggleLastActiveTab();
             }
         }
     );
 
+    function handleAvatarDialogTab(name) {
+        if (name === 'JSON') {
+            refreshAvatarDialogTreeData();
+        }
+    }
+
+    function toggleLastActiveTab() {
+        let tabName = avatarDialogTabsRef.value.currentName;
+        console.log(tabName);
+        if (tabName === '0') {
+            tabName = avatarDialogLastActiveTab.value;
+            avatarDialogTabsRef.value.setCurrentName(tabName);
+        }
+        handleAvatarDialogTab(tabName);
+        avatarDialogLastActiveTab.value = tabName;
+    }
+
+    function avatarDialogTabClick(obj) {
+        if (avatarDialogLastActiveTab.value === obj.name) {
+            return;
+        }
+        handleAvatarDialogTab(obj.name);
+        avatarDialogLastActiveTab.value = obj.name;
+    }
+
+    function getImageUrlFromImageId(imageId) {
+        return `https://api.vrchat.cloud/api/1/file/${imageId}/1/`;
+    }
+
     function handleDialogOpen() {
-        fileAnalysis.value = {};
+        avatarDialog.value.fileAnalysis = {};
         memo.value = '';
         treeData.value = [];
         getAvatarTimeSpent();
@@ -744,19 +773,19 @@
     }
 
     function getAvatarTimeSpent() {
-        const D = props.avatarDialog;
+        const D = avatarDialog.value;
         database.getAvatarTimeSpent(D.id).then((aviTime) => {
             if (D.id === aviTime.avatarId) {
                 timeSpent.value = aviTime.timeSpent;
-                if (D.id === API.currentUser.currentAvatar && API.currentUser.$previousAvatarSwapTime) {
-                    timeSpent.value += Date.now() - API.currentUser.$previousAvatarSwapTime;
+                if (D.id === currentUser.value.currentAvatar && currentUser.value.$previousAvatarSwapTime) {
+                    timeSpent.value += Date.now() - currentUser.value.$previousAvatarSwapTime;
                 }
             }
         });
     }
 
     function getAvatarMemo() {
-        const D = props.avatarDialog;
+        const D = avatarDialog.value;
         database.getAvatarMemoDB(D.id).then((res) => {
             if (D.id === res.avatarId) {
                 memo.value = res.memo;
@@ -764,20 +793,8 @@
         });
     }
 
-    function openFolderGeneric(path) {
-        emit('openFolderGeneric', path);
-    }
-
-    function deleteVRChatCache(ref) {
-        emit('deleteVRChatCache', ref);
-    }
-
-    function commaNumber(num) {
-        return utils.commaNumber(num);
-    }
-
     function avatarDialogCommand(command) {
-        const D = props.avatarDialog;
+        const D = avatarDialog.value;
         switch (command) {
             case 'Refresh':
                 showAvatarDialog(D.id);
@@ -801,10 +818,10 @@
                 showSetAvatarTagsDialog(D.id);
                 break;
             case 'Change Styles and Author Tags':
-                showSetAvatarStylesDialog(D.id);
+                showSetAvatarStylesDialog();
                 break;
             case 'Download Unity Package':
-                openExternalLink(replaceVrcPackageUrl(props.avatarDialog.ref.unityPackageUrl));
+                openExternalLink(replaceVrcPackageUrl(avatarDialog.value.ref.unityPackageUrl));
                 break;
             case 'Add Favorite':
                 showFavoriteDialog('avatar', D.id);
@@ -845,7 +862,7 @@
                                     })
                                     .then((args) => {
                                         // 'AVATAR-MODERATION';
-                                        args.ref = API.applyAvatarModeration(args.json);
+                                        applyAvatarModeration(args.json);
                                         $message({
                                             message: 'Avatar blocked',
                                             type: 'success'
@@ -860,9 +877,8 @@
                                         targetAvatarId: D.id
                                     })
                                     .then((args) => {
-                                        // 'AVATAR-MODERATION:DELETE';
-                                        API.cachedAvatarModerations.delete(args.params.targetAvatarId);
-                                        const D = props.avatarDialog;
+                                        cachedAvatarModerations.value.delete(args.params.targetAvatarId);
+                                        const D = avatarDialog.value;
                                         if (
                                             args.params.avatarModerationType === 'block' &&
                                             D.id === args.params.targetAvatarId
@@ -878,6 +894,7 @@
                                         releaseStatus: 'public'
                                     })
                                     .then((args) => {
+                                        applyAvatar(args.json);
                                         $message({
                                             message: 'Avatar updated to public',
                                             type: 'success'
@@ -892,6 +909,7 @@
                                         releaseStatus: 'private'
                                     })
                                     .then((args) => {
+                                        applyAvatar(args.json);
                                         $message({
                                             message: 'Avatar updated to private',
                                             type: 'success'
@@ -905,6 +923,19 @@
                                         avatarId: D.id
                                     })
                                     .then((args) => {
+                                        const { json } = args;
+                                        cachedAvatars.value.delete(json._id);
+                                        if (userDialog.value.id === json.authorId) {
+                                            const map = new Map();
+                                            for (const ref of cachedAvatars.value.values()) {
+                                                if (ref.authorId === json.authorId) {
+                                                    map.set(ref.id, ref);
+                                                }
+                                            }
+                                            const array = Array.from(map.values());
+                                            sortUserDialogAvatars(array);
+                                        }
+
                                         $message({
                                             message: 'Avatar deleted',
                                             type: 'success'
@@ -973,7 +1004,7 @@
     function displayPreviousImages(command) {
         previousImagesTable.value = [];
         previousImagesFileId.value = '';
-        const { imageUrl } = props.avatarDialog.ref;
+        const { imageUrl } = avatarDialog.value.ref;
         const fileId = extractFileId(imageUrl);
         if (!fileId) {
             return;
@@ -988,7 +1019,7 @@
             changeAvatarImageDialogVisible.value = true;
         }
         imageRequest.getAvatarImages(params).then((args) => {
-            storeAvatarImage(args);
+            storeAvatarImage(args, cachedAvatarNames.value);
             previousImagesFileId.value = args.json.id;
 
             const images = [];
@@ -999,37 +1030,6 @@
             });
             checkPreviousImageAvailable(images);
         });
-    }
-
-    async function checkPreviousImageAvailable(images) {
-        previousImagesTable.value = [];
-        for (const image of images) {
-            if (image.file && image.file.url) {
-                const response = await fetch(image.file.url, {
-                    method: 'HEAD',
-                    redirect: 'follow'
-                }).catch((error) => {
-                    console.log(error);
-                });
-                if (response.status === 200) {
-                    previousImagesTable.value.push(image);
-                }
-            }
-        }
-    }
-
-    function selectAvatar(id) {
-        avatarRequest
-            .selectAvatar({
-                avatarId: id
-            })
-            .then((args) => {
-                $message({
-                    message: 'Avatar changed',
-                    type: 'success'
-                });
-                return args;
-            });
     }
 
     function promptChangeAvatarDescription(avatar) {
@@ -1047,6 +1047,7 @@
                             description: instance.inputValue
                         })
                         .then((args) => {
+                            applyAvatar(args.json);
                             $message({
                                 message: t('prompt.change_avatar_description.message.success'),
                                 type: 'success'
@@ -1073,6 +1074,7 @@
                             name: instance.inputValue
                         })
                         .then((args) => {
+                            applyAvatar(args.json);
                             $message({
                                 message: t('prompt.rename_avatar.message.success'),
                                 type: 'success'
@@ -1087,12 +1089,12 @@
     function onAvatarMemoChange() {
         if (memo.value) {
             database.setAvatarMemo({
-                avatarId: props.avatarDialog.id,
+                avatarId: avatarDialog.value.id,
                 editedAt: new Date().toJSON(),
                 memo: memo.value
             });
         } else {
-            database.deleteAvatarMemo(props.avatarDialog.id);
+            database.deleteAvatarMemo(avatarDialog.value.id);
         }
     }
 
@@ -1104,74 +1106,8 @@
         copyToClipboard(`https://vrchat.com/home/avatar/${id}`);
     }
 
-    function timeToText(time) {
-        return utils.timeToText(time);
-    }
-
     function refreshAvatarDialogTreeData() {
-        treeData.value = utils.buildTreeData(props.avatarDialog.ref);
-    }
-
-    function getAvatarFileAnalysis() {
-        let unityPackage;
-        const D = props.avatarDialog;
-        const avatarId = D.ref.id;
-        let assetUrl = '';
-        let variant = 'security';
-        for (let i = D.ref.unityPackages.length - 1; i > -1; i--) {
-            unityPackage = D.ref.unityPackages[i];
-            if (unityPackage.variant !== 'security') {
-                continue;
-            }
-            if (unityPackage.platform === 'standalonewindows' && compareUnityVersion(unityPackage.unitySortNumber)) {
-                assetUrl = unityPackage.assetUrl;
-                break;
-            }
-        }
-        if (!assetUrl) {
-            for (let i = D.ref.unityPackages.length - 1; i > -1; i--) {
-                unityPackage = D.ref.unityPackages[i];
-                if (unityPackage.variant !== 'standard') {
-                    continue;
-                }
-                if (
-                    unityPackage.platform === 'standalonewindows' &&
-                    compareUnityVersion(unityPackage.unitySortNumber)
-                ) {
-                    variant = 'standard';
-                    assetUrl = unityPackage.assetUrl;
-                    break;
-                }
-            }
-        }
-        const fileId = extractFileId(assetUrl);
-        const version = parseInt(extractFileVersion(assetUrl), 10);
-        if (!fileId || !version) {
-            $message({
-                message: 'File Analysis unavailable',
-                type: 'error'
-            });
-            return;
-        }
-        miscRequest.getFileAnalysis({ fileId, version, variant, avatarId }).then((args) => {
-            // API.$on('FILE:ANALYSIS', function (args) {
-            if (!props.avatarDialog.visible || props.avatarDialog.id !== args.params.avatarId) {
-                return;
-            }
-            const ref = args.json;
-            if (typeof ref.fileSize !== 'undefined') {
-                ref._fileSize = `${(ref.fileSize / 1048576).toFixed(2)} MB`;
-            }
-            if (typeof ref.uncompressedSize !== 'undefined') {
-                ref._uncompressedSize = `${(ref.uncompressedSize / 1048576).toFixed(2)} MB`;
-            }
-            if (typeof ref.avatarStats?.totalTextureUsage !== 'undefined') {
-                ref._totalTextureUsage = `${(ref.avatarStats.totalTextureUsage / 1048576).toFixed(2)} MB`;
-            }
-
-            fileAnalysis.value = utils.buildTreeData(args.json);
-        });
-        // });
+        treeData.value = buildTreeData(avatarDialog.value.ref);
     }
 
     function showSetAvatarTagsDialog(avatarId) {
@@ -1187,7 +1123,7 @@
         D.contentViolence = false;
         D.contentAdult = false;
         D.contentSex = false;
-        const oldTags = props.avatarDialog.ref.tags;
+        const oldTags = avatarDialog.value.ref.tags;
         oldTags.forEach((tag) => {
             switch (tag) {
                 case 'content_horror':
@@ -1212,8 +1148,8 @@
                     break;
             }
         });
-        for (const ref of API.cachedAvatars.values()) {
-            if (ref.authorId === API.currentUser.id) {
+        for (const ref of cachedAvatars.value.values()) {
+            if (ref.authorId === currentUser.value.id) {
                 ref.$selected = false;
                 ref.$tagString = '';
                 if (avatarId === ref.id) {
@@ -1245,12 +1181,12 @@
         const D = setAvatarStylesDialog;
         D.visible = true;
         D.loading = true;
-        D.avatarId = props.avatarDialog.id;
-        D.primaryStyle = props.avatarDialog.ref.styles?.primary || '';
-        D.secondaryStyle = props.avatarDialog.ref.styles?.secondary || '';
+        D.avatarId = avatarDialog.value.id;
+        D.primaryStyle = avatarDialog.value.ref.styles?.primary || '';
+        D.secondaryStyle = avatarDialog.value.ref.styles?.secondary || '';
         D.initialPrimaryStyle = D.primaryStyle;
         D.initialSecondaryStyle = D.secondaryStyle;
-        D.initialTags = props.avatarDialog.ref.tags;
+        D.initialTags = avatarDialog.value.ref.tags;
         D.authorTags = '';
         for (const tag of D.initialTags) {
             if (tag.startsWith('author_tag_')) {
@@ -1271,8 +1207,9 @@
 
     function onFileChangeAvatarGallery(e) {
         const clearFile = function () {
-            if (document.querySelector('#AvatarGalleryUploadButton')) {
-                document.querySelector('#AvatarGalleryUploadButton').value = '';
+            const fileInput = /** @type {HTMLInputElement} */ (document.querySelector('#AvatarGalleryUploadButton'));
+            if (fileInput) {
+                fileInput.value = '';
             }
         };
         const files = e.target.files || e.dataTransfer.files;
@@ -1298,43 +1235,31 @@
         }
         const r = new FileReader();
         r.onload = function () {
-            props.avatarDialog.galleryLoading = true;
-            const base64Body = btoa(r.result);
+            avatarDialog.value.galleryLoading = true;
+            const base64Body = btoa(r.result.toString());
             avatarRequest
-                .uploadAvatarGalleryImage(base64Body, props.avatarDialog.id)
-                .then((args) => {
+                .uploadAvatarGalleryImage(base64Body, avatarDialog.value.id)
+                .then(async (args) => {
                     $message({
                         message: t('message.avatar_gallery.uploaded'),
                         type: 'success'
                     });
                     console.log(args);
-                    props.avatarDialog.galleryImages = getAvatarGallery(props.avatarDialog.id);
+                    avatarDialog.value.galleryImages = await getAvatarGallery(avatarDialog.value.id);
                     return args;
                 })
                 .finally(() => {
-                    props.avatarDialog.galleryLoading = false;
+                    avatarDialog.value.galleryLoading = false;
                 });
         };
         r.readAsBinaryString(files[0]);
         clearFile();
     }
 
-    function deleteAvatarGalleryImage(imageUrl) {
-        const fileId = extractFileId(imageUrl);
-        miscRequest.deleteFile(fileId).then((args) => {
-            $message({
-                message: t('message.avatar_gallery.deleted'),
-                type: 'success'
-            });
-            props.avatarDialog.galleryImages = getAvatarGallery(props.avatarDialog.id);
-            return args;
-        });
-    }
-
     function reorderAvatarGalleryImage(imageUrl, direction) {
         const fileId = extractFileId(imageUrl);
         let fileIds = [];
-        props.avatarDialog.ref.gallery.forEach((item) => {
+        avatarDialog.value.ref.gallery.forEach((item) => {
             fileIds.push(extractFileId(item.id));
         });
         const index = fileIds.indexOf(fileId);
@@ -1360,16 +1285,28 @@
             return;
         }
         if (direction === -1) {
-            utils.moveArrayItem(fileIds, index, index - 1);
+            moveArrayItem(fileIds, index, index - 1);
         } else {
-            utils.moveArrayItem(fileIds, index, index + 1);
+            moveArrayItem(fileIds, index, index + 1);
         }
-        avatarRequest.setAvatarGalleryOrder(fileIds).then((args) => {
+        avatarRequest.setAvatarGalleryOrder(fileIds).then(async (args) => {
             $message({
                 message: t('message.avatar_gallery.reordered'),
                 type: 'success'
             });
-            props.avatarDialog.galleryImages = getAvatarGallery(props.avatarDialog.id);
+            avatarDialog.value.galleryImages = await getAvatarGallery(avatarDialog.value.id);
+            return args;
+        });
+    }
+
+    function deleteAvatarGalleryImage(imageUrl) {
+        const fileId = extractFileId(imageUrl);
+        miscRequest.deleteFile(fileId).then((args) => {
+            $message({
+                message: t('message.avatar_gallery.deleted'),
+                type: 'success'
+            });
+            getAvatarGallery(avatarDialog.value.id);
             return args;
         });
     }

@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using librsync.net;
 using Newtonsoft.Json;
 using NLog;
@@ -96,22 +97,22 @@ namespace VRCX
             });
         }
 
-        public string CustomCssPath()
+        public string CustomCss()
         {
-            var output = string.Empty;
             var filePath = Path.Join(Program.AppDataDirectory, "custom.css");
             if (File.Exists(filePath))
-                output = filePath;
-            return output;
+                return File.ReadAllText(filePath);
+            
+            return string.Empty;
         }
 
-        public string CustomScriptPath()
+        public string CustomScript()
         {
-            var output = string.Empty;
             var filePath = Path.Join(Program.AppDataDirectory, "custom.js");
             if (File.Exists(filePath))
-                output = filePath;
-            return output;
+                return File.ReadAllText(filePath);
+            
+            return string.Empty;
         }
 
         public string CurrentCulture()
@@ -149,10 +150,11 @@ namespace VRCX
             return output;
         }
 
-        public void SetAppLauncherSettings(bool enabled, bool killOnExit)
+        public void SetAppLauncherSettings(bool enabled, bool killOnExit, bool runProcessOnce)
         {
             AutoAppLaunchManager.Instance.Enabled = enabled;
             AutoAppLaunchManager.Instance.KillChildrenOnExit = killOnExit;
+            AutoAppLaunchManager.Instance.RunProcessOnce = runProcessOnce;
         }
 
         public string GetFileBase64(string path)
@@ -163,6 +165,11 @@ namespace VRCX
             }
 
             return null;
+        }
+
+        public Task<bool> TryOpenInstanceInVrc(string launchUrl)
+        {
+            return VRCIPC.Send(launchUrl);
         }
     }
 }

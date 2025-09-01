@@ -7,7 +7,7 @@
 [![GitHub Workflow Status](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml/badge.svg)](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml)
 [![VRCX Discord Invite](https://img.shields.io/discord/854071236363550763?color=%237289DA&logo=discord&logoColor=white&label=discord)](https://vrcx.app/discord)
 
-| [English](./README.md) | **Français** | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | [Italiano](./README.it.md) | [Русский](./README.ru_RU.md) | [Español](./README.es.md) | [Polski](./README.pl.md)
+| [English](./README.md) | **Français** | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | [Italiano](./README.it.md) | [Русский](./README.ru_RU.md) | [Español](./README.es.md) | [Polski](./README.pl.md) | [ภาษาไทย](./README.th.md)
 
 VRCX est une application assistante/complémentaire pour VRChat qui fournit des informations et vous aide à accomplir diverses tâches liées à VRChat de manière plus pratique que de compter uniquement sur le client VRChat classique (desktop ou VR) ou le site web seul. Il comprend également quelques autres fonctionnalités intéressantes décrites ci-dessous.
 
@@ -31,10 +31,6 @@ Téléchargez et exécutez le dernier programme d'installation (`VRCX_Setup.exe`
 - :electric_plug: Lancement automatique d'applications lorsque vous démarrez VRChat
     - Vous pouvez configurer VRCX pour lancer d'autres applications lorsque vous démarrez VRChat.
     - Par exemple, vous pourriez avoir VRCX qui lance une application OSC ou une application de modification de voix lorsque VRChat s'ouvre.
-- :floppy_disk: Persistance de Monde
-    - Pour les mondes qui prennent en charge cette fonctionnalité, VRCX peut sauvegarder les paramètres de monde, les états sauvegardés, les inventaires et d'autres données !
-    - **Note** : Pour utiliser cette fonctionnalité, vous devez avoir activé "Allow Untrusted URLs" dans vos paramètres VRChat.
-    - Pour les Développeurs : [Page Wiki - World Persistence (PWI)](<https://github.com/vrcx-team/VRCX/wiki/World-Persistence-(PWI)>)
 - :mag: Recherche d'avatars, d'utilisateurs, de mondes et de groupes
 - :earth_americas: Créez une liste de favoris de mondes locale et sans restrictions
 - :camera: Stockez les données du monde dans les images que vous prenez en jeu, afin de vous souvenir de ce monde où vous avez pris ces superbes photos il y a... 6 mois !

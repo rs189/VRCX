@@ -1,43 +1,27 @@
-// #region | API: Avatar
+import { request } from '../service/request';
+import { useUserStore } from '../stores';
 
 const avatarReq = {
     /**
-     * @param {{ avatarId: string }} params
-     * @returns {Promise<{json: any, params}>}
+     * @type {import('../types/api/avatar').GetAvatar}
      */
     getAvatar(params) {
-        return window.API.call(`avatars/${params.avatarId}`, {
+        return request(`avatars/${params.avatarId}`, {
             method: 'GET'
         }).then((json) => {
             const args = {
                 json,
                 params
             };
-            window.API.$emit('AVATAR', args);
             return args;
         });
     },
 
     /**
-     * @typedef {{
-     *     n: number,
-     *     offset: number,
-     *     search: string,
-     *     userId: string,
-     *     user: 'me' | 'friends'
-     *     sort: 'created' | 'updated' | 'order' | '_created_at' | '_updated_at',
-     *     order: 'ascending' | 'descending',
-     *     releaseStatus: 'public' | 'private' | 'hidden' | 'all',
-     *     featured: boolean
-     * }} GetAvatarsParameter
-     */
-    /**
-     *
-     * @param {GetAvatarsParameter} params
-     * @returns {Promise<{json: any, params}>}
+     * @type {import('../types/api/avatar').GetAvatars}
      */
     getAvatars(params) {
-        return window.API.call('avatars', {
+        return request('avatars', {
             method: 'GET',
             params
         }).then((json) => {
@@ -45,16 +29,16 @@ const avatarReq = {
                 json,
                 params
             };
-            window.API.$emit('AVATAR:LIST', args);
+
             return args;
         });
     },
     /**
-     * @param {{ id: string, releaseStatus: 'public' | 'private' }} params
+     * @param {{ id: string, releaseStatus?: 'public' | 'private', name?: string, description?: string,tags?: string[] }} params
      * @returns {Promise<{json: any, params}>}
      */
     saveAvatar(params) {
-        return window.API.call(`avatars/${params.id}`, {
+        return request(`avatars/${params.id}`, {
             method: 'PUT',
             params
         }).then((json) => {
@@ -62,7 +46,6 @@ const avatarReq = {
                 json,
                 params
             };
-            window.API.$emit('AVATAR:SAVE', args);
             return args;
         });
     },
@@ -72,7 +55,8 @@ const avatarReq = {
      * @returns {Promise<{json: any, params}>}
      */
     selectAvatar(params) {
-        return window.API.call(`avatars/${params.avatarId}/select`, {
+        const userStore = useUserStore();
+        return request(`avatars/${params.avatarId}/select`, {
             method: 'PUT',
             params
         }).then((json) => {
@@ -80,7 +64,7 @@ const avatarReq = {
                 json,
                 params
             };
-            window.API.$emit('AVATAR:SELECT', args);
+            userStore.applyCurrentUser(json);
             return args;
         });
     },
@@ -90,7 +74,8 @@ const avatarReq = {
      * @return { Promise<{json: any, params}> }
      */
     selectFallbackAvatar(params) {
-        return window.API.call(`avatars/${params.avatarId}/selectfallback`, {
+        const userStore = useUserStore();
+        return request(`avatars/${params.avatarId}/selectfallback`, {
             method: 'PUT',
             params
         }).then((json) => {
@@ -98,7 +83,7 @@ const avatarReq = {
                 json,
                 params
             };
-            window.API.$emit('AVATAR:SELECT', args);
+            userStore.applyCurrentUser(json);
             return args;
         });
     },
@@ -108,14 +93,13 @@ const avatarReq = {
      * @return { Promise<{json: any, params}> }
      */
     deleteAvatar(params) {
-        return window.API.call(`avatars/${params.avatarId}`, {
+        return request(`avatars/${params.avatarId}`, {
             method: 'DELETE'
         }).then((json) => {
             const args = {
                 json,
                 params
             };
-            window.API.$emit('AVATAR:DELETE', args);
             return args;
         });
     },
@@ -125,52 +109,49 @@ const avatarReq = {
      * @returns {Promise<{json: any, params}>}
      */
     createImposter(params) {
-        return window.API.call(`avatars/${params.avatarId}/impostor/enqueue`, {
+        return request(`avatars/${params.avatarId}/impostor/enqueue`, {
             method: 'POST'
         }).then((json) => {
             const args = {
                 json,
                 params
             };
-            // window.API.$emit('AVATAR:IMPOSTER:CREATE', args);
             return args;
         });
     },
 
     /**
      * @param {{ avatarId: string }} params
-     * @returns {Promise<{json: T, params}>}
+     * @returns {Promise<{json: any, params}>}
      */
     deleteImposter(params) {
-        return window.API.call(`avatars/${params.avatarId}/impostor`, {
+        return request(`avatars/${params.avatarId}/impostor`, {
             method: 'DELETE'
         }).then((json) => {
             const args = {
                 json,
                 params
             };
-            // window.API.$emit('AVATAR:IMPOSTER:DELETE', args);
             return args;
         });
     },
 
     /**
-     * @returns {Promise<{json: any, params}>}
+     * @returns {Promise<{json: any}>}
      */
     getAvailableAvatarStyles() {
-        return window.API.call('avatarStyles', {
+        return request('avatarStyles', {
             method: 'GET'
         }).then((json) => {
             const args = {
                 json
             };
-            // window.API.$emit('AVATAR:STYLES', args);
             return args;
         });
     },
 
     /**
-     * @param {{ avatarId: string }} params
+     * @param {string} avatarId
      * @returns {Promise<{json: any, params}>}
      */
     getAvatarGallery(avatarId) {
@@ -180,7 +161,7 @@ const avatarReq = {
             n: 100,
             offset: 0
         };
-        return window.API.call(`files`, {
+        return request(`files`, {
             params,
             method: 'GET'
         }).then((json) => {
@@ -188,13 +169,12 @@ const avatarReq = {
                 json,
                 params
             };
-            // window.API.$emit('AVATAR:GALLERY', args);
             return args;
         });
     },
 
     /**
-     * @param {{ imageData: string, avatarId: string }} params
+     * @param {{ imageData: string, avatarId: string }}
      * @returns {Promise<{json: any, params}>}
      */
     uploadAvatarGalleryImage(imageData, avatarId) {
@@ -202,7 +182,7 @@ const avatarReq = {
             tag: 'avatargallery',
             galleryId: avatarId
         };
-        return window.API.call('file/image', {
+        return request('file/image', {
             uploadImage: true,
             matchingDimensions: false,
             postData: JSON.stringify(params),
@@ -212,7 +192,6 @@ const avatarReq = {
                 json,
                 params
             };
-            // window.API.$emit('AVATARGALLERYIMAGE:ADD', args);
             return args;
         });
     },
@@ -225,7 +204,7 @@ const avatarReq = {
         const params = {
             ids: order
         };
-        return window.API.call('files/order', {
+        return request('files/order', {
             method: 'PUT',
             params
         }).then((json) => {
@@ -233,11 +212,9 @@ const avatarReq = {
                 json,
                 params
             };
-            // window.API.$emit('AVATARGALLERYIMAGE:ORDER', args);
             return args;
         });
     }
 };
-// #endregion
 
 export default avatarReq;

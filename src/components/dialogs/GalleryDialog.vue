@@ -4,7 +4,6 @@
         :visible="galleryDialogVisible"
         :title="t('dialog.gallery_icons.header')"
         width="97vw"
-        top="5vh"
         append-to-body
         @close="closeGalleryDialog">
         <el-tabs type="card" ref="galleryTabs">
@@ -33,7 +32,7 @@
                         size="small"
                         @click="displayGalleryUpload"
                         icon="el-icon-upload2"
-                        :disabled="!API.currentUser.$isVRCPlus">
+                        :disabled="!currentUser.$isVRCPlus">
                         {{ t('dialog.gallery_icons.upload') }}
                     </el-button>
                     <el-button
@@ -41,39 +40,39 @@
                         size="small"
                         @click="setProfilePicOverride('')"
                         icon="el-icon-close"
-                        :disabled="!API.currentUser.profilePicOverride">
+                        :disabled="!currentUser.profilePicOverride">
                         {{ t('dialog.gallery_icons.clear') }}
                     </el-button>
                 </el-button-group>
                 <br />
                 <div
                     class="x-friend-item"
-                    v-if="image.versions && image.versions.length > 0"
                     v-for="image in galleryTable"
                     :key="image.id"
                     style="display: inline-block; margin-top: 10px; width: unset; cursor: default">
-                    <div
-                        class="vrcplus-icon"
-                        v-if="image.versions[image.versions.length - 1].file.url"
-                        @click="setProfilePicOverride(image.id)"
-                        :class="{ 'current-vrcplus-icon': compareCurrentProfilePic(image.id) }">
-                        <img class="avatar" v-lazy="image.versions[image.versions.length - 1].file.url" />
-                    </div>
-                    <div style="float: right; margin-top: 5px">
-                        <el-button
-                            type="default"
-                            @click="showFullscreenImageDialog(image.versions[image.versions.length - 1].file.url)"
-                            size="mini"
-                            icon="el-icon-picture-outline"
-                            circle></el-button>
-                        <el-button
-                            type="default"
-                            @click="deleteGalleryImage(image.id)"
-                            size="mini"
-                            icon="el-icon-delete"
-                            circle
-                            style="margin-left: 5px"></el-button>
-                    </div>
+                    <template v-if="image.versions && image.versions.length > 0">
+                        <div
+                            class="vrcplus-icon"
+                            v-if="image.versions[image.versions.length - 1].file.url"
+                            @click="setProfilePicOverride(image.id)"
+                            :class="{ 'current-vrcplus-icon': compareCurrentProfilePic(image.id) }">
+                            <img class="avatar" v-lazy="image.versions[image.versions.length - 1].file.url" />
+                        </div>
+                        <div style="float: right; margin-top: 5px">
+                            <el-button
+                                type="default"
+                                @click="showFullscreenImageDialog(image.versions[image.versions.length - 1].file.url)"
+                                size="mini"
+                                icon="el-icon-picture-outline"
+                                circle></el-button>
+                            <el-button
+                                type="default"
+                                @click="deleteGalleryImage(image.id)"
+                                size="mini"
+                                icon="el-icon-delete"
+                                circle
+                                style="margin-left: 5px"></el-button></div
+                    ></template>
                 </div>
             </el-tab-pane>
 
@@ -102,7 +101,7 @@
                         size="small"
                         @click="displayVRCPlusIconUpload"
                         icon="el-icon-upload2"
-                        :disabled="!API.currentUser.$isVRCPlus">
+                        :disabled="!currentUser.$isVRCPlus">
                         {{ t('dialog.gallery_icons.upload') }}
                     </el-button>
                     <el-button
@@ -110,39 +109,39 @@
                         size="small"
                         @click="setVRCPlusIcon('')"
                         icon="el-icon-close"
-                        :disabled="!API.currentUser.userIcon">
+                        :disabled="!currentUser.userIcon">
                         {{ t('dialog.gallery_icons.clear') }}
                     </el-button>
                 </el-button-group>
                 <br />
                 <div
                     class="x-friend-item"
-                    v-if="image.versions && image.versions.length > 0"
                     v-for="image in VRCPlusIconsTable"
                     :key="image.id"
                     style="display: inline-block; margin-top: 10px; width: unset; cursor: default">
-                    <div
-                        class="vrcplus-icon"
-                        v-if="image.versions[image.versions.length - 1].file.url"
-                        @click="setVRCPlusIcon(image.id)"
-                        :class="{ 'current-vrcplus-icon': compareCurrentVRCPlusIcon(image.id) }">
-                        <img class="avatar" v-lazy="image.versions[image.versions.length - 1].file.url" />
-                    </div>
-                    <div style="float: right; margin-top: 5px">
-                        <el-button
-                            type="default"
-                            @click="showFullscreenImageDialog(image.versions[image.versions.length - 1].file.url)"
-                            size="mini"
-                            icon="el-icon-picture-outline"
-                            circle></el-button>
-                        <el-button
-                            type="default"
-                            @click="deleteVRCPlusIcon(image.id)"
-                            size="mini"
-                            icon="el-icon-delete"
-                            circle
-                            style="margin-left: 5px"></el-button>
-                    </div>
+                    <template v-if="image.versions && image.versions.length > 0"
+                        ><div
+                            class="vrcplus-icon"
+                            v-if="image.versions[image.versions.length - 1].file.url"
+                            @click="setVRCPlusIcon(image.id)"
+                            :class="{ 'current-vrcplus-icon': compareCurrentVRCPlusIcon(image.id) }">
+                            <img class="avatar" v-lazy="image.versions[image.versions.length - 1].file.url" />
+                        </div>
+                        <div style="float: right; margin-top: 5px">
+                            <el-button
+                                type="default"
+                                @click="showFullscreenImageDialog(image.versions[image.versions.length - 1].file.url)"
+                                size="mini"
+                                icon="el-icon-picture-outline"
+                                circle></el-button>
+                            <el-button
+                                type="default"
+                                @click="deleteVRCPlusIcon(image.id)"
+                                size="mini"
+                                icon="el-icon-delete"
+                                circle
+                                style="margin-left: 5px"></el-button></div
+                    ></template>
                 </div>
             </el-tab-pane>
 
@@ -150,7 +149,7 @@
                 <span slot="label">
                     {{ t('dialog.gallery_icons.emojis') }}
                     <span style="color: #909399; font-size: 12px; margin-left: 5px">
-                        {{ emojiTable.length }}/{{ API.cachedConfig?.maxUserEmoji }}
+                        {{ emojiTable.length }}/{{ cachedConfig?.maxUserEmoji }}
                     </span>
                 </span>
                 <input
@@ -172,7 +171,7 @@
                             size="small"
                             @click="displayEmojiUpload"
                             icon="el-icon-upload2"
-                            :disabled="!API.currentUser.$isVRCPlus">
+                            :disabled="!currentUser.$isVRCPlus">
                             {{ t('dialog.gallery_icons.upload') }}
                         </el-button>
                     </el-button-group>
@@ -226,65 +225,67 @@
                 <br />
                 <div
                     class="x-friend-item"
-                    v-if="image.versions && image.versions.length > 0"
                     v-for="image in emojiTable"
                     :key="image.id"
                     style="display: inline-block; margin-top: 10px; width: unset; cursor: default">
-                    <div
-                        class="vrcplus-icon"
-                        v-if="image.versions[image.versions.length - 1].file.url"
-                        style="overflow: hidden"
-                        @click="
-                            showFullscreenImageDialog(
-                                image.versions[image.versions.length - 1].file.url,
-                                getEmojiName(image)
-                            )
-                        ">
-                        <template v-if="image.frames">
-                            <div
-                                class="avatar"
-                                :style="
-                                    generateEmojiStyle(
-                                        image.versions[image.versions.length - 1].file.url,
-                                        image.framesOverTime,
-                                        image.frames,
-                                        image.loopStyle
-                                    )
-                                "></div>
-                        </template>
-                        <template v-else>
-                            <img class="avatar" v-lazy="image.versions[image.versions.length - 1].file.url" />
-                        </template>
-                    </div>
-                    <div style="display: inline-block; margin: 5px">
-                        <span v-if="image.loopStyle === 'pingpong'">
-                            <i class="el-icon-refresh el-icon--left"></i>
-                        </span>
-                        <span style="margin-right: 5px">{{ image.animationStyle }}</span>
-                        <span v-if="image.framesOverTime" style="margin-right: 5px">{{ image.framesOverTime }}fps</span>
-                        <span v-if="image.frames" style="margin-right: 5px">{{ image.frames }}frames</span>
-                        <br />
-                    </div>
-                    <div style="float: right; margin-top: 5px">
-                        <el-button
-                            type="default"
+                    <template v-if="image.versions && image.versions.length > 0">
+                        <div
+                            class="vrcplus-icon"
+                            v-if="image.versions[image.versions.length - 1].file.url"
+                            style="overflow: hidden"
                             @click="
                                 showFullscreenImageDialog(
                                     image.versions[image.versions.length - 1].file.url,
-                                    getEmojiName(image)
+                                    getEmojiFileName(image)
                                 )
-                            "
-                            size="mini"
-                            icon="el-icon-picture-outline"
-                            circle></el-button>
-                        <el-button
-                            type="default"
-                            @click="deleteEmoji(image.id)"
-                            size="mini"
-                            icon="el-icon-delete"
-                            circle
-                            style="margin-left: 5px"></el-button>
-                    </div>
+                            ">
+                            <template v-if="image.frames">
+                                <div
+                                    class="avatar"
+                                    :style="
+                                        generateEmojiStyle(
+                                            image.versions[image.versions.length - 1].file.url,
+                                            image.framesOverTime,
+                                            image.frames,
+                                            image.loopStyle
+                                        )
+                                    "></div>
+                            </template>
+                            <template v-else>
+                                <img class="avatar" v-lazy="image.versions[image.versions.length - 1].file.url" />
+                            </template>
+                        </div>
+                        <div style="display: inline-block; margin: 5px">
+                            <span v-if="image.loopStyle === 'pingpong'">
+                                <i class="el-icon-refresh el-icon--left"></i>
+                            </span>
+                            <span style="margin-right: 5px">{{ image.animationStyle }}</span>
+                            <span v-if="image.framesOverTime" style="margin-right: 5px"
+                                >{{ image.framesOverTime }}fps</span
+                            >
+                            <span v-if="image.frames" style="margin-right: 5px">{{ image.frames }}frames</span>
+                            <br />
+                        </div>
+                        <div style="float: right; margin-top: 5px">
+                            <el-button
+                                type="default"
+                                @click="
+                                    showFullscreenImageDialog(
+                                        image.versions[image.versions.length - 1].file.url,
+                                        getEmojiFileName(image)
+                                    )
+                                "
+                                size="mini"
+                                icon="el-icon-picture-outline"
+                                circle></el-button>
+                            <el-button
+                                type="default"
+                                @click="deleteEmoji(image.id)"
+                                size="mini"
+                                icon="el-icon-delete"
+                                circle
+                                style="margin-left: 5px"></el-button></div
+                    ></template>
                 </div>
             </el-tab-pane>
 
@@ -292,7 +293,7 @@
                 <span slot="label">
                     {{ t('dialog.gallery_icons.stickers') }}
                     <span style="color: #909399; font-size: 12px; margin-left: 5px">
-                        {{ stickerTable.length }}/{{ API.cachedConfig?.maxUserStickers }}
+                        {{ stickerTable.length }}/{{ cachedConfig?.maxUserStickers }}
                     </span>
                 </span>
                 <input
@@ -313,39 +314,39 @@
                         size="small"
                         @click="displayStickerUpload"
                         icon="el-icon-upload2"
-                        :disabled="!API.currentUser.$isVRCPlus">
+                        :disabled="!currentUser.$isVRCPlus">
                         {{ t('dialog.gallery_icons.upload') }}
                     </el-button>
                 </el-button-group>
                 <br />
                 <div
                     class="x-friend-item"
-                    v-if="image.versions && image.versions.length > 0"
                     v-for="image in stickerTable"
                     :key="image.id"
                     style="display: inline-block; margin-top: 10px; width: unset; cursor: default">
-                    <div
-                        class="vrcplus-icon"
-                        v-if="image.versions[image.versions.length - 1].file.url"
-                        style="overflow: hidden"
-                        @click="showFullscreenImageDialog(image.versions[image.versions.length - 1].file.url)">
-                        <img class="avatar" v-lazy="image.versions[image.versions.length - 1].file.url" />
-                    </div>
-                    <div style="float: right; margin-top: 5px">
-                        <el-button
-                            type="default"
-                            @click="showFullscreenImageDialog(image.versions[image.versions.length - 1].file.url)"
-                            size="mini"
-                            icon="el-icon-picture-outline"
-                            circle></el-button>
-                        <el-button
-                            type="default"
-                            @click="deleteSticker(image.id)"
-                            size="mini"
-                            icon="el-icon-delete"
-                            circle
-                            style="margin-left: 5px"></el-button>
-                    </div>
+                    <template v-if="image.versions && image.versions.length > 0">
+                        <div
+                            class="vrcplus-icon"
+                            v-if="image.versions[image.versions.length - 1].file.url"
+                            style="overflow: hidden"
+                            @click="showFullscreenImageDialog(image.versions[image.versions.length - 1].file.url)">
+                            <img class="avatar" v-lazy="image.versions[image.versions.length - 1].file.url" />
+                        </div>
+                        <div style="float: right; margin-top: 5px">
+                            <el-button
+                                type="default"
+                                @click="showFullscreenImageDialog(image.versions[image.versions.length - 1].file.url)"
+                                size="mini"
+                                icon="el-icon-picture-outline"
+                                circle></el-button>
+                            <el-button
+                                type="default"
+                                @click="deleteSticker(image.id)"
+                                size="mini"
+                                icon="el-icon-delete"
+                                circle
+                                style="margin-left: 5px"></el-button></div
+                    ></template>
                 </div>
             </el-tab-pane>
 
@@ -373,7 +374,7 @@
                             size="small"
                             @click="displayPrintUpload"
                             icon="el-icon-upload2"
-                            :disabled="!API.currentUser.$isVRCPlus">
+                            :disabled="!currentUser.$isVRCPlus">
                             {{ t('dialog.gallery_icons.upload') }}
                         </el-button>
                     </el-button-group>
@@ -405,25 +406,25 @@
                     <div style="margin-top: 5px; width: 208px">
                         <span class="x-ellipsis" v-if="image.note" v-text="image.note" style="display: block"></span>
                         <span v-else style="display: block">&nbsp;</span>
-                        <location
+                        <Location
                             class="x-ellipsis"
                             v-if="image.worldId"
                             :location="image.worldId"
                             :hint="image.worldName"
-                            style="display: block"></location>
+                            style="display: block" />
                         <span v-else style="display: block">&nbsp;</span>
-                        <display-name
+                        <DisplayName
                             class="x-ellipsis"
                             v-if="image.authorId"
                             :userid="image.authorId"
                             :hint="image.authorName"
-                            style="color: #909399; font-family: monospace; display: block"></display-name>
+                            style="color: #909399; font-family: monospace; display: block" />
                         <span v-else style="font-family: monospace; display: block">&nbsp;</span>
                         <span
                             class="x-ellipsis"
                             v-if="image.createdAt"
                             style="color: #909399; font-family: monospace; font-size: 11px; display: block">
-                            {{ image.createdAt | formatDate('long') }}
+                            {{ formatDateFilter(image.createdAt, 'long') }}
                         </span>
                         <span v-else style="display: block">&nbsp;</span>
                     </div>
@@ -479,7 +480,7 @@
                         <span
                             class="x-ellipsis"
                             style="color: #909399; font-family: monospace; font-size: 11px; display: block">
-                            {{ item.created_at | formatDate('long') }}
+                            {{ formatDateFilter(item.created_at, 'long') }}
                         </span>
                         <span v-text="item.itemType" style="display: block"></span>
                     </div>
@@ -500,95 +501,50 @@
 </template>
 
 <script setup>
-    import { getCurrentInstance, inject, ref } from 'vue';
+    import { storeToRefs } from 'pinia';
+    import { getCurrentInstance, ref } from 'vue';
     import { useI18n } from 'vue-i18n-bridge';
     import { inventoryRequest, miscRequest, userRequest, vrcPlusIconRequest, vrcPlusImageRequest } from '../../api';
-    import { extractFileId } from '../../composables/shared/utils';
-    import { emojiAnimationStyleList, emojiAnimationStyleUrl } from '../../composables/user/constants/emoji';
-    import { getPrintFileName, getEmojiFileName } from '../../composables/user/utils';
-    import Location from '../Location.vue';
+    import { AppGlobal } from '../../service/appConfig';
+    import { emojiAnimationStyleList, emojiAnimationStyleUrl } from '../../shared/constants';
+    import { extractFileId, formatDateFilter, getEmojiFileName, getPrintFileName } from '../../shared/utils';
+    import { useAdvancedSettingsStore, useAuthStore, useGalleryStore, useUserStore } from '../../stores';
 
     const { t } = useI18n();
 
     const { proxy } = getCurrentInstance();
-    const { $message } = proxy;
+    const {
+        galleryTable,
+        galleryDialogVisible,
+        galleryDialogGalleryLoading,
+        galleryDialogIconsLoading,
+        galleryDialogEmojisLoading,
+        galleryDialogStickersLoading,
+        galleryDialogPrintsLoading,
+        galleryDialogInventoryLoading,
+        VRCPlusIconsTable,
+        printUploadNote,
+        printCropBorder,
+        stickerTable,
+        printTable,
+        emojiTable,
+        inventoryTable
+    } = storeToRefs(useGalleryStore());
+    const {
+        refreshGalleryTable,
+        refreshVRCPlusIconsTable,
+        refreshStickerTable,
+        refreshPrintTable,
+        refreshEmojiTable,
+        getInventory,
+        handleStickerAdd,
+        handleGalleryImageAdd
+    } = useGalleryStore();
 
-    const API = inject('API');
-    const showFullscreenImageDialog = inject('showFullscreenImageDialog');
-
-    const props = defineProps({
-        galleryDialogVisible: {
-            type: Boolean,
-            required: true
-        },
-        galleryDialogGalleryLoading: {
-            type: Boolean,
-            required: true
-        },
-        galleryDialogIconsLoading: {
-            type: Boolean,
-            required: true
-        },
-        galleryDialogEmojisLoading: {
-            type: Boolean,
-            required: true
-        },
-        galleryDialogStickersLoading: {
-            type: Boolean,
-            required: true
-        },
-        galleryDialogPrintsLoading: {
-            type: Boolean,
-            required: true
-        },
-        galleryDialogInventoryLoading: {
-            type: Boolean,
-            required: true
-        },
-        galleryTable: {
-            type: Array,
-            required: true
-        },
-        // eslint-disable-next-line vue/prop-name-casing
-        VRCPlusIconsTable: {
-            type: Array,
-            required: true
-        },
-        emojiTable: {
-            type: Array,
-            required: true
-        },
-        stickerTable: {
-            type: Array,
-            required: true
-        },
-        printUploadNote: {
-            type: String,
-            required: true
-        },
-        printCropBorder: {
-            type: Boolean,
-            required: true
-        },
-        printTable: {
-            type: Array,
-            required: true
-        },
-        inventoryTable: {
-            type: Array,
-            required: true
-        }
-    });
-
-    const emit = defineEmits([
-        'refreshGalleryTable',
-        'refreshVRCPlusIconsTable',
-        'refreshStickerTable',
-        'refreshEmojiTable',
-        'refreshPrintTable',
-        'getInventory',
-        'closeGalleryDialog'
-    ]);
+    const { currentUserInventory } = storeToRefs(useAdvancedSettingsStore());
+    const { showFullscreenImageDialog } = useGalleryStore();
+    const { currentUser } = storeToRefs(useUserStore());
+    const { cachedConfig } = storeToRefs(useAuthStore());
 
     const emojiAnimFps = ref(15);
     const emojiAnimFrameCount = ref(4);
@@ -596,18 +552,15 @@
     const emojiAnimationStyle = ref('Stop');
     const emojiAnimLoopPingPong = ref(false);
 
-    function refreshGalleryTable() {
-        emit('refreshGalleryTable');
-    }
-
     function closeGalleryDialog() {
-        emit('closeGalleryDialog');
+        galleryDialogVisible.value = false;
     }
 
     function onFileChangeGallery(e) {
         const clearFile = function () {
-            if (document.querySelector('#GalleryUploadButton')) {
-                document.querySelector('#GalleryUploadButton').value = '';
+            const fileInput = /** @type {HTMLInputElement} */ (document.querySelector('#GalleryUploadButton'));
+            if (fileInput) {
+                fileInput.value = '';
             }
         };
         const files = e.target.files || e.dataTransfer.files;
@@ -616,7 +569,7 @@
         }
         if (files[0].size >= 100000000) {
             // 100MB
-            $message({
+            proxy.$message({
                 message: t('message.file.too_large'),
                 type: 'error'
             });
@@ -624,7 +577,7 @@
             return;
         }
         if (!files[0].type.match(/image.*/)) {
-            $message({
+            proxy.$message({
                 message: t('message.file.not_image'),
                 type: 'error'
             });
@@ -633,9 +586,10 @@
         }
         const r = new FileReader();
         r.onload = function () {
-            const base64Body = btoa(r.result);
+            const base64Body = btoa(r.result.toString());
             vrcPlusImageRequest.uploadGalleryImage(base64Body).then((args) => {
-                $message({
+                handleGalleryImageAdd(args);
+                proxy.$message({
                     message: t('message.gallery.uploaded'),
                     type: 'success'
                 });
@@ -651,8 +605,8 @@
     }
 
     function setProfilePicOverride(fileId) {
-        if (!API.currentUser.$isVRCPlus) {
-            $message({
+        if (!currentUser.value.$isVRCPlus) {
+            proxy.$message({
                 message: 'VRCPlus required',
                 type: 'error'
             });
@@ -660,9 +614,9 @@
         }
         let profilePicOverride = '';
         if (fileId) {
-            profilePicOverride = `${API.endpointDomain}/file/${fileId}/1`;
+            profilePicOverride = `${AppGlobal.endpointDomain}/file/${fileId}/1`;
         }
-        if (profilePicOverride === API.currentUser.profilePicOverride) {
+        if (profilePicOverride === currentUser.value.profilePicOverride) {
             return;
         }
         userRequest
@@ -670,7 +624,7 @@
                 profilePicOverride
             })
             .then((args) => {
-                $message({
+                proxy.$message({
                     message: 'Profile picture changed',
                     type: 'success'
                 });
@@ -679,7 +633,7 @@
     }
 
     function compareCurrentProfilePic(fileId) {
-        const currentProfilePicOverride = extractFileId(API.currentUser.profilePicOverride);
+        const currentProfilePicOverride = extractFileId(currentUser.value.profilePicOverride);
         if (fileId === currentProfilePicOverride) {
             return true;
         }
@@ -688,9 +642,7 @@
 
     function deleteGalleryImage(fileId) {
         miscRequest.deleteFile(fileId).then((args) => {
-            // API.$emit('GALLERYIMAGE:DELETE', args);
-            // API.$on('GALLERYIMAGE:DELETE')
-            const array = props.galleryTable;
+            const array = galleryTable.value;
             const { length } = array;
             for (let i = 0; i < length; ++i) {
                 if (args.fileId === array[i].id) {
@@ -705,8 +657,9 @@
 
     function onFileChangeVRCPlusIcon(e) {
         const clearFile = function () {
-            if (document.querySelector('#VRCPlusIconUploadButton')) {
-                document.querySelector('#VRCPlusIconUploadButton').value = '';
+            const fileInput = /** @type {HTMLInputElement} */ (document.querySelector('#VRCPlusIconUploadButton'));
+            if (fileInput) {
+                fileInput.value = '';
             }
         };
         const files = e.target.files || e.dataTransfer.files;
@@ -715,7 +668,7 @@
         }
         if (files[0].size >= 100000000) {
             // 100MB
-            $message({
+            proxy.$message({
                 message: t('message.file.too_large'),
                 type: 'error'
             });
@@ -723,7 +676,7 @@
             return;
         }
         if (!files[0].type.match(/image.*/)) {
-            $message({
+            proxy.$message({
                 message: t('message.file.not_image'),
                 type: 'error'
             });
@@ -732,9 +685,12 @@
         }
         const r = new FileReader();
         r.onload = function () {
-            const base64Body = btoa(r.result);
+            const base64Body = btoa(r.result.toString());
             vrcPlusIconRequest.uploadVRCPlusIcon(base64Body).then((args) => {
-                $message({
+                if (Object.keys(VRCPlusIconsTable.value).length !== 0) {
+                    VRCPlusIconsTable.value.unshift(args.json);
+                }
+                proxy.$message({
                     message: t('message.icon.uploaded'),
                     type: 'success'
                 });
@@ -745,17 +701,13 @@
         clearFile();
     }
 
-    function refreshVRCPlusIconsTable() {
-        emit('refreshVRCPlusIconsTable');
-    }
-
     function displayVRCPlusIconUpload() {
         document.getElementById('VRCPlusIconUploadButton').click();
     }
 
     function setVRCPlusIcon(fileId) {
-        if (!API.currentUser.$isVRCPlus) {
-            $message({
+        if (!currentUser.value.$isVRCPlus) {
+            proxy.$message({
                 message: 'VRCPlus required',
                 type: 'error'
             });
@@ -763,9 +715,9 @@
         }
         let userIcon = '';
         if (fileId) {
-            userIcon = `${API.endpointDomain}/file/${fileId}/1`;
+            userIcon = `${AppGlobal.endpointDomain}/file/${fileId}/1`;
         }
-        if (userIcon === API.currentUser.userIcon) {
+        if (userIcon === currentUser.value.userIcon) {
             return;
         }
         userRequest
@@ -773,7 +725,7 @@
                 userIcon
             })
             .then((args) => {
-                $message({
+                proxy.$message({
                     message: 'Icon changed',
                     type: 'success'
                 });
@@ -782,7 +734,7 @@
     }
 
     function compareCurrentVRCPlusIcon(userIcon) {
-        const currentUserIcon = extractFileId(API.currentUser.userIcon);
+        const currentUserIcon = extractFileId(currentUser.value.userIcon);
         if (userIcon === currentUserIcon) {
             return true;
         }
@@ -791,9 +743,7 @@
 
     function deleteVRCPlusIcon(fileId) {
         miscRequest.deleteFile(fileId).then((args) => {
-            // API.$emit('VRCPLUSICON:DELETE', args);
-            // API.$on('VRCPLUSICON:DELETE')
-            const array = props.VRCPlusIconsTable;
+            const array = VRCPlusIconsTable.value;
             const { length } = array;
             for (let i = 0; i < length; ++i) {
                 if (args.fileId === array[i].id) {
@@ -823,15 +773,16 @@
                 emojiAnimFps.value = parseInt(value.replace('fps', ''));
             }
             if (value.endsWith('loopStyle')) {
-                emojiAnimLoopPingPong.value = value.replace('loopStyle', '').toLowerCase() === 'pingpong';
+                emojiAnimLoopPingPong.value = value.replace('loopStyle', '').toLowerCase();
             }
         }
     }
 
     function onFileChangeEmoji(e) {
         const clearFile = function () {
-            if (document.querySelector('#EmojiUploadButton')) {
-                document.querySelector('#EmojiUploadButton').value = '';
+            const fileInput = /** @type {HTMLInputElement} */ (document.querySelector('#EmojiUploadButton'));
+            if (fileInput) {
+                fileInput.value = '';
             }
         };
         const files = e.target.files || e.dataTransfer.files;
@@ -840,7 +791,7 @@
         }
         if (files[0].size >= 100000000) {
             // 100MB
-            $message({
+            proxy.$message({
                 message: t('message.file.too_large'),
                 type: 'error'
             });
@@ -848,7 +799,7 @@
             return;
         }
         if (!files[0].type.match(/image.*/)) {
-            $message({
+            proxy.$message({
                 message: t('message.file.not_image'),
                 type: 'error'
             });
@@ -871,9 +822,12 @@
             if (emojiAnimLoopPingPong.value) {
                 params.loopStyle = 'pingpong';
             }
-            const base64Body = btoa(r.result);
+            const base64Body = btoa(r.result.toString());
             vrcPlusImageRequest.uploadEmoji(base64Body, params).then((args) => {
-                $message({
+                if (Object.keys(emojiTable.value).length !== 0) {
+                    emojiTable.value.unshift(args.json);
+                }
+                proxy.$message({
                     message: t('message.emoji.uploaded'),
                     type: 'success'
                 });
@@ -884,16 +838,8 @@
         clearFile();
     }
 
-    function refreshEmojiTable() {
-        emit('refreshEmojiTable');
-    }
-
     function displayEmojiUpload() {
         document.getElementById('EmojiUploadButton').click();
-    }
-
-    function getEmojiName(emoji) {
-        getEmojiFileName(emoji);
     }
 
     function generateEmojiStyle(url, fps, frameCount, loopStyle) {
@@ -917,9 +863,7 @@
 
     function deleteEmoji(fileId) {
         miscRequest.deleteFile(fileId).then((args) => {
-            // API.$emit('EMOJI:DELETE', args);
-            // API.$on('EMOJI:DELETE')
-            const array = props.emojiTable;
+            const array = emojiTable.value;
             const { length } = array;
             for (let i = 0; i < length; ++i) {
                 if (args.fileId === array[i].id) {
@@ -933,8 +877,9 @@
 
     function onFileChangeSticker(e) {
         const clearFile = function () {
-            if (document.querySelector('#StickerUploadButton')) {
-                document.querySelector('#StickerUploadButton').value = '';
+            const fileInput = /** @type {HTMLInputElement} */ (document.querySelector('#StickerUploadButton'));
+            if (fileInput) {
+                fileInput.value = '';
             }
         };
         const files = e.target.files || e.dataTransfer.files;
@@ -943,7 +888,7 @@
         }
         if (files[0].size >= 100000000) {
             // 100MB
-            $message({
+            proxy.$message({
                 message: t('message.file.too_large'),
                 type: 'error'
             });
@@ -951,7 +896,7 @@
             return;
         }
         if (!files[0].type.match(/image.*/)) {
-            $message({
+            proxy.$message({
                 message: t('message.file.not_image'),
                 type: 'error'
             });
@@ -964,9 +909,10 @@
                 tag: 'sticker',
                 maskTag: 'square'
             };
-            const base64Body = btoa(r.result);
+            const base64Body = btoa(r.result.toString());
             vrcPlusImageRequest.uploadSticker(base64Body, params).then((args) => {
-                $message({
+                handleStickerAdd(args);
+                proxy.$message({
                     message: t('message.sticker.uploaded'),
                     type: 'success'
                 });
@@ -977,19 +923,13 @@
         clearFile();
     }
 
-    function refreshStickerTable() {
-        emit('refreshStickerTable');
-    }
-
     function displayStickerUpload() {
         document.getElementById('StickerUploadButton').click();
     }
 
     function deleteSticker(fileId) {
         miscRequest.deleteFile(fileId).then((args) => {
-            // API.$emit('STICKER:DELETE', args);
-            // API.$on('STICKER:DELETE')
-            const array = props.stickerTable;
+            const array = stickerTable.value;
             const { length } = array;
             for (let i = 0; i < length; ++i) {
                 if (args.fileId === array[i].id) {
@@ -1004,8 +944,9 @@
 
     function onFileChangePrint(e) {
         const clearFile = function () {
-            if (document.querySelector('#PrintUploadButton')) {
-                document.querySelector('#PrintUploadButton').value = '';
+            const fileInput = /** @type {HTMLInputElement} */ (document.querySelector('#PrintUploadButton'));
+            if (fileInput) {
+                fileInput.value = '';
             }
         };
         const files = e.target.files || e.dataTransfer.files;
@@ -1014,7 +955,7 @@
         }
         if (files[0].size >= 100000000) {
             // 100MB
-            $message({
+            proxy.$message({
                 message: t('message.file.too_large'),
                 type: 'error'
             });
@@ -1022,7 +963,7 @@
             return;
         }
         if (!files[0].type.match(/image.*/)) {
-            $message({
+            proxy.$message({
                 message: t('message.file.not_image'),
                 type: 'error'
             });
@@ -1036,20 +977,19 @@
             date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
             const timestamp = date.toISOString().slice(0, 19);
             const params = {
-                note: props.printUploadNote,
+                note: printUploadNote.value,
                 // worldId: '',
                 timestamp
             };
-            const base64Body = btoa(r.result);
-            const cropWhiteBorder = props.printCropBorder;
+            const base64Body = btoa(r.result.toString());
+            const cropWhiteBorder = printCropBorder.value;
             vrcPlusImageRequest.uploadPrint(base64Body, cropWhiteBorder, params).then((args) => {
-                $message({
+                proxy.$message({
                     message: t('message.print.uploaded'),
                     type: 'success'
                 });
-                // API.$on('PRINT:ADD')
-                if (Object.keys(props.printTable).length !== 0) {
-                    props.printTable.unshift(args.json);
+                if (Object.keys(printTable.value).length !== 0) {
+                    printTable.value.unshift(args.json);
                 }
 
                 return args;
@@ -1059,22 +999,13 @@
         clearFile();
     }
 
-    function refreshPrintTable() {
-        emit('refreshPrintTable');
-    }
-
-    function getInventory() {
-        emit('getInventory');
-    }
-
     function displayPrintUpload() {
         document.getElementById('PrintUploadButton').click();
     }
 
     function deletePrint(printId) {
         vrcPlusImageRequest.deletePrint(printId).then((args) => {
-            // API.$on('PRINT:DELETE');
-            const array = props.printTable;
+            const array = printTable.value;
             const { length } = array;
             for (let i = 0; i < length; ++i) {
                 if (args.printId === array[i].id) {
@@ -1090,8 +1021,8 @@
             const args = await inventoryRequest.consumeInventoryBundle({
                 inventoryId
             });
-            API.currentUserInventory.delete(inventoryId);
-            const array = props.inventoryTable;
+            currentUserInventory.value.delete(inventoryId);
+            const array = inventoryTable.value;
             const { length } = array;
             for (let i = 0; i < length; ++i) {
                 if (inventoryId === array[i].id) {

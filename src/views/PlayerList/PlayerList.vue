@@ -29,8 +29,8 @@
                             @click="showWorldDialog(currentInstanceWorld.ref.id)">
                             <i
                                 v-show="
-                                    API.currentUser.$homeLocation &&
-                                    API.currentUser.$homeLocation.worldId === currentInstanceWorld.ref.id
+                                    currentUser.$homeLocation &&
+                                    currentUser.$homeLocation.worldId === currentInstanceWorld.ref.id
                                 "
                                 class="el-icon-s-home"
                                 style="margin-right: 5px"></i>
@@ -132,16 +132,13 @@
                         </el-tag>
                     </div>
                     <div style="margin-top: 5px">
-                        <location-world
-                            :locationobject="currentInstanceLocation"
-                            :currentuserid="API.currentUser.id"
-                            @show-launch-dialog="showLaunchDialog"></location-world>
+                        <LocationWorld :locationobject="currentInstanceLocation" :currentuserid="currentUser.id" />
                         <span v-if="lastLocation.playerList.size > 0" style="margin-left: 5px">
                             {{ lastLocation.playerList.size }}
                             <template v-if="lastLocation.friendList.size > 0"
                                 >({{ lastLocation.friendList.size }})</template
                             >
-                            &nbsp;&horbar; <timer v-if="lastLocation.date" :epoch="lastLocation.date"></timer>
+                            &nbsp;&horbar; <Timer v-if="lastLocation.date" :epoch="lastLocation.date" />
                         </span>
                     </div>
                     <div style="margin-top: 5px">
@@ -175,8 +172,8 @@
                         <div class="detail">
                             <span class="name">{{ t('dialog.world.info.capacity') }}</span>
                             <span class="extra"
-                                >{{ currentInstanceWorld.ref.recommendedCapacity | commaNumber }} ({{
-                                    currentInstanceWorld.ref.capacity | commaNumber
+                                >{{ commaNumber(currentInstanceWorld.ref.recommendedCapacity) }} ({{
+                                    commaNumber(currentInstanceWorld.ref.capacity)
                                 }})</span
                             >
                         </div>
@@ -184,13 +181,15 @@
                     <div class="x-friend-item" style="cursor: default">
                         <div class="detail">
                             <span class="name">{{ t('dialog.world.info.last_updated') }}</span>
-                            <span class="extra">{{ currentInstanceWorld.lastUpdated | formatDate('long') }}</span>
+                            <span class="extra">{{ formatDateFilter(currentInstanceWorld.lastUpdated, 'long') }}</span>
                         </div>
                     </div>
                     <div class="x-friend-item" style="cursor: default">
                         <div class="detail">
                             <span class="name">{{ t('dialog.world.info.created_at') }}</span>
-                            <span class="extra">{{ currentInstanceWorld.ref.created_at | formatDate('long') }}</span>
+                            <span class="extra">{{
+                                formatDateFilter(currentInstanceWorld.ref.created_at, 'long')
+                            }}</span>
                         </div>
                     </div>
                 </div>
@@ -245,9 +244,9 @@
                                 <template #default="scope">
                                     <el-tooltip placement="right">
                                         <template #content>
-                                            <span>{{ scope.row.created_at | formatDate('long') }}</span>
+                                            <span>{{ formatDateFilter(scope.row.created_at, 'long') }}</span>
                                         </template>
-                                        <span>{{ scope.row.created_at | formatDate('short') }}</span>
+                                        <span>{{ formatDateFilter(scope.row.created_at, 'short') }}</span>
                                     </el-tooltip>
                                 </template>
                             </el-table-column>
@@ -377,11 +376,11 @@
                                         v-else-if="scope.row.type === 'PortalSpawn'"
                                         class="x-link"
                                         @click="showWorldDialog(scope.row.location, scope.row.shortName)">
-                                        <location
+                                        <Location
                                             :location="scope.row.location"
                                             :hint="scope.row.worldName"
                                             :grouphint="scope.row.groupName"
-                                            :link="false"></location>
+                                            :link="false" />
                                     </span>
                                     <span
                                         v-else-if="scope.row.type === 'ChatBoxMessage'"
@@ -445,9 +444,9 @@
                                 <template #default="scope">
                                     <el-tooltip placement="right">
                                         <template #content>
-                                            <span>{{ scope.row.created_at | formatDate('long') }}</span>
+                                            <span>{{ formatDateFilter(scope.row.created_at, 'long') }}</span>
                                         </template>
-                                        <span>{{ scope.row.created_at | formatDate('short') }}</span>
+                                        <span>{{ formatDateFilter(scope.row.created_at, 'short') }}</span>
                                     </el-tooltip>
                                 </template>
                             </el-table-column>
@@ -577,11 +576,11 @@
                                         v-else-if="scope.row.type === 'PortalSpawn'"
                                         class="x-link"
                                         @click="showWorldDialog(scope.row.location, scope.row.shortName)">
-                                        <location
+                                        <Location
                                             :location="scope.row.location"
                                             :hint="scope.row.worldName"
                                             :grouphint="scope.row.groupName"
-                                            :link="false"></location>
+                                            :link="false" />
                                     </span>
                                     <span
                                         v-else-if="scope.row.type === 'ChatBoxMessage'"
@@ -643,7 +642,7 @@
             </div>
             <div class="current-instance-table">
                 <data-tables
-                    v-bind="currentInstanceUserList"
+                    v-bind="currentInstanceWorld.ref.id ? currentInstanceUserList : {}"
                     style="margin-top: 10px; cursor: pointer"
                     @row-click="selectCurrentInstanceRow">
                     <el-table-column :label="t('table.playerList.avatar')" width="70" prop="photo">
@@ -663,9 +662,9 @@
                             </template>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="t('table.playerList.timer')" width="80" prop="timer" sortable>
+                    <el-table-column :label="t('table.playerList.timer')" width="90" prop="timer" sortable>
                         <template #default="scope">
-                            <timer :epoch="scope.row.timer"></timer>
+                            <Timer :epoch="scope.row.timer" />
                         </template>
                     </el-table-column>
                     <el-table-column
@@ -698,7 +697,13 @@
                             <span v-text="scope.row.photonId"></span>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="t('table.playerList.icon')" prop="isMaster" width="70" align="center">
+                    <el-table-column
+                        :label="t('table.playerList.icon')"
+                        prop="isMaster"
+                        width="80"
+                        align="center"
+                        sortable
+                        :sort-method="sortInstanceIcon">
                         <template #default="scope">
                             <el-tooltip v-if="scope.row.isMaster" placement="left" content="Instance Master">
                                 <span>👑</span>
@@ -709,6 +714,22 @@
                             <el-tooltip v-if="scope.row.isFriend" placement="left" content="Friend">
                                 <span>💚</span>
                             </el-tooltip>
+                            <el-tooltip v-if="scope.row.isBlocked" placement="left" content="Blocked">
+                                <i class="el-icon el-icon-circle-close" style="color: red"></i>
+                            </el-tooltip>
+                            <el-tooltip v-if="scope.row.isMuted" placement="left" content="Muted">
+                                <i class="el-icon el-icon-turn-off-microphone" style="color: orange"></i>
+                            </el-tooltip>
+                            <el-tooltip
+                                v-if="scope.row.isAvatarInteractionDisabled"
+                                placement="left"
+                                content="Avatar Interaction Disabled
+                                    ">
+                                <i class="el-icon el-icon-thumb" style="color: orange"></i>
+                            </el-tooltip>
+                            <el-tooltip v-if="scope.row.isChatBoxMuted" placement="left" content="Chatbox Muted">
+                                <i class="el-icon el-icon-chat-line-round" style="color: orange"></i>
+                            </el-tooltip>
                             <el-tooltip v-if="scope.row.timeoutTime" placement="left" content="Timeout">
                                 <span style="color: red">🔴{{ scope.row.timeoutTime }}s</span>
                             </el-tooltip>
@@ -716,17 +737,13 @@
                     </el-table-column>
                     <el-table-column :label="t('table.playerList.platform')" prop="inVRMode" width="80">
                         <template #default="scope">
-                            <template v-if="scope.row.ref.last_platform">
-                                <span v-if="scope.row.ref.last_platform === 'standalonewindows'" style="color: #409eff"
+                            <template v-if="scope.row.ref.$platform">
+                                <span v-if="scope.row.ref.$platform === 'standalonewindows'" style="color: #409eff"
                                     >PC</span
                                 >
-                                <span v-else-if="scope.row.ref.last_platform === 'android'" style="color: #67c23a"
-                                    >A</span
-                                >
-                                <span v-else-if="scope.row.ref.last_platform === 'ios'" style="color: #c7c7ce"
-                                    >iOS</span
-                                >
-                                <span v-else>{{ scope.row.ref.last_platform }}</span>
+                                <span v-else-if="scope.row.ref.$platform === 'android'" style="color: #67c23a">A</span>
+                                <span v-else-if="scope.row.ref.$platform === 'ios'" style="color: #c7c7ce">iOS</span>
+                                <span v-else>{{ scope.row.ref.$platform }}</span>
                             </template>
                             <template v-if="scope.row.inVRMode !== null">
                                 <span v-if="scope.row.inVRMode">VR</span>
@@ -824,136 +841,75 @@
         </div>
         <ChatboxBlacklistDialog
             :chatbox-blacklist-dialog="chatboxBlacklistDialog"
-            :chatbox-user-blacklist="chatboxUserBlacklist"
             @delete-chatbox-user-blacklist="deleteChatboxUserBlacklist" />
     </div>
 </template>
 
-<script>
-    export default {
-        name: 'PlayerListTab'
-    };
-</script>
-
 <script setup>
-    import { inject, ref } from 'vue';
+    import { storeToRefs } from 'pinia';
+    import { ref } from 'vue';
     import { useI18n } from 'vue-i18n-bridge';
-    import { languageClass } from '../../composables/user/utils';
-    import configRepository from '../../service/config';
+    import {
+        languageClass,
+        getFaviconUrl,
+        openExternalLink,
+        statusClass,
+        userImage,
+        userImageFull,
+        commaNumber,
+        formatDateFilter
+    } from '../../shared/utils';
+    import {
+        useLocationStore,
+        useAppearanceSettingsStore,
+        usePhotonStore,
+        useUserStore,
+        useAvatarStore,
+        useWorldStore,
+        useGroupStore,
+        useInstanceStore,
+        useUiStore,
+        useGalleryStore,
+        useVrcxStore
+    } from '../../stores';
     import ChatboxBlacklistDialog from './dialogs/ChatboxBlacklistDialog.vue';
-    import { getFaviconUrl } from '../../composables/shared/utils';
+    import { photonEventTableTypeFilterList } from '../../shared/constants';
+
+    const { hideTooltips, randomUserColours } = storeToRefs(useAppearanceSettingsStore());
+    const {
+        photonLoggingEnabled,
+        photonEventIcon,
+        photonEventTableTypeFilter,
+        photonEventTable,
+        photonEventTablePrevious,
+        chatboxUserBlacklist,
+        photonEventTableFilter
+    } = storeToRefs(usePhotonStore());
+    const { saveChatboxUserBlacklist, photonEventTableFilterChange, showUserFromPhotonId } = usePhotonStore();
+    const { showUserDialog, lookupUser } = useUserStore();
+    const { showAvatarDialog } = useAvatarStore();
+    const { showWorldDialog } = useWorldStore();
+    const { showGroupDialog } = useGroupStore();
+    const { lastLocation } = storeToRefs(useLocationStore());
+    const { currentInstanceLocation, currentInstanceWorld } = storeToRefs(useInstanceStore());
+    const { currentInstanceUserList, getCurrentInstanceUserList } = useInstanceStore();
+    const { menuActiveIndex } = storeToRefs(useUiStore());
+    const { showFullscreenImageDialog } = useGalleryStore();
+    const { ipcEnabled } = storeToRefs(useVrcxStore());
+    const { currentUser } = storeToRefs(useUserStore());
 
     const { t } = useI18n();
-
-    const API = inject('API');
-    const showFullscreenImageDialog = inject('showFullscreenImageDialog');
-    const showWorldDialog = inject('showWorldDialog');
-    const showUserDialog = inject('showUserDialog');
-    const showLaunchDialog = inject('showLaunchDialog');
-    const showAvatarDialog = inject('showAvatarDialog');
-    const statusClass = inject('statusClass');
-    const showGroupDialog = inject('showGroupDialog');
-    const openExternalLink = inject('openExternalLink');
-    const userImage = inject('userImage');
-    const userImageFull = inject('userImageFull');
-
-    const props = defineProps({
-        menuActiveIndex: {
-            type: String,
-            default: 'playerList'
-        },
-        currentInstanceWorld: {
-            type: Object,
-            default: () => ({})
-        },
-        currentInstanceLocation: {
-            type: Object,
-            default: () => ({})
-        },
-        currentInstanceWorldDescriptionExpanded: {
-            type: Boolean,
-            default: false
-        },
-        photonLoggingEnabled: {
-            type: Boolean,
-            default: false
-        },
-        photonEventTableTypeFilter: {
-            type: Array,
-            default: () => []
-        },
-        photonEventTableTypeFilterList: {
-            type: Array,
-            default: () => []
-        },
-        photonEventTableFilter: {
-            type: String,
-            default: ''
-        },
-        hideTooltips: {
-            type: Boolean,
-            default: false
-        },
-        ipcEnabled: {
-            type: Boolean,
-            default: false
-        },
-        photonEventIcon: {
-            type: Boolean,
-            default: false
-        },
-        photonEventTable: {
-            type: Object,
-            default: () => ({})
-        },
-        photonEventTablePrevious: {
-            type: Object,
-            default: () => ({})
-        },
-        currentInstanceUserList: {
-            type: Object,
-            default: () => ({})
-        },
-        chatboxUserBlacklist: {
-            type: Map
-        },
-        randomUserColours: {
-            type: Boolean,
-            default: false
-        },
-        lastLocation: {
-            type: Object,
-            default: () => ({})
-        }
-    });
-
-    const emit = defineEmits([
-        'photonEventTableFilterChange',
-        'getCurrentInstanceUserList',
-        'showUserFromPhotonId',
-        'lookupUser'
-    ]);
 
     const chatboxBlacklistDialog = ref({
         visible: false,
         loading: false
     });
 
-    function photonEventTableFilterChange(value) {
-        emit('photonEventTableFilterChange', value);
-    }
+    const currentInstanceWorldDescriptionExpanded = ref(false);
 
     function showChatboxBlacklistDialog() {
         const D = chatboxBlacklistDialog.value;
         D.visible = true;
-    }
-
-    function showUserFromPhotonId(photonId) {
-        emit('showUserFromPhotonId', photonId);
-    }
-
-    function lookupUser(user) {
-        emit('lookupUser', user);
     }
 
     function selectCurrentInstanceRow(val) {
@@ -969,21 +925,29 @@
     }
 
     async function deleteChatboxUserBlacklist(userId) {
-        props.chatboxUserBlacklist.delete(userId);
+        chatboxUserBlacklist.value.delete(userId);
         await saveChatboxUserBlacklist();
-        emit('getCurrentInstanceUserList');
-    }
-
-    async function saveChatboxUserBlacklist() {
-        await configRepository.setString(
-            'VRCX_chatboxUserBlacklist',
-            JSON.stringify(Object.fromEntries(props.chatboxUserBlacklist))
-        );
+        getCurrentInstanceUserList();
     }
 
     async function addChatboxUserBlacklist(user) {
-        props.chatboxUserBlacklist.set(user.id, user.displayName);
+        chatboxUserBlacklist.value.set(user.id, user.displayName);
         await saveChatboxUserBlacklist();
-        emit('getCurrentInstanceUserList');
+        getCurrentInstanceUserList();
+    }
+
+    function sortInstanceIcon(a, b) {
+        const getValue = (item) => {
+            let value = 0;
+            if (item.isMaster) value += 1000;
+            if (item.isModerator) value += 500;
+            if (item.isFriend) value += 200;
+            if (item.isBlocked) value -= 100;
+            if (item.isMuted) value -= 50;
+            if (item.isAvatarInteractionDisabled) value -= 20;
+            if (item.isChatBoxMuted) value -= 10;
+            return value;
+        };
+        return getValue(b) - getValue(a);
     }
 </script>

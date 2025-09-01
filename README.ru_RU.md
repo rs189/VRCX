@@ -7,7 +7,7 @@
 [![Статус GitHub Workflow](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml/badge.svg)](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml)
 [![VRCX приглашение в Discord](https://img.shields.io/discord/854071236363550763?color=%237289DA&logo=discord&logoColor=white&label=discord)](https://vrcx.app/discord)
 
-| [English](./README.md) | [Français](./README.fr.md) | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | [Italiano](./README.it.md) | **Русский** | [Español](./README.es.md) | [Polski](./README.pl.md)
+| [English](./README.md) | [Français](./README.fr.md) | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | [Italiano](./README.it.md) | **Русский** | [Español](./README.es.md) | [Polski](./README.pl.md) | [ภาษาไทย](./README.th.md)
 
 VRCX является ассистентом/компаньоном приложением для VRChat, который предоставляет информацию о VRChat и помогает вам быстрее выполнять различные действия, связанные с VRChat в удобной форме, чем полагаться на простой VRChat клиент (настольный компьютер или VR), или только веб-сайт. Кроме того, в нем реализованы и другие удобные функции, о которых пойдет речь ниже.
 
@@ -33,10 +33,6 @@ VRCX является ассистентом/компаньоном прилож
 - :electric_plug: Автоматически запускает приложения при запуске VRChat
     - Вы можете настроить VRCX на запуск других приложений при запуске VRChat.
     - Например, при открытии VRChat вы можете запустить приложение OSC или программу для изменения голоса.
-- :floppy_disk: Сохранение мира
-    - В мирах, поддерживающих эту функцию, VRCX может сохранять настройки мира, сохранять состояния, инвентарь и другие данные!
-    - **Примечание**: Для использования этой функции в настройках VRChat должна быть включена опция "Разрешить недоверенные URL'ы" ("Allow Untrusted URLs").
-    - Для разработчиков: [Вики страница - Сохранение мира (PWI)](<https://github.com/vrcx-team/VRCX/wiki/World-Persistence-(PWI)>)
 - :mag: Поиск аватаров, пользователей, миров и групп
 - :earth_americas: Создает локальный, неограниченный список избранных миров
 - :camera: Храните данные о мире в фотографиях, которые вы делаете в игре, чтобы вы могли вспомнить тот мир, в котором вы сделали те классные фотографии, например... 6 месяцев назад!

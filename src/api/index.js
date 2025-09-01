@@ -1,11 +1,9 @@
 /**
  * API requests
  * Export all API requests from here
- *
- * "window.API" is used as app.js is a large IIFE, preventing direct API export. No current issues
- * Refactoring may be required
  */
 
+import { request } from '../service/request';
 import userRequest from './user';
 import worldRequest from './world';
 import instanceRequest from './instance';
@@ -21,10 +19,12 @@ import inviteMessagesRequest from './inviteMessages';
 import imageRequest from './image';
 import miscRequest from './misc';
 import groupRequest from './group';
+import authRequest from './auth';
 import inventoryRequest from './inventory';
 import propRequest from './prop';
 
 window.request = {
+    request,
     userRequest,
     worldRequest,
     instanceRequest,
@@ -39,12 +39,14 @@ window.request = {
     inviteMessagesRequest,
     imageRequest,
     miscRequest,
+    authRequest,
     groupRequest,
     inventoryRequest,
     propRequest
 };
 
 export {
+    request,
     userRequest,
     worldRequest,
     instanceRequest,
@@ -59,6 +61,7 @@ export {
     inviteMessagesRequest,
     imageRequest,
     miscRequest,
+    authRequest,
     groupRequest,
     inventoryRequest,
     propRequest

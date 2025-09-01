@@ -8,6 +8,9 @@
 // For a copy, see <https://opensource.org/licenses/MIT>.
 //
 
+@use './assets/scss/flags.scss';
+@use './assets/scss/animated-emoji.scss';
+
 @import '~animate.css/animate.min.css';
 @import '~noty/lib/noty.css';
 @import '~element-ui/lib/theme-chalk/index.css';
@@ -115,6 +118,7 @@
 .el-dialog__body {
     padding: 20px;
     word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .el-dialog__footer > .el-button + .el-button {
@@ -136,10 +140,17 @@
     border-radius: 16px;
 }
 
+@font-face {
+    font-family: 'ellipsis-font';
+    src: local('Times New Roman');
+    unicode-range: U+2026;
+}
+
 body {
     font-family:
-        'Noto Sans KR', 'Noto Sans JP', 'Noto Sans TC', 'Noto Sans SC',
-        'Meiryo UI', 'Malgun Gothic', 'Segoe UI', system-ui, sans-serif;
+        'ellipsis-font', 'Noto Sans KR', 'Noto Sans JP', 'Noto Sans TC',
+        'Noto Sans SC', 'Meiryo UI', 'Malgun Gothic', 'Segoe UI', system-ui,
+        sans-serif;
     margin: 0;
 }
 
@@ -299,6 +310,7 @@ hr.x-vertical-divider {
     flex-direction: column;
     background: #f8f8f8;
     padding: 5px;
+    order: 99;
 }
 
 .el-popper.x-quick-search {
@@ -835,6 +847,7 @@ i.x-status-icon.red {
 .el-dialog,
 .el-message-box {
     border-radius: 28px;
+    word-break: break-word;
 }
 
 .el-tabs__nav-wrap::after {
@@ -958,4 +971,9 @@ i.x-status-icon.red {
 // And can only fix it bit by bit by overriding
 .el-switch__core:after {
     top: 1.5px;
+}
+
+.el-popover {
+    text-align: left;
+    word-break: break-word;
 }

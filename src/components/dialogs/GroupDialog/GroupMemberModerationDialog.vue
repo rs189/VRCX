@@ -1,12 +1,10 @@
 <template>
     <safe-dialog
         class="x-dialog"
-        :visible="groupMemberModeration.visible"
+        :visible.sync="groupMemberModeration.visible"
         :title="t('dialog.group_member_moderation.header')"
         append-to-body
-        top="5vh"
-        width="90vw"
-        @close="closeDialog">
+        width="90vw">
         <div>
             <h3>{{ groupMemberModeration.groupRef.name }}</h3>
             <el-tabs type="card" style="height: 100%">
@@ -18,7 +16,7 @@
                             icon="el-icon-refresh"
                             :loading="isGroupMembersLoading"
                             circle
-                            @click="loadAllGroupMembers"></el-button>
+                            @click="loadAllGroupMembers" />
                         <span style="font-size: 14px; margin-left: 5px; margin-right: 5px">
                             {{ groupMemberModerationTable.data.length }}/{{
                                 groupMemberModeration.groupRef.memberCount
@@ -33,15 +31,14 @@
                                 :disabled="
                                     Boolean(
                                         isGroupMembersLoading ||
-                                            groupDialog.memberSearch.length ||
-                                            !hasGroupPermission(groupDialog.ref, 'group-bans-manage')
+                                            memberSearch.length ||
+                                            !hasGroupPermission(groupMemberModeration.groupRef, 'group-bans-manage')
                                     )
                                 "
                                 @click.native.stop>
                                 <el-button size="mini">
                                     <span
-                                        >{{ groupDialog.memberSortOrder.name }}
-                                        <i class="el-icon-arrow-down el-icon--right"></i
+                                        >{{ t(memberSortOrder.name) }} <i class="el-icon-arrow-down el-icon--right"></i
                                     ></span>
                                 </el-button>
                                 <el-dropdown-menu slot="dropdown">
@@ -49,7 +46,7 @@
                                         v-for="item in groupDialogSortingOptions"
                                         :key="item.name"
                                         @click.native="setGroupMemberSortOrder(item)">
-                                        {{ item.name }}
+                                        {{ t(item.name) }}
                                     </el-dropdown-item>
                                 </el-dropdown-menu>
                             </el-dropdown>
@@ -61,15 +58,14 @@
                                 :disabled="
                                     Boolean(
                                         isGroupMembersLoading ||
-                                            groupDialog.memberSearch.length ||
-                                            !hasGroupPermission(groupDialog.ref, 'group-bans-manage')
+                                            memberSearch.length ||
+                                            !hasGroupPermission(groupMemberModeration.groupRef, 'group-bans-manage')
                                     )
                                 "
                                 @click.native.stop>
                                 <el-button size="mini">
                                     <span
-                                        >{{ groupDialog.memberFilter.name }}
-                                        <i class="el-icon-arrow-down el-icon--right"></i
+                                        >{{ t(memberFilter.name) }} <i class="el-icon-arrow-down el-icon--right"></i
                                     ></span>
                                 </el-button>
                                 <el-dropdown-menu slot="dropdown">
@@ -77,19 +73,19 @@
                                         v-for="item in groupDialogFilterOptions"
                                         :key="item.name"
                                         @click.native="setGroupMemberFilter(item)"
-                                        v-text="item.name"></el-dropdown-item>
+                                        v-text="t(item.name)"></el-dropdown-item>
                                     <el-dropdown-item
-                                        v-for="item in groupDialog.ref.roles"
-                                        v-if="!item.defaultRole"
+                                        v-for="item in groupMemberModeration.groupRef.roles"
                                         :key="item.name"
                                         @click.native="setGroupMemberFilter(item)"
-                                        v-text="item.name"></el-dropdown-item>
+                                        ><span v-if="!item.defaultRole">{{ t(item.name) }}</span></el-dropdown-item
+                                    >
                                 </el-dropdown-menu>
                             </el-dropdown>
                         </div>
                         <el-input
-                            v-model="groupDialog.memberSearch"
-                            :disabled="!hasGroupPermission(groupDialog.ref, 'group-bans-manage')"
+                            v-model="memberSearch"
+                            :disabled="!hasGroupPermission(groupMemberModeration.groupRef, 'group-bans-manage')"
                             clearable
                             size="mini"
                             :placeholder="t('dialog.group.members.search')"
@@ -99,9 +95,12 @@
                         <el-button size="small" @click="selectAllGroupMembers">{{
                             t('dialog.group_member_moderation.select_all')
                         }}</el-button>
-                        <data-tables v-bind="groupMemberModerationTable" style="margin-top: 10px">
+                        <data-tables
+                            v-if="groupMemberModerationTable.data.length"
+                            v-bind="groupMemberModerationTable"
+                            style="margin-top: 10px">
                             <el-table-column width="55" prop="$selected">
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <el-button type="text" size="mini" @click.stop>
                                         <el-checkbox
                                             v-model="scope.row.$selected"
@@ -115,7 +114,7 @@
                                 :label="t('dialog.group_member_moderation.avatar')"
                                 width="70"
                                 prop="photo">
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <el-popover placement="right" height="500px" trigger="hover">
                                         <img
                                             slot="reference"
@@ -134,7 +133,7 @@
                                 width="160"
                                 prop="$displayName"
                                 sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <span style="cursor: pointer" @click="showUserDialog(scope.row.userId)">
                                         <span
                                             v-if="randomUserColours"
@@ -145,14 +144,13 @@
                                 </template>
                             </el-table-column>
                             <el-table-column :label="t('dialog.group_member_moderation.roles')" prop="roleIds" sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <template v-for="(roleId, index) in scope.row.roleIds">
-                                        <span
-                                            v-for="(role, rIndex) in groupMemberModeration.groupRef.roles"
-                                            v-if="role?.id === roleId"
-                                            :key="rIndex"
-                                            >{{ role.name
-                                            }}<span v-if="index < scope.row.roleIds.length - 1">, </span></span
+                                        <template v-for="(role, rIndex) in groupMemberModeration.groupRef.roles">
+                                            <span v-if="role?.id === roleId" :key="roleId + rIndex"
+                                                >{{ role.name
+                                                }}<span v-if="index < scope.row.roleIds.length - 1">, </span></span
+                                            ></template
                                         >
                                     </template>
                                 </template>
@@ -161,7 +159,7 @@
                                 :label="t('dialog.group_member_moderation.notes')"
                                 prop="managerNotes"
                                 sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <span @click.stop v-text="scope.row.managerNotes"></span>
                                 </template>
                             </el-table-column>
@@ -170,8 +168,8 @@
                                 width="170"
                                 prop="joinedAt"
                                 sortable>
-                                <template slot-scope="scope">
-                                    <span>{{ scope.row.joinedAt | formatDate('long') }}</span>
+                                <template #default="scope">
+                                    <span>{{ formatDateFilter(scope.row.joinedAt, 'long') }}</span>
                                 </template>
                             </el-table-column>
                             <el-table-column
@@ -179,7 +177,7 @@
                                 width="120"
                                 prop="visibility"
                                 sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <span v-text="scope.row.visibility"></span>
                                 </template>
                             </el-table-column>
@@ -189,7 +187,7 @@
 
                 <el-tab-pane
                     :label="t('dialog.group_member_moderation.bans')"
-                    :disabled="!hasGroupPermission(groupDialog.ref, 'group-bans-manage')">
+                    :disabled="!hasGroupPermission(groupMemberModeration.groupRef, 'group-bans-manage')">
                     <div style="margin-top: 10px">
                         <el-button
                             type="default"
@@ -214,7 +212,7 @@
                         }}</el-button>
                         <data-tables v-bind="groupBansModerationTable" style="margin-top: 10px">
                             <el-table-column width="55" prop="$selected">
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <el-button type="text" size="mini" @click.stop>
                                         <el-checkbox
                                             v-model="scope.row.$selected"
@@ -228,7 +226,7 @@
                                 :label="t('dialog.group_member_moderation.avatar')"
                                 width="70"
                                 prop="photo">
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <el-popover placement="right" height="500px" trigger="hover">
                                         <img
                                             slot="reference"
@@ -247,7 +245,7 @@
                                 width="160"
                                 prop="$displayName"
                                 sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <span style="cursor: pointer" @click="showUserDialog(scope.row.userId)">
                                         <span
                                             v-if="randomUserColours"
@@ -258,15 +256,17 @@
                                 </template>
                             </el-table-column>
                             <el-table-column :label="t('dialog.group_member_moderation.roles')" prop="roleIds" sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <template v-for="(roleId, index) in scope.row.roleIds">
                                         <span
                                             v-for="(role, rIndex) in groupMemberModeration.groupRef.roles"
                                             v-if="role.id === roleId"
-                                            :key="rIndex"
+                                            :key="rIndex + roleId"
                                             >{{ role.name }}</span
                                         >
-                                        <span v-if="index < scope.row.roleIds.length - 1">, </span>
+                                        <span v-if="index < scope.row.roleIds.length - 1" :key="index + roleId"
+                                            >,
+                                        </span>
                                     </template>
                                 </template>
                             </el-table-column>
@@ -274,7 +274,7 @@
                                 :label="t('dialog.group_member_moderation.notes')"
                                 prop="managerNotes"
                                 sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <span @click.stop v-text="scope.row.managerNotes"></span>
                                 </template>
                             </el-table-column>
@@ -283,8 +283,8 @@
                                 width="170"
                                 prop="joinedAt"
                                 sortable>
-                                <template slot-scope="scope">
-                                    <span>{{ scope.row.joinedAt | formatDate('long') }}</span>
+                                <template #default="scope">
+                                    <span>{{ formatDateFilter(scope.row.joinedAt, 'long') }}</span>
                                 </template>
                             </el-table-column>
                             <el-table-column
@@ -292,8 +292,8 @@
                                 width="170"
                                 prop="bannedAt"
                                 sortable>
-                                <template slot-scope="scope">
-                                    <span>{{ scope.row.bannedAt | formatDate('long') }}</span>
+                                <template #default="scope">
+                                    <span>{{ formatDateFilter(scope.row.bannedAt, 'long') }}</span>
                                 </template>
                             </el-table-column>
                         </data-tables>
@@ -302,7 +302,7 @@
 
                 <el-tab-pane
                     :label="t('dialog.group_member_moderation.invites')"
-                    :disabled="!hasGroupPermission(groupDialog.ref, 'group-invites-manage')">
+                    :disabled="!hasGroupPermission(groupMemberModeration.groupRef, 'group-invites-manage')">
                     <div style="margin-top: 10px">
                         <el-button
                             type="default"
@@ -327,7 +327,7 @@
                                 }}</el-button>
                                 <data-tables v-bind="groupInvitesModerationTable" style="margin-top: 10px">
                                     <el-table-column width="55" prop="$selected">
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <el-button type="text" size="mini" @click.stop>
                                                 <el-checkbox
                                                     v-model="scope.row.$selected"
@@ -341,7 +341,7 @@
                                         :label="t('dialog.group_member_moderation.avatar')"
                                         width="70"
                                         prop="photo">
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <el-popover placement="right" height="500px" trigger="hover">
                                                 <img
                                                     slot="reference"
@@ -360,7 +360,7 @@
                                         width="160"
                                         prop="$displayName"
                                         sortable>
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <span style="cursor: pointer" @click="showUserDialog(scope.row.userId)">
                                                 <span
                                                     v-if="randomUserColours"
@@ -374,7 +374,7 @@
                                         :label="t('dialog.group_member_moderation.notes')"
                                         prop="managerNotes"
                                         sortable>
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <span @click.stop v-text="scope.row.managerNotes"></span>
                                         </template>
                                     </el-table-column>
@@ -384,7 +384,10 @@
                                     :disabled="
                                         Boolean(
                                             progressCurrent ||
-                                                !hasGroupPermission(groupDialog.ref, 'group-invites-manage')
+                                                !hasGroupPermission(
+                                                    groupMemberModeration.groupRef,
+                                                    'group-invites-manage'
+                                                )
                                         )
                                     "
                                     @click="groupMembersDeleteSentInvite"
@@ -406,7 +409,7 @@
                                 }}</el-button>
                                 <data-tables v-bind="groupJoinRequestsModerationTable" style="margin-top: 10px">
                                     <el-table-column width="55" prop="$selected">
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <el-button type="text" size="mini" @click.stop>
                                                 <el-checkbox
                                                     v-model="scope.row.$selected"
@@ -420,7 +423,7 @@
                                         :label="t('dialog.group_member_moderation.avatar')"
                                         width="70"
                                         prop="photo">
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <el-popover placement="right" height="500px" trigger="hover">
                                                 <img
                                                     slot="reference"
@@ -439,7 +442,7 @@
                                         width="160"
                                         prop="$displayName"
                                         sortable>
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <span style="cursor: pointer" @click="showUserDialog(scope.row.userId)">
                                                 <span
                                                     v-if="randomUserColours"
@@ -453,7 +456,7 @@
                                         :label="t('dialog.group_member_moderation.notes')"
                                         prop="managerNotes"
                                         sortable>
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <span @click.stop v-text="scope.row.managerNotes"></span>
                                         </template>
                                     </el-table-column>
@@ -463,7 +466,10 @@
                                     :disabled="
                                         Boolean(
                                             progressCurrent ||
-                                                !hasGroupPermission(groupDialog.ref, 'group-invites-manage')
+                                                !hasGroupPermission(
+                                                    groupMemberModeration.groupRef,
+                                                    'group-invites-manage'
+                                                )
                                         )
                                     "
                                     @click="groupMembersAcceptInviteRequest"
@@ -473,7 +479,10 @@
                                     :disabled="
                                         Boolean(
                                             progressCurrent ||
-                                                !hasGroupPermission(groupDialog.ref, 'group-invites-manage')
+                                                !hasGroupPermission(
+                                                    groupMemberModeration.groupRef,
+                                                    'group-invites-manage'
+                                                )
                                         )
                                     "
                                     @click="groupMembersRejectInviteRequest"
@@ -483,7 +492,10 @@
                                     :disabled="
                                         Boolean(
                                             progressCurrent ||
-                                                !hasGroupPermission(groupDialog.ref, 'group-invites-manage')
+                                                !hasGroupPermission(
+                                                    groupMemberModeration.groupRef,
+                                                    'group-invites-manage'
+                                                )
                                         )
                                     "
                                     @click="groupMembersBlockJoinRequest"
@@ -505,7 +517,7 @@
                                 }}</el-button>
                                 <data-tables v-bind="groupBlockedModerationTable" style="margin-top: 10px">
                                     <el-table-column width="55" prop="$selected">
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <el-button type="text" size="mini" @click.stop>
                                                 <el-checkbox
                                                     v-model="scope.row.$selected"
@@ -519,7 +531,7 @@
                                         :label="t('dialog.group_member_moderation.avatar')"
                                         width="70"
                                         prop="photo">
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <el-popover placement="right" height="500px" trigger="hover">
                                                 <img
                                                     slot="reference"
@@ -538,7 +550,7 @@
                                         width="160"
                                         prop="$displayName"
                                         sortable>
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <span style="cursor: pointer" @click="showUserDialog(scope.row.userId)">
                                                 <span
                                                     v-if="randomUserColours"
@@ -552,7 +564,7 @@
                                         :label="t('dialog.group_member_moderation.notes')"
                                         prop="managerNotes"
                                         sortable>
-                                        <template slot-scope="scope">
+                                        <template #default="scope">
                                             <span @click.stop v-text="scope.row.managerNotes"></span>
                                         </template>
                                     </el-table-column>
@@ -562,7 +574,10 @@
                                     :disabled="
                                         Boolean(
                                             progressCurrent ||
-                                                !hasGroupPermission(groupDialog.ref, 'group-invites-manage')
+                                                !hasGroupPermission(
+                                                    groupMemberModeration.groupRef,
+                                                    'group-invites-manage'
+                                                )
                                         )
                                     "
                                     @click="groupMembersDeleteBlockedRequest"
@@ -575,7 +590,7 @@
 
                 <el-tab-pane
                     :label="t('dialog.group_member_moderation.logs')"
-                    :disabled="!hasGroupPermission(groupDialog.ref, 'group-audit-view')">
+                    :disabled="!hasGroupPermission(groupMemberModeration.groupRef, 'group-audit-view')">
                     <div style="margin-top: 10px">
                         <el-button
                             type="default"
@@ -628,8 +643,8 @@
                                 width="170"
                                 prop="created_at"
                                 sortable>
-                                <template slot-scope="scope">
-                                    <span>{{ scope.row.created_at | formatDate('long') }}</span>
+                                <template #default="scope">
+                                    <span>{{ formatDateFilter(scope.row.created_at, 'long') }}</span>
                                 </template>
                             </el-table-column>
                             <el-table-column
@@ -637,7 +652,7 @@
                                 width="190"
                                 prop="eventType"
                                 sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <span v-text="scope.row.eventType"></span>
                                 </template>
                             </el-table-column>
@@ -646,7 +661,7 @@
                                 width="160"
                                 prop="actorDisplayName"
                                 sortable>
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <span style="cursor: pointer" @click="showUserDialog(scope.row.actorId)">
                                         <span v-text="scope.row.actorDisplayName"></span>
                                     </span>
@@ -655,15 +670,15 @@
                             <el-table-column
                                 :label="t('dialog.group_member_moderation.description')"
                                 prop="description">
-                                <template slot-scope="scope">
-                                    <location
+                                <template #default="scope">
+                                    <Location
                                         v-if="scope.row?.targetId.startsWith('wrld_')"
                                         :location="scope.row.targetId" />
                                     <span v-text="scope.row.description"></span>
                                 </template>
                             </el-table-column>
                             <el-table-column :label="t('dialog.group_member_moderation.data')" prop="data">
-                                <template slot-scope="scope">
+                                <template #default="scope">
                                     <span
                                         v-if="Object.keys(scope.row.data).length"
                                         v-text="JSON.stringify(scope.row.data)"></span>
@@ -706,10 +721,13 @@
                 style="margin-right: 5px; margin-top: 5px"
                 closable
                 @close="deleteSelectedGroupMember(user)">
-                <span
-                    >{{ user.user?.displayName }}
-                    <i v-if="user.membershipStatus !== 'member'" class="el-icon-warning" style="margin-left: 5px"></i
-                ></span>
+                <el-tooltip v-if="user.membershipStatus !== 'member'" placement="top">
+                    <template #content>
+                        <span>{{ t('dialog.group_member_moderation.user_isnt_in_group') }}</span>
+                    </template>
+                    <i class="el-icon el-icon-warning" style="display: inline-block" />
+                </el-tooltip>
+                <span v-text="user.user?.displayName || user.userId" style="font-weight: bold; margin-left: 5px"></span>
             </el-tag>
             <br />
             <br />
@@ -758,7 +776,7 @@
                     Boolean(
                         !selectedRoles.length ||
                             progressCurrent ||
-                            !hasGroupPermission(groupDialog.ref, 'group-roles-assign')
+                            !hasGroupPermission(groupMemberModeration.groupRef, 'group-roles-assign')
                     )
                 "
                 @click="groupMembersAddRoles"
@@ -769,29 +787,41 @@
                     Boolean(
                         !selectedRoles.length ||
                             progressCurrent ||
-                            !hasGroupPermission(groupDialog.ref, 'group-roles-assign')
+                            !hasGroupPermission(groupMemberModeration.groupRef, 'group-roles-assign')
                     )
                 "
                 @click="groupMembersRemoveRoles"
                 >{{ t('dialog.group_member_moderation.remove_roles') }}</el-button
             >
             <el-button
-                :disabled="Boolean(progressCurrent || !hasGroupPermission(groupDialog.ref, 'group-members-manage'))"
+                :disabled="
+                    Boolean(
+                        progressCurrent || !hasGroupPermission(groupMemberModeration.groupRef, 'group-members-manage')
+                    )
+                "
                 @click="groupMembersSaveNote"
                 >{{ t('dialog.group_member_moderation.save_note') }}</el-button
             >
             <el-button
-                :disabled="Boolean(progressCurrent || !hasGroupPermission(groupDialog.ref, 'group-members-remove'))"
+                :disabled="
+                    Boolean(
+                        progressCurrent || !hasGroupPermission(groupMemberModeration.groupRef, 'group-members-remove')
+                    )
+                "
                 @click="groupMembersKick"
                 >{{ t('dialog.group_member_moderation.kick') }}</el-button
             >
             <el-button
-                :disabled="Boolean(progressCurrent || !hasGroupPermission(groupDialog.ref, 'group-bans-manage'))"
+                :disabled="
+                    Boolean(progressCurrent || !hasGroupPermission(groupMemberModeration.groupRef, 'group-bans-manage'))
+                "
                 @click="groupMembersBan"
                 >{{ t('dialog.group_member_moderation.ban') }}</el-button
             >
             <el-button
-                :disabled="Boolean(progressCurrent || !hasGroupPermission(groupDialog.ref, 'group-bans-manage'))"
+                :disabled="
+                    Boolean(progressCurrent || !hasGroupPermission(groupMemberModeration.groupRef, 'group-bans-manage'))
+                "
                 @click="groupMembersUnban"
                 >{{ t('dialog.group_member_moderation.unban') }}</el-button
             >
@@ -810,78 +840,181 @@
 </template>
 
 <script setup>
-    import Location from '../../Location.vue';
-    import { getCurrentInstance, inject, ref, watch } from 'vue';
+    import { storeToRefs } from 'pinia';
+    import { getCurrentInstance, reactive, ref, watch } from 'vue';
     import { useI18n } from 'vue-i18n-bridge';
+    import * as workerTimers from 'worker-timers';
     import { groupRequest, userRequest } from '../../../api';
-    import { useModerationTable, useSelectedUsers } from '../../../composables/group/useGroupMemberModeration';
-    import { hasGroupPermission } from '../../../composables/group/utils';
+    import { groupDialogFilterOptions, groupDialogSortingOptions } from '../../../shared/constants';
+    import { hasGroupPermission, userImage, userImageFull, formatDateFilter, debounce } from '../../../shared/utils';
+    import { useAppearanceSettingsStore, useGalleryStore, useGroupStore, useUserStore } from '../../../stores';
     import GroupMemberModerationExportDialog from './GroupMemberModerationExportDialog.vue';
 
-    const API = inject('API');
-    const showUserDialog = inject('showUserDialog');
-    const userImage = inject('userImage');
-    const userImageFull = inject('userImageFull');
-    const showFullscreenImageDialog = inject('showFullscreenImageDialog');
-
+    const { randomUserColours } = storeToRefs(useAppearanceSettingsStore());
+    const { showUserDialog } = useUserStore();
+    const { currentUser } = storeToRefs(useUserStore());
+    const { groupDialog, groupMemberModeration } = storeToRefs(useGroupStore());
+    const { applyGroupMember, handleGroupMember, handleGroupMemberProps } = useGroupStore();
+    const { showFullscreenImageDialog } = useGalleryStore();
     const { t } = useI18n();
     const instance = getCurrentInstance();
     const $message = instance.proxy.$message;
 
-    const props = defineProps({
-        isGroupMembersLoading: {
-            type: Boolean,
-            default: false
-        },
-        groupDialog: {
-            type: Object,
-            required: true
-        },
-        groupDialogSortingOptions: {
-            type: Object,
-            required: true
-        },
-        groupDialogFilterOptions: {
-            type: Object,
-            required: true
-        },
-        randomUserColours: {
-            type: Boolean,
-            default: false
-        },
-        groupMemberModeration: {
-            type: Object,
-            required: true
+    const selectedUsers = reactive({});
+    const selectedUsersArray = ref([]);
+    const isGroupMembersLoading = ref(false);
+    const isGroupMembersDone = ref(false);
+    const memberFilter = ref({
+        id: null,
+        name: 'dialog.group.members.filters.everyone'
+    });
+    const memberSortOrder = ref({
+        id: '',
+        name: 'dialog.group.members.sorting.joined_at_desc',
+        value: 'joinedAt:desc'
+    });
+    const members = ref([]);
+    const memberSearch = ref('');
+
+    let loadMoreGroupMembersParams = ref({
+        n: 100,
+        offset: 0,
+        groupId: '',
+        sort: '',
+        roleId: ''
+    });
+
+    function setSelectedUsers(usersId, user) {
+        if (!user) {
+            return;
+        }
+        selectedUsers[usersId] = user;
+        selectedUsersArray.value = Object.values(selectedUsers);
+    }
+
+    function deselectedUsers(userId, isAll = false) {
+        if (isAll) {
+            for (const id in selectedUsers) {
+                if (Object.prototype.hasOwnProperty.call(selectedUsers, id)) {
+                    delete selectedUsers[id];
+                }
+            }
+        } else {
+            if (Object.prototype.hasOwnProperty.call(selectedUsers, userId)) {
+                delete selectedUsers[userId];
+            }
+        }
+        selectedUsersArray.value = Object.values(selectedUsers);
+    }
+
+    function groupMemberModerationTableSelectionChange(row) {
+        if (row.$selected && !selectedUsers[row.userId]) {
+            setSelectedUsers(row.userId, row);
+        } else if (!row.$selected && selectedUsers[row.userId]) {
+            deselectedUsers(row.userId);
+        }
+    }
+
+    const groupInvitesModerationTable = reactive({
+        data: [],
+        tableProps: { stripe: true, size: 'mini' },
+        pageSize: 15,
+        paginationProps: {
+            small: true,
+            layout: 'sizes,prev,pager,next,total',
+            pageSizes: [10, 15, 20, 25, 50, 100]
+        }
+    });
+    const groupJoinRequestsModerationTable = reactive({
+        data: [],
+        tableProps: { stripe: true, size: 'mini' },
+        pageSize: 15,
+        paginationProps: {
+            small: true,
+            layout: 'sizes,prev,pager,next,total',
+            pageSizes: [10, 15, 20, 25, 50, 100]
+        }
+    });
+    const groupBlockedModerationTable = reactive({
+        data: [],
+        tableProps: { stripe: true, size: 'mini' },
+        pageSize: 15,
+        paginationProps: {
+            small: true,
+            layout: 'sizes,prev,pager,next,total',
+            pageSizes: [10, 15, 20, 25, 50, 100]
+        }
+    });
+    const groupLogsModerationTable = reactive({
+        data: [],
+        filters: [{ prop: ['description'], value: '' }],
+        tableProps: { stripe: true, size: 'mini' },
+        pageSize: 15,
+        paginationProps: {
+            small: true,
+            layout: 'sizes,prev,pager,next,total',
+            pageSizes: [10, 15, 20, 25, 50, 100]
+        }
+    });
+    const groupBansModerationTable = reactive({
+        data: [],
+        filters: [{ prop: ['$displayName'], value: '' }],
+        tableProps: { stripe: true, size: 'mini' },
+        pageSize: 15,
+        paginationProps: {
+            small: true,
+            layout: 'sizes,prev,pager,next,total',
+            pageSizes: [10, 15, 20, 25, 50, 100]
+        }
+    });
+    const groupMemberModerationTable = reactive({
+        data: [],
+        tableProps: { stripe: true, size: 'mini' },
+        pageSize: 15,
+        paginationProps: {
+            small: true,
+            layout: 'sizes,prev,pager,next,total',
+            pageSizes: [10, 15, 20, 25, 50, 100]
         }
     });
 
-    const emit = defineEmits([
-        'update:is-group-members-loading',
-        'close-dialog',
-        'load-all-group-members',
-        'set-group-member-sort-order',
-        'set-group-member-filter',
-        'group-members-search'
-    ]);
+    async function initializePageSize() {
+        try {
+            const { tablePageSize } = storeToRefs(useAppearanceSettingsStore());
 
-    const {
-        groupInvitesModerationTable,
-        groupJoinRequestsModerationTable,
-        groupBlockedModerationTable,
-        groupLogsModerationTable,
-        groupBansModerationTable,
-        groupMemberModerationTable,
-        initializePageSize,
-        deselectGroupMember
-    } = useModerationTable();
+            groupMemberModerationTable.pageSize = tablePageSize.value;
+            groupBansModerationTable.pageSize = tablePageSize.value;
+            groupLogsModerationTable.pageSize = tablePageSize.value;
+            groupInvitesModerationTable.pageSize = tablePageSize.value;
+            groupJoinRequestsModerationTable.pageSize = tablePageSize.value;
+            groupBlockedModerationTable.pageSize = tablePageSize.value;
+        } catch (error) {
+            console.error('Failed to initialize table page size:', error);
+        }
+    }
 
-    const {
-        selectedUsers,
-        selectedUsersArray,
-        groupMemberModerationTableSelectionChange,
-        deselectedUsers,
-        setSelectedUsers
-    } = useSelectedUsers();
+    function deselectGroupMember(userId) {
+        const deselectInTable = (tableData) => {
+            if (userId) {
+                const row = tableData.find((item) => item.userId === userId);
+                if (row) {
+                    row.$selected = false;
+                }
+            } else {
+                tableData.forEach((row) => {
+                    if (row.$selected) {
+                        row.$selected = false;
+                    }
+                });
+            }
+        };
+
+        deselectInTable(groupMemberModerationTable.data);
+        deselectInTable(groupBansModerationTable.data);
+        deselectInTable(groupInvitesModerationTable.data);
+        deselectInTable(groupJoinRequestsModerationTable.data);
+        deselectInTable(groupBlockedModerationTable.data);
+    }
 
     const selectUserId = ref('');
     const progressCurrent = ref(0);
@@ -892,12 +1025,9 @@
     const isGroupLogsExportDialogVisible = ref(false);
 
     watch(
-        () => props.groupMemberModeration.visible,
+        () => groupMemberModeration.value.visible,
         (newVal) => {
             if (newVal) {
-                if (props.groupMemberModeration.id !== props.groupDialog.id) {
-                    return;
-                }
                 groupMemberModerationTable.data = [];
                 groupBansModerationTable.data = [];
                 groupInvitesModerationTable.data = [];
@@ -905,69 +1035,24 @@
                 groupBlockedModerationTable.data = [];
                 groupLogsModerationTable.data = [];
                 Object.assign(selectedUsers, {});
+                selectedUsersArray.value = [];
                 selectUserId.value = '';
                 selectedRoles.value = [];
                 note.value = '';
+
+                if (groupMemberModeration.value.openWithUserId) {
+                    addGroupMemberToSelection(groupMemberModeration.value.openWithUserId);
+                }
             }
         }
-    );
-
-    watch(
-        () => props.groupDialog.members,
-        (newVal) => {
-            if (newVal) {
-                setGroupMemberModerationTable(newVal);
-            }
-        },
-        { immediate: true, deep: true }
-    );
-
-    watch(
-        () => props.groupDialog.memberSearchResults,
-        (newVal) => {
-            if (newVal) {
-                setGroupMemberModerationTable(newVal);
-            }
-        },
-        { immediate: true, deep: true }
     );
 
     // created()
     initializePageSize();
 
-    function loadAllGroupMembers() {
-        emit('load-all-group-members');
-    }
-    function setGroupMemberSortOrder(item) {
-        emit('set-group-member-sort-order', item);
-    }
-    function setGroupMemberFilter(filter) {
-        emit('set-group-member-filter', filter);
-    }
-    function groupMembersSearch() {
-        emit('group-members-search');
-    }
-    function updateIsGroupMembersLoading(value) {
-        emit('update:is-group-members-loading', value);
-    }
-    function closeDialog() {
-        emit('close-dialog');
-    }
-
-    function setGroupMemberModerationTable(data) {
-        if (!Array.isArray(data)) {
-            return;
-        }
-        groupMemberModerationTable.data = data.map((member) => ({
-            ...member,
-            $selected: Boolean(selectedUsers[member.userId])
-        }));
-    }
-
     function handleGroupMemberRoleChange(args) {
-        // 'GROUP:MEMBER:ROLE:CHANGE'
-        if (props.groupDialog.id === args.params.groupId) {
-            props.groupDialog.members.forEach((member) => {
+        if (groupDialog.value.id === args.params.groupId) {
+            groupDialog.value.members.forEach((member) => {
                 if (member.userId === args.params.userId) {
                     member.roleIds = args.json;
                     return true;
@@ -977,7 +1062,7 @@
     }
 
     async function groupMembersDeleteSentInvite() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -988,7 +1073,7 @@
             }
             const user = users[i];
             progressCurrent.value = i + 1;
-            if (user.userId === API.currentUser.id) {
+            if (user.userId === currentUser.value.id) {
                 continue;
             }
             console.log(`Deleting group invite ${user.userId} ${i + 1}/${memberCount}`);
@@ -1014,7 +1099,7 @@
         }
         progressCurrent.value = 0;
         progressTotal.value = 0;
-        getAllGroupInvites(D.id, groupInvitesModerationTable);
+        getAllGroupInvites(D.id);
     }
 
     function selectAllGroupMembers() {
@@ -1028,17 +1113,17 @@
         groupBansModerationTable.data = [];
         const params = { groupId, n: 100, offset: 0 };
         const count = 50; // 5000 max
-        updateIsGroupMembersLoading(true);
+        isGroupMembersLoading.value = true;
         const fetchedBans = [];
         try {
             for (let i = 0; i < count; i++) {
                 const args = await groupRequest.getGroupBans(params);
                 if (args && args.json) {
-                    if (props.groupMemberModeration.id !== args.params.groupId) {
+                    if (groupMemberModeration.value.id !== args.params.groupId) {
                         continue;
                     }
                     args.json.forEach((json) => {
-                        const ref = API.applyGroupMember(json);
+                        const ref = applyGroupMember(json);
                         fetchedBans.push(ref);
                     });
                     if (args.json.length < params.n) {
@@ -1056,7 +1141,7 @@
                 type: 'error'
             });
         } finally {
-            updateIsGroupMembersLoading(false);
+            isGroupMembersLoading.value = false;
         }
     }
 
@@ -1068,7 +1153,7 @@
     }
 
     async function groupMembersBan() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -1076,7 +1161,7 @@
             if (!progressTotal.value) break;
             const user = users[i];
             progressCurrent.value = i + 1;
-            if (user.userId === API.currentUser.id) continue;
+            if (user.userId === currentUser.value.id) continue;
             console.log(`Banning ${user.userId} ${i + 1}/${memberCount}`);
             try {
                 await groupRequest.banGroupMember({ groupId: D.id, userId: user.userId });
@@ -1096,7 +1181,7 @@
     }
 
     async function groupMembersUnban() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -1105,7 +1190,7 @@
             if (!progressTotal.value) break;
             const user = users[i];
             progressCurrent.value = i + 1;
-            if (user.userId === API.currentUser.id) continue;
+            if (user.userId === currentUser.value.id) continue;
             console.log(`Unbanning ${user.userId} ${i + 1}/${memberCount}`);
             try {
                 await groupRequest.unbanGroupMember({ groupId: D.id, userId: user.userId });
@@ -1129,7 +1214,7 @@
     }
 
     async function groupMembersKick() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -1138,7 +1223,7 @@
             if (!progressTotal.value) break;
             const user = users[i];
             progressCurrent.value = i + 1;
-            if (user.userId === API.currentUser.id) continue;
+            if (user.userId === currentUser.value.id) continue;
 
             console.log(`Kicking ${user.userId} ${i + 1}/${memberCount}`);
             try {
@@ -1158,10 +1243,11 @@
         progressCurrent.value = 0;
         progressTotal.value = 0;
         deselectedUsers(null, true);
+        loadAllGroupMembers();
     }
 
     async function groupMembersSaveNote() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -1176,7 +1262,8 @@
             }
             console.log(`Setting note ${noteToSave} for ${user.userId} ${i + 1}/${memberCount}`);
             try {
-                await groupRequest.setGroupMemberProps(user.userId, D.id, { managerNotes: noteToSave });
+                const args = await groupRequest.setGroupMemberProps(user.userId, D.id, { managerNotes: noteToSave });
+                handleGroupMemberProps(args);
             } catch (err) {
                 console.error(err);
                 $message({
@@ -1195,7 +1282,7 @@
     }
 
     async function groupMembersRemoveRoles() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const rolesToRemoveSet = new Set(selectedRoles.value);
         const memberCount = users.length;
@@ -1247,7 +1334,7 @@
     }
 
     async function groupMembersAddRoles() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const rolesToAddSet = new Set(selectedRoles.value);
         const memberCount = users.length;
@@ -1328,13 +1415,13 @@
     }
 
     async function addGroupMemberToSelection(userId) {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         // fetch member if there is one
         // banned members don't have a user object
         let member = {};
         const memberArgs = await groupRequest.getGroupMember({ groupId: D.id, userId });
         if (memberArgs && memberArgs.json) {
-            member = API.applyGroupMember(memberArgs.json);
+            member = applyGroupMember(memberArgs.json);
         }
         if (member && member.user) {
             setSelectedUsers(member.userId, member);
@@ -1356,13 +1443,13 @@
             params.eventTypes = selectedAuditLogTypes.value;
         }
         const count = 50; // 5000 max
-        updateIsGroupMembersLoading(true);
+        isGroupMembersLoading.value = true;
 
         try {
             for (let i = 0; i < count; i++) {
                 const args = await groupRequest.getGroupLogs(params);
                 if (args) {
-                    if (props.groupMemberModeration.id !== args.params.groupId) {
+                    if (groupMemberModeration.value.id !== args.params.groupId) {
                         continue;
                     }
 
@@ -1384,12 +1471,12 @@
                 type: 'error'
             });
         } finally {
-            updateIsGroupMembersLoading(false);
+            isGroupMembersLoading.value = false;
         }
     }
 
     async function groupMembersDeleteBlockedRequest() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -1400,7 +1487,7 @@
             const user = users[i];
             progressCurrent.value = i + 1;
 
-            if (user.userId === API.currentUser.id) {
+            if (user.userId === currentUser.value.id) {
                 continue;
             }
 
@@ -1424,12 +1511,12 @@
         }
         progressCurrent.value = 0;
         progressTotal.value = 0;
-        getAllGroupInvitesAndJoinRequests();
+        getAllGroupInvitesAndJoinRequests(D.id);
         deselectedUsers(null, true);
     }
 
     async function groupMembersBlockJoinRequest() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -1438,7 +1525,7 @@
             if (!progressTotal.value) break;
             const user = users[i];
             progressCurrent.value = i + 1;
-            if (user.userId === API.currentUser.id) continue;
+            if (user.userId === currentUser.value.id) continue;
 
             console.log(`Blocking group join request from ${user.userId} ${i + 1}/${memberCount}`);
             try {
@@ -1460,12 +1547,12 @@
         }
         progressCurrent.value = 0;
         progressTotal.value = 0;
-        getAllGroupInvitesAndJoinRequests();
+        getAllGroupInvitesAndJoinRequests(D.id);
         deselectedUsers(null, true);
     }
 
     async function groupMembersRejectInviteRequest() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -1475,7 +1562,7 @@
             if (!progressTotal.value) break;
             const user = users[i];
             progressCurrent.value = i + 1;
-            if (user.userId === API.currentUser.id) continue;
+            if (user.userId === currentUser.value.id) continue;
 
             console.log(`Rejecting group join request from ${user.userId} ${i + 1}/${memberCount}`);
             try {
@@ -1497,12 +1584,12 @@
         }
         progressCurrent.value = 0;
         progressTotal.value = 0;
-        getAllGroupInvitesAndJoinRequests();
+        getAllGroupInvitesAndJoinRequests(D.id);
         deselectedUsers(null, true);
     }
 
     async function groupMembersAcceptInviteRequest() {
-        const D = props.groupMemberModeration;
+        const D = groupMemberModeration.value;
         const users = [...selectedUsersArray.value];
         const memberCount = users.length;
         progressTotal.value = memberCount;
@@ -1511,7 +1598,7 @@
             if (!progressTotal.value) break;
             const user = users[i];
             progressCurrent.value = i + 1;
-            if (user.userId === API.currentUser.id) continue;
+            if (user.userId === currentUser.value.id) continue;
 
             console.log(`Accepting group join request from ${user.userId} ${i + 1}/${memberCount}`);
             try {
@@ -1533,7 +1620,7 @@
         }
         progressCurrent.value = 0;
         progressTotal.value = 0;
-        getAllGroupInvitesAndJoinRequests();
+        getAllGroupInvitesAndJoinRequests(D.id);
         deselectedUsers(null, true);
     }
 
@@ -1553,19 +1640,19 @@
         groupBlockedModerationTable.data = [];
         const params = { groupId, n: 100, offset: 0, blocked: true };
         const count = 50; // 5000
-        updateIsGroupMembersLoading(true);
+        isGroupMembersLoading.value = true;
 
         try {
             for (let i = 0; i < count; i++) {
                 const args = await groupRequest.getGroupJoinRequests(params);
-                if (props.groupMemberModeration.id !== args.params.groupId) {
+                if (groupMemberModeration.value.id !== args.params.groupId) {
                     return;
                 }
                 const targetTable = args.params.blocked
                     ? groupBlockedModerationTable
                     : groupJoinRequestsModerationTable;
                 for (const json of args.json) {
-                    const ref = API.applyGroupMember(json);
+                    const ref = applyGroupMember(json);
                     targetTable.data.push(ref);
                 }
                 params.offset += params.n;
@@ -1579,7 +1666,7 @@
                 type: 'error'
             });
         } finally {
-            updateIsGroupMembersLoading(false);
+            isGroupMembersLoading.value = false;
         }
     }
 
@@ -1587,18 +1674,18 @@
         groupJoinRequestsModerationTable.data = [];
         const params = { groupId, n: 100, offset: 0, blocked: false };
         const count = 50; // 5000 max
-        updateIsGroupMembersLoading(true);
+        isGroupMembersLoading.value = true;
         try {
             for (let i = 0; i < count; i++) {
                 const args = await groupRequest.getGroupJoinRequests(params);
-                if (props.groupMemberModeration.id !== args.params.groupId) {
+                if (groupMemberModeration.value.id !== args.params.groupId) {
                     return;
                 }
                 const targetTable = args.params.blocked
                     ? groupBlockedModerationTable
                     : groupJoinRequestsModerationTable;
                 for (const json of args.json) {
-                    const ref = API.applyGroupMember(json);
+                    const ref = applyGroupMember(json);
                     targetTable.data.push(ref);
                 }
                 params.offset += params.n;
@@ -1612,7 +1699,7 @@
                 type: 'error'
             });
         } finally {
-            updateIsGroupMembersLoading(false);
+            isGroupMembersLoading.value = false;
         }
     }
 
@@ -1620,18 +1707,18 @@
         groupInvitesModerationTable.data = [];
         const params = { groupId, n: 100, offset: 0 };
         const count = 50; // 5000 max
-        updateIsGroupMembersLoading(true);
+        isGroupMembersLoading.value = true;
 
         try {
             for (let i = 0; i < count; i++) {
                 const args = await groupRequest.getGroupInvites(params);
                 if (args) {
-                    if (props.groupMemberModeration.id !== args.params.groupId) {
+                    if (groupMemberModeration.value.id !== args.params.groupId) {
                         return;
                     }
 
                     for (const json of args.json) {
-                        const ref = API.applyGroupMember(json);
+                        const ref = applyGroupMember(json);
                         groupInvitesModerationTable.data.push(ref);
                     }
                 }
@@ -1639,7 +1726,7 @@
                 if (args.json.length < params.n) {
                     break;
                 }
-                if (!props.groupMemberModeration.visible) {
+                if (!groupMemberModeration.value.visible) {
                     break;
                 }
             }
@@ -1649,7 +1736,7 @@
                 type: 'error'
             });
         } finally {
-            updateIsGroupMembersLoading(false); // Use emit
+            isGroupMembersLoading.value = false;
         }
     }
 
@@ -1684,5 +1771,169 @@
             .replace('group.', '')
             .replace(/\./g, ' ')
             .replace(/\b\w/g, (l) => l.toUpperCase());
+    }
+
+    function groupMembersSearch() {
+        if (memberSearch.value.length < 3) {
+            groupMemberModerationTable.data = [];
+            isGroupMembersLoading.value = false;
+            return;
+        }
+        isGroupMembersLoading.value = true;
+        debounce(groupMembersSearchDebounced, 200)();
+    }
+
+    function groupMembersSearchDebounced() {
+        const groupId = groupMemberModeration.value.id;
+        const search = memberSearch.value;
+        groupMemberModerationTable.data = [];
+        if (memberSearch.value.length < 3) {
+            return;
+        }
+        isGroupMembersLoading.value = true;
+        groupRequest
+            .getGroupMembersSearch({
+                groupId,
+                query: search,
+                n: 100,
+                offset: 0
+            })
+            .then((args) => {
+                for (const json of args.json.results) {
+                    handleGroupMember({
+                        json,
+                        params: {
+                            groupId: args.params.groupId
+                        }
+                    });
+                }
+                if (groupId === args.params.groupId) {
+                    groupMemberModerationTable.data = args.json.results.map((member) => ({
+                        ...member,
+                        $selected: Boolean(selectedUsers[member.userId])
+                    }));
+                }
+            })
+            .finally(() => {
+                isGroupMembersLoading.value = false;
+            });
+    }
+
+    async function getGroupMembers() {
+        members.value = [];
+        isGroupMembersDone.value = false;
+        loadMoreGroupMembersParams.value = {
+            sort: '',
+            roleId: '',
+            n: 100,
+            offset: 0,
+            groupId: groupMemberModeration.value.id
+        };
+        if (memberSortOrder.value.value) {
+            loadMoreGroupMembersParams.value.sort = memberSortOrder.value.value;
+        }
+        if (memberFilter.value.id !== null) {
+            loadMoreGroupMembersParams.value.roleId = memberFilter.value.id;
+        }
+        await groupRequest
+            .getGroupMember({
+                groupId: groupMemberModeration.value.id,
+                userId: currentUser.value.id
+            })
+            .then((args) => {
+                args.ref = applyGroupMember(args.json);
+                if (args.json) {
+                    args.json.user = currentUser.value;
+                    if (memberFilter.value.id === null) {
+                        // when filtered by role don't include self
+                        members.value.push(args.json);
+                    }
+                }
+                return args;
+            });
+        await loadMoreGroupMembers();
+    }
+
+    async function loadMoreGroupMembers() {
+        if (isGroupMembersDone.value || isGroupMembersLoading.value) {
+            return;
+        }
+        const params = loadMoreGroupMembersParams.value;
+        if (params.roleId === '') {
+            delete params.roleId;
+        }
+        memberSearch.value = '';
+        isGroupMembersLoading.value = true;
+        await groupRequest
+            .getGroupMembers(params)
+            .finally(() => {
+                isGroupMembersLoading.value = false;
+            })
+            .then((args) => {
+                for (const json of args.json) {
+                    handleGroupMember({
+                        json,
+                        params: {
+                            groupId: args.params.groupId
+                        }
+                    });
+                }
+                for (let i = 0; i < args.json.length; i++) {
+                    const member = args.json[i];
+                    if (member.userId === currentUser.value.id) {
+                        if (members.value.length > 0 && members.value[0].userId === currentUser.value.id) {
+                            // remove duplicate and keep sort order
+                            members.value.splice(0, 1);
+                        }
+                        break;
+                    }
+                }
+                if (args.json.length < params.n) {
+                    isGroupMembersDone.value = true;
+                }
+                members.value = [...members.value, ...args.json];
+                groupMemberModerationTable.data = members.value.map((member) => ({
+                    ...member,
+                    $selected: Boolean(selectedUsers[member.userId])
+                }));
+
+                params.offset += params.n;
+                return args;
+            })
+            .catch((err) => {
+                isGroupMembersDone.value = true;
+                throw err;
+            });
+    }
+
+    async function setGroupMemberSortOrder(sortOrder) {
+        if (memberSortOrder.value === sortOrder) {
+            return;
+        }
+        memberSortOrder.value = sortOrder;
+        await getGroupMembers();
+    }
+
+    async function loadAllGroupMembers() {
+        if (isGroupMembersLoading.value) {
+            return;
+        }
+        await getGroupMembers();
+        while (groupMemberModeration.value.visible && !isGroupMembersDone.value) {
+            isGroupMembersLoading.value = true;
+            await new Promise((resolve) => {
+                workerTimers.setTimeout(resolve, 1000);
+            });
+            isGroupMembersLoading.value = false;
+            await loadMoreGroupMembers();
+        }
+    }
+
+    async function setGroupMemberFilter(filter) {
+        if (memberFilter.value === filter) {
+            return;
+        }
+        memberFilter.value = filter;
+        await getGroupMembers();
     }
 </script>

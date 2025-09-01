@@ -7,7 +7,7 @@
 [![Status GitHub Workflow](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml/badge.svg)](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml)
 [![Discord VRCX Discord](https://img.shields.io/discord/854071236363550763?color=%237289DA&logo=discord&logoColor=white&label=discord)](https://vrcx.app/discord)
 
-| [English](./README.md) | [Français](./README.fr.md) | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | [Italiano](./README.it.md) | [Русский](./README.ru_RU.md) | [Español](./README.es.md) | **Polski**
+| [English](./README.md) | [Français](./README.fr.md) | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | [Italiano](./README.it.md) | [Русский](./README.ru_RU.md) | [Español](./README.es.md) | **Polski** | [ภาษาไทย](./README.th.md)
 
 VRCX to aplikacja pomocnicza dla VRChat, która dostarcza informacje i pomoc w różnorodnych czynnościach związanych z VRChat, w wygodniejszy sposób niż klient gry (PC i VR) czy strona internetowa. Zawiera sporo ciekawych funkcji opisanych poniżej.
 
@@ -31,10 +31,6 @@ Pobierz i uruchom najnowszy instalator (`VRCX_Setup.exe`) [stąd](https://github
 - :electric_plug: Automatycznie uruchamiaj aplikacje podczas startu VRChat
     - Ustaw, aby VRCX uruchamiał inne aplikacje, gdy włączysz VRChat.
     - Na przykład, możesz ustawić, aby VRCX uruchamiał aplikację OSC lub modulacji głosu, gdy włączysz VRChat.
-- :floppy_disk: Persystencja światów
-    - VRCX może zapisywać ustawienia, stany, ekwipunek czy inne dane światów, jeżeli wspierają one tę funkcję.
-    - **Notatka**: Aby używać tej funkcji, musisz zezwolić na niezaufane linki URL w ustawieniach VRChatu.
-    - Dla programistów: [Strona wiki o persystencji światów](<https://github.com/vrcx-team/VRCX/wiki/World-Persistence-(PWI)>)
 - :mag: Wyszukuj awatary, użytkwoników, światy i grupy
 - :earth_americas: Twórz lokalną i nieograniczoną listę ulubionych światów
 - :camera: Przechowuj dane światów w zdjęciach robionych w grze, aby pamiętać o światach odwiedzanych dawno temu!

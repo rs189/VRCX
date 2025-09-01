@@ -7,7 +7,7 @@
 [![GitHub Workflow Status](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml/badge.svg)](https://github.com/vrcx-team/VRCX/actions/workflows/github_actions.yml)
 [![VRCX Discord Invite](https://img.shields.io/discord/854071236363550763?color=%237289DA&logo=discord&logoColor=white&label=discord)](https://vrcx.app/discord)
 
-| [English](./README.md) | [Français](./README.fr.md) | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | [Italiano](./README.it.md) | [Русский](./README.ru_RU.md) | **Español** | [Polski](./README.pl.md)
+| [English](./README.md) | [Français](./README.fr.md) | [日本語](./README.jp.md) | [简体中文](./README.zh_CN.md) | [Italiano](./README.it.md) | [Русский](./README.ru_RU.md) | **Español** | [Polski](./README.pl.md) | [ภาษาไทย](./README.th.md)
 
 VRCX es una aplicación asistente/compañera para VRChat que proporciona información y te ayuda a realizar varias tareas relacionadas con VRChat de una manera más conveniente que depender únicamente del cliente de VRChat (escritorio o VR) o del sitio web. También incluye algunas otras características interesantes que se describen a continuación.
 
@@ -33,10 +33,6 @@ Versión beta/nocturna disponible [aquí](https://vrcx.app/github/nightly) o en 
 - :electric_plug: Inicia automáticamente aplicaciones cuando inicias VRChat
     - Puedes configurar VRCX para iniciar otras aplicaciones cuando inicias VRChat.
     - Por ejemplo, podrías hacer que VRCX inicie una aplicación OSC o una aplicación de cambio de voz cuando se abra VRChat.
-- :floppy_disk: Persistencia de mundos
-    - Para los mundos que soportan la función, VRCX puede guardar configuraciones de mundos, estados guardados, inventarios y otros datos.
-    - **Nota**: Para usar esta función, debes tener "Permitir URLs no confiables" habilitado en la configuración de VRChat.
-    - Para desarrolladores: [Página Wiki - Persistencia de Mundos (PWI)](<https://github.com/vrcx-team/VRCX/wiki/World-Persistence-(PWI)>)
 - :mag: Busca avatares, usuarios, mundos y grupos
 - :earth_americas: Crea una lista de favoritos de mundos local y sin restricciones
 - :camera: Almacena datos de mundos en las fotos que tomas en el juego, para que puedas recordar ese mundo donde tomaste esas fotos geniales hace como... 6 meses.
