@@ -1,38 +1,46 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="isGroupLogsExportDialogVisible"
-        :title="t('dialog.group_member_moderation.export_logs')"
-        width="650px"
-        append-to-body
-        @close="setIsGroupLogsExportDialogVisible">
-        <el-checkbox-group
-            v-model="checkedGroupLogsExportLogsOptions"
-            style="margin-bottom: 10px"
-            @change="updateGroupLogsExportContent">
-            <template v-for="option in checkGroupsLogsExportLogsOptions">
-                <el-checkbox :key="option.label" :label="option.label">
-                    {{ t(option.text) }}
-                </el-checkbox>
-            </template>
-        </el-checkbox-group>
-        <br />
-        <el-input
-            v-model="groupLogsExportContent"
-            type="textarea"
-            size="mini"
-            rows="15"
-            resize="none"
-            readonly
-            style="margin-top: 15px"
-            @click.native="handleCopyGroupLogsExportContent" />
-    </safe-dialog>
+    <Dialog
+        :open="isGroupLogsExportDialogVisible"
+        @update:open="
+            (open) => {
+                if (!open) setIsGroupLogsExportDialogVisible();
+            }
+        ">
+        <DialogContent class="x-dialog sm:max-w-162.5">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.group_member_moderation.export_logs') }}</DialogTitle>
+            </DialogHeader>
+
+            <div class="flex flex-col gap-2 mb-2">
+                <label
+                    v-for="option in checkGroupsLogsExportLogsOptions"
+                    :key="option.label"
+                    class="inline-flex items-center gap-2">
+                    <Checkbox
+                        :model-value="checkedGroupLogsExportLogsOptions.includes(option.label)"
+                        @update:modelValue="(val) => toggleGroupLogsExportOption(option.label, val)" />
+                    <span>{{ t(option.text) }}</span>
+                </label>
+            </div>
+            <br />
+            <InputGroupTextareaField
+                v-model="groupLogsExportContent"
+                :rows="15"
+                readonly
+                input-class="resize-none mt-4"
+                @click="handleCopyGroupLogsExportContent" />
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
     import { ref, watch } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { copyToClipboard } from '../../../shared/utils';
+    import { Checkbox } from '@/components/ui/checkbox';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
+    import { useI18n } from 'vue-i18n';
+
+    import { copyToClipboard, formatCsvField } from '../../../shared/utils';
 
     const { t } = useI18n();
 
@@ -74,9 +82,26 @@
         'data'
     ]);
 
-    function updateGroupLogsExportContent() {
-        const formatter = (str) => (/[\x00-\x1f,"]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str);
+    /**
+     *
+     * @param label
+     * @param checked
+     */
+    function toggleGroupLogsExportOption(label, checked) {
+        const selection = checkedGroupLogsExportLogsOptions.value;
+        const index = selection.indexOf(label);
+        if (checked && index === -1) {
+            selection.push(label);
+        } else if (!checked && index !== -1) {
+            selection.splice(index, 1);
+        }
+        updateGroupLogsExportContent();
+    }
 
+    /**
+     *
+     */
+    function updateGroupLogsExportContent() {
         const sortedCheckedOptions = checkGroupsLogsExportLogsOptions
             .filter((option) => checkedGroupLogsExportLogsOptions.value.includes(option.label))
             .map((option) => option.label);
@@ -86,18 +111,24 @@
         const content = props.groupLogsModerationTable.data
             .map((item) =>
                 sortedCheckedOptions
-                    .map((key) => formatter(key === 'data' ? JSON.stringify(item[key]) : item[key]))
+                    .map((key) => formatCsvField(key === 'data' ? JSON.stringify(item[key]) : item[key]))
                     .join(',')
             )
             .join('\n');
 
-        groupLogsExportContent.value = header + content; // Update ref
+        groupLogsExportContent.value = header + content;
     }
 
+    /**
+     *
+     */
     function handleCopyGroupLogsExportContent() {
         copyToClipboard(groupLogsExportContent.value);
     }
 
+    /**
+     *
+     */
     function setIsGroupLogsExportDialogVisible() {
         emit('update:isGroupLogsExportDialogVisible', false);
     }

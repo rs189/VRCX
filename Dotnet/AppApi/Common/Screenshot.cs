@@ -11,6 +11,9 @@ namespace VRCX;
 
 public partial class AppApi
 {
+    [GeneratedRegex(@"\\Prints\\|\\Stickers\\|\\Emoji\\", RegexOptions.IgnoreCase, "en-US")]
+    private static partial Regex ScreenshotRegex();
+
     public string GetExtraScreenshotData(string path, bool carouselCache)
     {
         var fileName = Path.GetFileNameWithoutExtension(path);
@@ -67,7 +70,8 @@ public partial class AppApi
             };
 
             return obj.ToString(Formatting.Indented);
-        };
+        }
+        ;
 
         if (metadata.Error != null)
         {
@@ -117,15 +121,15 @@ public partial class AppApi
         var path = GetVRChatPhotosLocation();
         if (!Directory.Exists(path))
             return null;
-        
-        // exclude folder names that contain "Prints" or "Stickers"
+
+        // exclude folder names that contain "Prints", "Stickers" or "Emoji"
         var imageFiles = Directory.GetFiles(path, "*.png", SearchOption.AllDirectories)
-            .Where(x => !Regex.IsMatch(x, @"\\Prints\\|\\Stickers\\", RegexOptions.IgnoreCase));
+            .Where(x => !ScreenshotRegex().IsMatch(x));
         var lastScreenshot = imageFiles.OrderByDescending(Directory.GetCreationTime).FirstOrDefault();
 
         return lastScreenshot;
     }
-    
+
     public bool DeleteScreenshotMetadata(string path)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path) || !path.EndsWith(".png"))
@@ -142,13 +146,13 @@ public partial class AppApi
             return false;
         }
     }
-    
+
     public void DeleteAllScreenshotMetadata()
     {
         var path = GetVRChatPhotosLocation();
         if (!Directory.Exists(path))
             return;
-        
+
         var imageFiles = Directory.GetFiles(path, "*.png", SearchOption.AllDirectories);
         foreach (var file in imageFiles)
         {

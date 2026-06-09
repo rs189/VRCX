@@ -1,10 +1,10 @@
-﻿using CefSharp.Enums;
-using CefSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CefSharp;
+using CefSharp.Enums;
 
 namespace VRCX
 {
@@ -24,9 +24,9 @@ namespace VRCX
                     dragData.Dispose();
                     return true;
                 }
-                
+
                 if (MainForm.Instance?.Browser != null && !MainForm.Instance.Browser.IsLoading && MainForm.Instance.Browser.CanExecuteJavascriptInMainFrame)
-                    MainForm.Instance.Browser.ExecuteScriptAsync("$app.store.vrcx.dragEnterCef", file);
+                    MainForm.Instance.Browser.ExecuteScriptAsync("window?.$pinia?.vrcx.dragEnterCef", file);
 
                 dragData.Dispose();
                 return false;

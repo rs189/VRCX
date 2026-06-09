@@ -7,9 +7,17 @@ export type GetGroup = (params: {
     params: { groupId: string; includeRoles?: boolean };
 }>;
 
-export type GetCalendars = (date: string) => Promise<CalendarResponse>;
+export type GetCalendars = (params: {
+    date: string;
+}) => Promise<CalendarResponse>;
 
-export type GetFollowingCalendars = (date: string) => Promise<CalendarResponse>;
+export type GetFollowingCalendars = (params: {
+    date: string;
+}) => Promise<CalendarResponse>;
+
+export type GetFeaturedCalendars = (params: {
+    date: string;
+}) => Promise<CalendarResponse>;
 
 // API response types
 interface GetGroupResponse {
@@ -52,6 +60,7 @@ export interface GroupCalendarEvent {
     createdAt: string;
     deletedAt: string | null;
     description: string;
+    durationInMs: number;
     endsAt: string;
     featured: boolean;
     guestEarlyJoinMinutes: number;
@@ -62,9 +71,12 @@ export interface GroupCalendarEvent {
     interestedUserCount: number;
     isDraft: boolean;
     languages: string[];
+    occurrenceKind: 'occurrence' | 'single' | string;
     ownerId: string;
     platforms: string[];
+    recurrence: string | null;
     roleIds: string[] | null;
+    seriesId: string | null;
     startsAt: string;
     tags: string[];
     title: string;

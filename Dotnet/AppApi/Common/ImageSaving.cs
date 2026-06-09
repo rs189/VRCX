@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Tasks;
+using librsync.net;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using Color = SixLabors.ImageSharp.Color;
@@ -23,7 +24,7 @@ namespace VRCX
             var hosts = JsonSerializer.Deserialize<List<string>>(json);
             ImageCache.PopulateImageHosts(hosts);
         }
-        
+
         public async Task<string> GetImage(string url, string fileId, string version)
         {
             return await ImageCache.GetImage(url, fileId, version);
@@ -58,7 +59,7 @@ namespace VRCX
                 var squareCanvas = new Image<Rgba32>(targetSize, targetSize);
                 var xOffset = (targetSize - image.Width) / 2;
                 var yOffset = (targetSize - image.Height) / 2;
-                squareCanvas.Mutate(x => 
+                squareCanvas.Mutate(x =>
                     x.DrawImage(image, new Point(xOffset, yOffset), 1f));
                 image = squareCanvas;
             }
@@ -120,7 +121,7 @@ namespace VRCX
                 var target = new Image<Rgba32>(1920, 1080);
                 var aspectRatio = (double)image.Width / image.Height;
                 int width, height, xOffset, yOffset;
-    
+
                 if (aspectRatio > expectedAspectRatio)
                 {
                     // Image is wider than 16:9 - scale based on width
@@ -142,7 +143,7 @@ namespace VRCX
                     .DrawImage(scaledImage, new Point(xOffset, yOffset), 1f));
                 image = target;
             }
-            
+
             // limit size to 1920x1080
             if (image.Width > desiredWidth)
             {
@@ -171,7 +172,7 @@ namespace VRCX
             newImage.SaveAsPng(imageSaveMemoryStream);
             return imageSaveMemoryStream.ToArray();
         }
-        
+
         public async Task CropAllPrints(string ugcFolderPath)
         {
             var folder = Path.Join(GetUGCPhotoLocation(ugcFolderPath), "Prints");
@@ -196,9 +197,9 @@ namespace VRCX
             // validation step to ensure image is actually a print
             if (!CropPrint(ref print))
                 return false;
-            
+
             await print.SaveAsPngAsync(tempPath);
-            
+
             var oldPngFile = new PNGFile(path, false);
             var newPngFile = new PNGFile(tempPath, true);
 
@@ -213,22 +214,46 @@ namespace VRCX
             oldPngFile.Dispose();
             newPngFile.Dispose();
 
-            File.Move(tempPath, path, true);
+            // check if file is in use and we have permission to write
+            for (var i = 0; i < 10; i++)
+            {
+                try
+                {
+                    await using (File.Open(path, FileMode.Append, FileAccess.Write, FileShare.None))
+                    {
+                        break;
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    await Task.Delay(1000);
+                }
+            }
+            try
+            {
+                File.Move(tempPath, path, true);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to replace cropped print image");
+                return false;
+            }
+
             return true;
         }
-        
+
         public bool CropPrint(ref Image image)
         {
             if (image.Width != 2048 || image.Height != 1440)
                 return false;
-            
+
             var point = new Point(64, 69);
             var size = new Size(1920, 1080);
             var rectangle = new Rectangle(point, size);
             image.Mutate(x => x.Crop(rectangle));
             return true;
         }
-        
+
         public async Task<string> SavePrintToFile(string url, string ugcFolderPath, string monthFolder, string fileName)
         {
             var folder = Path.Join(GetUGCPhotoLocation(ugcFolderPath), "Prints", MakeValidFileName(monthFolder));
@@ -246,7 +271,7 @@ namespace VRCX
                 logger.Error(ex, "Failed to save print to file");
                 return null;
             }
-            
+
             return filePath;
         }
 
@@ -267,10 +292,10 @@ namespace VRCX
                 logger.Error(ex, "Failed to save print to file");
                 return null;
             }
-            
+
             return filePath;
         }
-        
+
         public async Task<string> SaveEmojiToFile(string url, string ugcFolderPath, string monthFolder, string fileName)
         {
             var folder = Path.Join(GetUGCPhotoLocation(ugcFolderPath), "Emoji", MakeValidFileName(monthFolder));
@@ -288,8 +313,32 @@ namespace VRCX
                 logger.Error(ex, "Failed to save print to file");
                 return null;
             }
-            
+
             return filePath;
+        }
+
+        public string MD5File(string blob)
+        {
+            var fileData = Convert.FromBase64CharArray(blob.ToCharArray(), 0, blob.Length);
+            using var md5 = MD5.Create();
+            var md5Hash = md5.ComputeHash(fileData);
+            return Convert.ToBase64String(md5Hash);
+        }
+
+        public string SignFile(string blob)
+        {
+            var fileData = Convert.FromBase64String(blob);
+            using var sig = Librsync.ComputeSignature(new MemoryStream(fileData));
+            using var memoryStream = new MemoryStream();
+            sig.CopyTo(memoryStream);
+            var sigBytes = memoryStream.ToArray();
+            return Convert.ToBase64String(sigBytes);
+        }
+
+        public string FileLength(string blob)
+        {
+            var fileData = Convert.FromBase64String(blob);
+            return fileData.Length.ToString();
         }
     }
 }

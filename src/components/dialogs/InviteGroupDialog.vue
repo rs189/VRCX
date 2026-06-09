@@ -1,194 +1,127 @@
 <template>
-    <safe-dialog
-        ref="inviteGroupDialogRef"
-        :visible.sync="inviteGroupDialog.visible"
-        :title="$t('dialog.invite_to_group.header')"
-        width="450px"
-        append-to-body>
-        <div v-if="inviteGroupDialog.visible" v-loading="inviteGroupDialog.loading">
-            <span>{{ $t('dialog.invite_to_group.description') }}</span>
-            <br />
-            <el-select
-                v-model="inviteGroupDialog.groupId"
-                clearable
-                :placeholder="$t('dialog.invite_to_group.choose_group_placeholder')"
-                filterable
-                :disabled="inviteGroupDialog.loading"
-                style="margin-top: 15px; width: 100%">
-                <el-option-group
-                    :label="$t('dialog.invite_to_group.groups_with_invite_permission')"
-                    style="width: 410px">
-                    <el-option
-                        v-for="group in groupsWithInvitePermission"
-                        :key="group.id"
-                        :label="group.name"
-                        :value="group.id"
-                        style="height: auto"
-                        class="x-friend-item">
-                        <div class="avatar">
-                            <img v-lazy="group.iconUrl" />
-                        </div>
-                        <div class="detail">
-                            <span class="name" v-text="group.name"></span>
-                        </div>
-                    </el-option>
-                </el-option-group>
-            </el-select>
-            <el-select
-                v-model="inviteGroupDialog.userIds"
-                multiple
-                clearable
-                :placeholder="$t('dialog.invite_to_group.choose_friends_placeholder')"
-                filterable
-                :disabled="inviteGroupDialog.loading"
-                style="width: 100%; margin-top: 15px">
-                <el-option-group v-if="inviteGroupDialog.userId" :label="$t('dialog.invite_to_group.selected_users')">
-                    <el-option
-                        :key="inviteGroupDialog.userObject.id"
-                        :label="inviteGroupDialog.userObject.displayName"
-                        :value="inviteGroupDialog.userObject.id"
-                        class="x-friend-item">
-                        <template v-if="inviteGroupDialog.userObject.id">
-                            <div class="avatar" :class="userStatusClass(inviteGroupDialog.userObject)">
-                                <img v-lazy="userImage(inviteGroupDialog.userObject)" />
-                            </div>
-                            <div class="detail">
-                                <span
-                                    class="name"
-                                    :style="{ color: inviteGroupDialog.userObject.$userColour }"
-                                    v-text="inviteGroupDialog.userObject.displayName"></span>
+    <Dialog v-model:open="inviteGroupDialog.visible">
+        <DialogContent class="sm:max-w-112.5">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.invite_to_group.header') }}</DialogTitle>
+            </DialogHeader>
+
+            <div v-if="inviteGroupDialog.visible">
+                <span>{{ t('dialog.invite_to_group.description') }}</span>
+                <br />
+
+                <div class="mt-4" style="width: 100%">
+                    <VirtualCombobox
+                        v-model="inviteGroupDialog.groupId"
+                        :groups="groupPickerGroups"
+                        :disabled="inviteGroupDialog.loading"
+                        :placeholder="t('dialog.invite_to_group.choose_group_placeholder')"
+                        :search-placeholder="t('dialog.invite_to_group.choose_group_placeholder')"
+                        :clearable="true"
+                        :close-on-select="true"
+                        :deselect-on-reselect="true">
+                        <template #item="{ item, selected }">
+                            <div class="flex w-full items-center p-1.5 text-[13px]">
+                                <div class="relative inline-block flex-none size-9 mr-2.5">
+                                    <img
+                                        class="size-full rounded-full object-cover"
+                                        :src="item.iconUrl"
+                                        loading="lazy" />
+                                </div>
+                                <div class="flex-1 overflow-hidden">
+                                    <span class="block truncate font-medium leading-[18px]" v-text="item.label"></span>
+                                </div>
+                                <CheckIcon :class="['ml-auto size-4', selected ? 'opacity-100' : 'opacity-0']" />
                             </div>
                         </template>
-                        <span v-else v-text="inviteGroupDialog.userId"></span>
-                    </el-option>
-                </el-option-group>
-                <el-option-group v-if="vipFriends.length" :label="$t('side_panel.favorite')">
-                    <el-option
-                        v-for="friend in vipFriends"
-                        :key="friend.id"
-                        :label="friend.name"
-                        :value="friend.id"
-                        style="height: auto"
-                        class="x-friend-item">
-                        <template v-if="friend.ref">
-                            <div class="avatar" :class="userStatusClass(friend.ref)">
-                                <img v-lazy="userImage(friend.ref)" />
-                            </div>
-                            <div class="detail">
-                                <span
-                                    class="name"
-                                    :style="{ color: friend.ref.$userColour }"
-                                    v-text="friend.ref.displayName"></span>
-                            </div>
-                        </template>
-                        <span v-else v-text="friend.id"></span>
-                    </el-option>
-                </el-option-group>
-                <el-option-group v-if="onlineFriends.length" :label="$t('side_panel.online')">
-                    <el-option
-                        v-for="friend in onlineFriends"
-                        :key="friend.id"
-                        :label="friend.name"
-                        :value="friend.id"
-                        style="height: auto"
-                        class="x-friend-item">
-                        <template v-if="friend.ref">
-                            <div class="avatar" :class="userStatusClass(friend.ref)">
-                                <img v-lazy="userImage(friend.ref)" />
-                            </div>
-                            <div class="detail">
-                                <span
-                                    class="name"
-                                    :style="{ color: friend.ref.$userColour }"
-                                    v-text="friend.ref.displayName"></span>
+                    </VirtualCombobox>
+                </div>
+
+                <div style="width: 100%; margin-top: 16px">
+                    <VirtualCombobox
+                        v-model="inviteGroupDialog.userIds"
+                        :groups="friendPickerGroups"
+                        multiple
+                        :disabled="inviteGroupDialog.loading"
+                        :placeholder="t('dialog.invite_to_group.choose_friends_placeholder')"
+                        :search-placeholder="t('dialog.invite_to_group.choose_friends_placeholder')"
+                        :clearable="true">
+                        <template #item="{ item, selected }">
+                            <div class="flex w-full items-center p-1.5 text-[13px]">
+                                <template v-if="item.user">
+                                    <div
+                                        class="relative inline-block flex-none size-9 mr-2.5"
+                                        :class="userStatusClass(item.user)">
+                                        <img
+                                            class="size-full rounded-full object-cover"
+                                            :src="userImage(item.user)"
+                                            loading="lazy" />
+                                    </div>
+                                    <div class="flex-1 overflow-hidden">
+                                        <span
+                                            class="block truncate font-medium leading-[18px]"
+                                            :style="{ color: item.user.$userColour }"
+                                            v-text="item.user.displayName"></span>
+                                    </div>
+                                </template>
+                                <template v-else>
+                                    <span v-text="item.label"></span>
+                                </template>
+
+                                <CheckIcon :class="['ml-auto size-4', selected ? 'opacity-100' : 'opacity-0']" />
                             </div>
                         </template>
-                        <span v-else v-text="friend.id"></span>
-                    </el-option>
-                </el-option-group>
-                <el-option-group v-if="activeFriends.length" :label="$t('side_panel.active')">
-                    <el-option
-                        v-for="friend in activeFriends"
-                        :key="friend.id"
-                        :label="friend.name"
-                        :value="friend.id"
-                        style="height: auto"
-                        class="x-friend-item">
-                        <template v-if="friend.ref">
-                            <div class="avatar">
-                                <img v-lazy="userImage(friend.ref)" />
-                            </div>
-                            <div class="detail">
-                                <span
-                                    class="name"
-                                    :style="{ color: friend.ref.$userColour }"
-                                    v-text="friend.ref.displayName"></span>
-                            </div>
-                        </template>
-                        <span v-else v-text="friend.id"></span>
-                    </el-option>
-                </el-option-group>
-                <el-option-group v-if="offlineFriends.length" :label="$t('side_panel.offline')">
-                    <el-option
-                        v-for="friend in offlineFriends"
-                        :key="friend.id"
-                        :label="friend.name"
-                        :value="friend.id"
-                        style="height: auto"
-                        class="x-friend-item">
-                        <template v-if="friend.ref">
-                            <div class="avatar">
-                                <img v-lazy="userImage(friend.ref)" />
-                            </div>
-                            <div class="detail">
-                                <span
-                                    class="name"
-                                    :style="{ color: friend.ref.$userColour }"
-                                    v-text="friend.ref.displayName"></span>
-                            </div>
-                        </template>
-                        <span v-else v-text="friend.id"></span>
-                    </el-option>
-                </el-option-group>
-            </el-select>
-        </div>
-        <template #footer>
-            <el-button
-                type="primary"
-                size="small"
-                :disabled="inviteGroupDialog.loading || !inviteGroupDialog.userIds.length || !inviteGroupDialog.groupId"
-                @click="sendGroupInvite">
-                {{ $t('dialog.invite_to_group.invite') }}
-            </el-button>
-        </template>
-    </safe-dialog>
+                    </VirtualCombobox>
+                </div>
+            </div>
+
+            <DialogFooter>
+                <Button
+                    :disabled="
+                        inviteGroupDialog.loading || !inviteGroupDialog.userIds.length || !inviteGroupDialog.groupId
+                    "
+                    @click="sendGroupInvite">
+                    {{ t('dialog.invite_to_group.invite') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { ref, watch, getCurrentInstance, nextTick, computed } from 'vue';
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, watch } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { Check as CheckIcon } from 'lucide-vue-next';
     import { storeToRefs } from 'pinia';
-    import { groupRequest, userRequest } from '../../api';
-    import { adjustDialogZ, hasGroupPermission, userImage, userStatusClass } from '../../shared/utils';
-    import { useFriendStore, useGroupStore } from '../../stores';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
 
+    import { hasGroupPermission } from '../../shared/utils';
+    import { useUserDisplay } from '../../composables/useUserDisplay';
+    import { useFriendStore, useGroupStore, useModalStore } from '../../stores';
+    import { groupRequest, queryRequest } from '../../api';
+    import { VirtualCombobox } from '../ui/virtual-combobox';
+    import { applyGroup } from '../../coordinators/groupCoordinator';
+
+    import configRepository from '../../services/config';
+
+    const { userImage, userStatusClass } = useUserDisplay();
     const { vipFriends, onlineFriends, activeFriends, offlineFriends } = storeToRefs(useFriendStore());
     const { currentUserGroups, inviteGroupDialog } = storeToRefs(useGroupStore());
-    const { applyGroup } = useGroupStore();
-
-    const { proxy } = getCurrentInstance();
+    const { t } = useI18n();
+    const modalStore = useModalStore();
 
     watch(
-        () => {
-            return inviteGroupDialog.value.visible;
-        },
-        (value) => {
+        () => inviteGroupDialog.value.visible,
+        async (value) => {
             if (value) {
+                inviteGroupDialog.value.groupId = await configRepository.getString('inviteGroupLastGroup', '');
                 initDialog();
+            } else {
+                await configRepository.setString('inviteGroupLastGroup', inviteGroupDialog.value.groupId);
             }
         }
     );
-
-    const inviteGroupDialogRef = ref(null);
 
     const groupsWithInvitePermission = computed(() => {
         return Array.from(currentUserGroups.value.values()).filter((group) =>
@@ -196,12 +129,144 @@
         );
     });
 
+    const groupPickerGroups = computed(() => [
+        {
+            key: 'groupsWithInvitePermission',
+            label: t('dialog.invite_to_group.groups_with_invite_permission'),
+            items: groupsWithInvitePermission.value.map((group) => ({
+                value: String(group.id),
+                label: group.name,
+                search: group.name,
+                iconUrl: group.iconUrl
+            }))
+        }
+    ]);
+
+    const friendSections = computed(() => [
+        {
+            key: 'vip',
+            label: t('side_panel.favorite'),
+            friends: vipFriends.value
+        },
+        {
+            key: 'online',
+            label: t('side_panel.online'),
+            friends: onlineFriends.value
+        },
+        {
+            key: 'active',
+            label: t('side_panel.active'),
+            friends: activeFriends.value
+        },
+        {
+            key: 'offline',
+            label: t('side_panel.offline'),
+            friends: offlineFriends.value
+        }
+    ]);
+
+    const friendById = computed(() => {
+        const map = new Map();
+        for (const section of friendSections.value) {
+            for (const friend of section.friends ?? []) {
+                map.set(friend.id, friend);
+            }
+        }
+        return map;
+    });
+
+    /**
+     *
+     * @param userId
+     */
+    function resolveUserDisplayName(userId) {
+        const D = inviteGroupDialog.value;
+        if (D?.userObject?.id && D.userObject.id === userId) {
+            return D.userObject.displayName;
+        }
+        const friend = friendById.value.get(userId);
+        return friend?.ref?.displayName ?? friend?.name ?? String(userId);
+    }
+
+    const friendPickerGroups = computed(() => {
+        const D = inviteGroupDialog.value;
+
+        const groups = [];
+
+        if (D?.userId) {
+            const selectedUser = D.userObject?.id
+                ? {
+                      value: String(D.userObject.id),
+                      label: D.userObject.displayName,
+                      search: D.userObject.displayName,
+                      user: D.userObject
+                  }
+                : {
+                      value: String(D.userId),
+                      label: String(D.userId),
+                      search: String(D.userId)
+                  };
+
+            groups.push({
+                key: 'selectedUsers',
+                label: t('dialog.invite_to_group.selected_users'),
+                items: [selectedUser]
+            });
+        }
+
+        const addFriendGroup = ({ key, label, friends }) => {
+            if (!friends?.length) return;
+            groups.push({
+                key,
+                label,
+                items: friends.map((friend) => {
+                    const user = friend?.ref ?? null;
+                    const displayName = resolveUserDisplayName(friend.id);
+                    return {
+                        value: String(friend.id),
+                        label: displayName,
+                        search: displayName,
+                        user
+                    };
+                })
+            });
+        };
+
+        friendSections.value.forEach(addFriendGroup);
+
+        return groups;
+    });
+
+    watch(
+        () => inviteGroupDialog.value.groupId,
+        (groupId) => {
+            if (!inviteGroupDialog.value.visible) {
+                return;
+            }
+            if (!groupId) {
+                inviteGroupDialog.value.groupName = '';
+                return;
+            }
+            queryRequest
+                .fetch('group', { groupId })
+                .then((args) => {
+                    inviteGroupDialog.value.groupName = args.ref.name;
+                })
+                .catch(() => {
+                    inviteGroupDialog.value.groupId = '';
+                });
+            isAllowedToInviteToGroup();
+        }
+    );
+
+    /**
+     *
+     */
     function initDialog() {
-        nextTick(() => adjustDialogZ(inviteGroupDialogRef.value.$el));
         const D = inviteGroupDialog.value;
         if (D.groupId) {
-            groupRequest
-                .getCachedGroup({
+            queryRequest
+                .fetch('group', {
                     groupId: D.groupId
                 })
                 .then((args) => {
@@ -214,12 +279,15 @@
         }
 
         if (D.userId) {
-            userRequest.getCachedUser({ userId: D.userId }).then((args) => {
+            queryRequest.fetch('user.dialog', { userId: D.userId }).then((args) => {
                 D.userObject = args.ref;
                 D.userIds = [D.userId];
             });
         }
     }
+    /**
+     *
+     */
     function isAllowedToInviteToGroup() {
         const D = inviteGroupDialog.value;
         const groupId = D.groupId;
@@ -236,24 +304,26 @@
                 }
                 // not allowed to invite
                 inviteGroupDialog.value.groupId = '';
-                proxy.$message({
-                    type: 'error',
-                    message: 'You are not allowed to invite to this group'
-                });
+                toast.error('You are not allowed to invite to this group');
                 return args;
             })
             .finally(() => {
                 inviteGroupDialog.value.loading = false;
             });
     }
+    /**
+     *
+     */
     function sendGroupInvite() {
-        proxy.$confirm('Continue? Invite User(s) To Group', 'Confirm', {
-            confirmButtonText: 'Confirm',
-            cancelButtonText: 'Cancel',
-            type: 'info',
-            callback: (action) => {
+        modalStore
+            .confirm({
+                description: t('confirm.invite_group'),
+                title: 'Confirm'
+            })
+            .then(({ ok }) => {
+                if (!ok) return;
                 const D = inviteGroupDialog.value;
-                if (action !== 'confirm' || D.loading === true) {
+                if (D.loading === true) {
                     return;
                 }
                 D.loading = true;
@@ -274,7 +344,7 @@
                         });
                 };
                 inviteLoop();
-            }
-        });
+            })
+            .catch(() => {});
     }
 </script>

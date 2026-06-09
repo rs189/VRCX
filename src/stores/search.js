@@ -1,57 +1,30 @@
+import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
-import { computed, reactive, watch } from 'vue';
+import { toast } from 'vue-sonner';
+import { useI18n } from 'vue-i18n';
+
 import { instanceRequest, userRequest } from '../api';
 import { groupRequest } from '../api/';
-import { $app } from '../app';
-import removeConfusables, { removeWhitespace } from '../service/confusables';
-import { watchState } from '../service/watchState';
-import { compareByName, localeIncludes } from '../shared/utils';
-import { useAvatarStore } from './avatar';
-import { useFriendStore } from './friend';
-import { useGroupStore } from './group';
 import { useAppearanceSettingsStore } from './settings/appearance';
-import { useUiStore } from './ui';
+import { showGroupDialog } from '../coordinators/groupCoordinator';
+import { showWorldDialog } from '../coordinators/worldCoordinator';
+import { showAvatarDialog } from '../coordinators/avatarCoordinator';
+import { applyUser, showUserDialog } from '../coordinators/userCoordinator';
+import { useModalStore } from './modal';
 import { useUserStore } from './user';
-import { useWorldStore } from './world';
-import { useI18n } from 'vue-i18n-bridge';
+import { watchState } from '../services/watchState';
 
 export const useSearchStore = defineStore('Search', () => {
     const userStore = useUserStore();
-    const uiStore = useUiStore();
     const appearanceSettingsStore = useAppearanceSettingsStore();
-    const friendStore = useFriendStore();
-    const worldStore = useWorldStore();
-    const avatarStore = useAvatarStore();
-    const groupStore = useGroupStore();
+    const modalStore = useModalStore();
     const { t } = useI18n();
 
-    const state = reactive({
-        searchText: '',
-        searchUserResults: [],
-        quickSearchItems: [],
-        friendsListSearch: ''
-    });
+    const searchText = ref('');
+    const searchUserResults = ref([]);
+    const friendsListSearch = ref('');
 
-    const searchText = computed({
-        get: () => state.searchText,
-        set: (value) => {
-            state.searchText = value;
-        }
-    });
-
-    const searchUserResults = computed({
-        get: () => state.searchUserResults,
-        set: (value) => {
-            state.searchUserResults = value;
-        }
-    });
-
-    const quickSearchItems = computed({
-        get: () => state.quickSearchItems,
-        set: (value) => {
-            state.quickSearchItems = value;
-        }
-    });
+    const directAccessPrompt = ref(null);
 
     const stringComparer = computed(() =>
         Intl.Collator(appearanceSettingsStore.appLanguage.replace('_', '-'), {
@@ -60,25 +33,25 @@ export const useSearchStore = defineStore('Search', () => {
         })
     );
 
-    const friendsListSearch = computed({
-        get: () => state.friendsListSearch,
-        set: (value) => {
-            state.friendsListSearch = value;
-        }
-    });
-
     watch(
         () => watchState.isLoggedIn,
         () => {
-            state.searchText = '';
-            state.searchUserResults = [];
+            searchText.value = '';
+            searchUserResults.value = [];
         },
         { flush: 'sync' }
     );
 
     function clearSearch() {
-        state.searchText = '';
-        state.searchUserResults = [];
+        searchText.value = '';
+        searchUserResults.value = [];
+    }
+
+    /**
+     * @param {string} value
+     */
+    function setSearchText(value) {
+        searchText.value = value;
     }
 
     async function searchUserByDisplayName(displayName) {
@@ -104,7 +77,7 @@ export const useSearchStore = defineStore('Search', () => {
                     console.error('getUsers gave us garbage', json);
                     continue;
                 }
-                userStore.applyUser(json);
+                applyUser(json);
             }
 
             const map = new Map();
@@ -114,133 +87,30 @@ export const useSearchStore = defineStore('Search', () => {
                     map.set(ref.id, ref);
                 }
             }
-            state.searchUserResults = Array.from(map.values());
+            searchUserResults.value = Array.from(map.values());
             return args;
         });
     }
 
-    function quickSearchRemoteMethod(query) {
-        if (!query) {
-            state.quickSearchItems = quickSearchUserHistory();
-            return;
+    async function directAccessPaste() {
+        let cbText = '';
+        if (LINUX) {
+            cbText = await window.electron.getClipboardText();
+        } else {
+            cbText = await AppApi.GetClipboard().catch((e) => {
+                console.log(e);
+                return '';
+            });
         }
 
-        const results = [];
-        const cleanQuery = removeWhitespace(query);
-
-        for (const ctx of friendStore.friends.values()) {
-            if (typeof ctx.ref === 'undefined') {
-                continue;
-            }
-
-            const cleanName = removeConfusables(ctx.name);
-            let match = localeIncludes(
-                cleanName,
-                cleanQuery,
-                stringComparer.value
+        let trimemd = cbText.trim();
+        if (!directAccessParse(trimemd)) {
+            promptOmniDirectDialog();
+        } else {
+            toast.success(
+                t('prompt.direct_access_omni.message.opened_from_clipboard')
             );
-            if (!match) {
-                // Also check regular name in case search is with special characters
-                match = localeIncludes(
-                    ctx.name,
-                    cleanQuery,
-                    stringComparer.value
-                );
-            }
-            // Use query with whitespace for notes and memos as people are more
-            // likely to include spaces in memos and notes
-            if (!match && ctx.memo) {
-                match = localeIncludes(ctx.memo, query, stringComparer.value);
-            }
-            if (!match && ctx.ref.note) {
-                match = localeIncludes(
-                    ctx.ref.note,
-                    query,
-                    stringComparer.value
-                );
-            }
-
-            if (match) {
-                results.push({
-                    value: ctx.id,
-                    label: ctx.name,
-                    ref: ctx.ref,
-                    name: ctx.name
-                });
-            }
         }
-
-        results.sort(function (a, b) {
-            const A =
-                stringComparer.value.compare(
-                    a.name.substring(0, cleanQuery.length),
-                    cleanQuery
-                ) === 0;
-            const B =
-                stringComparer.value.compare(
-                    b.name.substring(0, cleanQuery.length),
-                    cleanQuery
-                ) === 0;
-            if (A && !B) {
-                return -1;
-            } else if (B && !A) {
-                return 1;
-            }
-            return compareByName(a, b);
-        });
-        if (results.length > 4) {
-            results.length = 4;
-        }
-        results.push({
-            value: `search:${query}`,
-            label: query
-        });
-
-        state.quickSearchItems = results;
-    }
-
-    function quickSearchChange(value) {
-        if (value) {
-            if (value.startsWith('search:')) {
-                const searchText = value.substr(7);
-                if (state.quickSearchItems.length > 1 && searchText.length) {
-                    state.friendsListSearch = searchText;
-                    uiStore.menuActiveIndex = 'friendList';
-                } else {
-                    uiStore.menuActiveIndex = 'search';
-                    state.searchText = searchText;
-                    userStore.lookupUser({ displayName: searchText });
-                }
-            } else {
-                userStore.showUserDialog(value);
-            }
-        }
-    }
-
-    function quickSearchUserHistory() {
-        const userHistory = Array.from(userStore.showUserDialogHistory.values())
-            .reverse()
-            .slice(0, 5);
-        const results = [];
-        userHistory.forEach((userId) => {
-            const ref = userStore.cachedUsers.get(userId);
-            if (typeof ref !== 'undefined') {
-                results.push({
-                    value: ref.id,
-                    label: ref.name,
-                    ref
-                });
-            }
-        });
-        return results;
-    }
-
-    function directAccessPaste() {
-        AppApi.GetClipboard().then((clipboard) => {
-            if (!directAccessParse(clipboard.trim())) {
-                promptOmniDirectDialog();
-            }
-        });
     }
 
     function directAccessParse(input) {
@@ -260,15 +130,15 @@ export const useSearchStore = defineStore('Search', () => {
             const type = urlPathSplit[2];
             if (type === 'user') {
                 const userId = urlPathSplit[3];
-                userStore.showUserDialog(userId);
+                showUserDialog(userId);
                 return true;
             } else if (type === 'avatar') {
                 const avatarId = urlPathSplit[3];
-                avatarStore.showAvatarDialog(avatarId);
+                showAvatarDialog(avatarId);
                 return true;
             } else if (type === 'group') {
                 const groupId = urlPathSplit[3];
-                groupStore.showGroupDialog(groupId);
+                showGroupDialog(groupId);
                 return true;
             }
         } else if (input.startsWith('https://vrc.group/')) {
@@ -282,13 +152,16 @@ export const useSearchStore = defineStore('Search', () => {
             input.substring(0, 4) === 'usr_' ||
             /^[A-Za-z0-9]{10}$/g.test(input)
         ) {
-            userStore.showUserDialog(input);
+            showUserDialog(input);
             return true;
-        } else if (input.substring(0, 5) === 'avtr_') {
-            avatarStore.showAvatarDialog(input);
+        } else if (
+            input.substring(0, 5) === 'avtr_' ||
+            input.substring(0, 2) === 'b_'
+        ) {
+            showAvatarDialog(input);
             return true;
         } else if (input.substring(0, 4) === 'grp_') {
-            groupStore.showGroupDialog(input);
+            showGroupDialog(input);
             return true;
         }
         return false;
@@ -315,7 +188,7 @@ export const useSearchStore = defineStore('Search', () => {
             const urlPathSplit = urlPath.split('/');
             if (urlPathSplit.length >= 4 && urlPathSplit[2] === 'world') {
                 worldId = urlPathSplit[3];
-                worldStore.showWorldDialog(worldId);
+                showWorldDialog(worldId);
                 return true;
             } else if (urlPath.substring(5, 12) === '/launch') {
                 const urlParams = new URLSearchParams(url.search);
@@ -327,57 +200,63 @@ export const useSearchStore = defineStore('Search', () => {
                     if (shortName) {
                         return verifyShortName(location, shortName);
                     }
-                    worldStore.showWorldDialog(location);
+                    showWorldDialog(location);
                     return true;
                 } else if (worldId) {
-                    worldStore.showWorldDialog(worldId);
+                    showWorldDialog(worldId);
                     return true;
                 }
             }
-        } else if (input.substring(0, 5) === 'wrld_') {
+        } else if (
+            input.substring(0, 5) === 'wrld_' ||
+            input.substring(0, 4) === 'wld_' ||
+            input.substring(0, 2) === 'o_'
+        ) {
             // a bit hacky, but supports weird malformed inputs cut out from url, why not
             if (input.indexOf('&instanceId=') >= 0) {
                 input = `https://vrchat.com/home/launch?worldId=${input}`;
                 return directAccessWorld(input);
             }
-            worldStore.showWorldDialog(input.trim());
+            showWorldDialog(input.trim());
             return true;
         }
         return false;
     }
 
-    function promptOmniDirectDialog() {
-        $app.$prompt(
-            t('prompt.direct_access_omni.description'),
-            t('prompt.direct_access_omni.header'),
-            {
-                distinguishCancelAndClose: true,
-                confirmButtonText: t('prompt.direct_access_omni.ok'),
-                cancelButtonText: t('prompt.direct_access_omni.cancel'),
-                inputPattern: /\S+/,
-                inputErrorMessage: t('prompt.direct_access_omni.input_error'),
-                callback: (action, instance) => {
-                    if (action === 'confirm' && instance.inputValue) {
-                        const input = instance.inputValue.trim();
-                        if (!directAccessParse(input)) {
-                            $app.$message({
-                                message: t(
-                                    'prompt.direct_access_omni.message.error'
-                                ),
-                                type: 'error'
-                            });
-                        }
-                    }
+    async function promptOmniDirectDialog() {
+        if (directAccessPrompt.value) return;
+
+        // Element Plus: prompt(message, title, options)
+        directAccessPrompt.value = modalStore.prompt({
+            title: t('prompt.direct_access_omni.header'),
+            description: t('prompt.direct_access_omni.description'),
+            confirmText: t('prompt.direct_access_omni.ok'),
+            cancelText: t('prompt.direct_access_omni.cancel'),
+            pattern: /\S+/,
+            errorMessage: t('prompt.direct_access_omni.input_error')
+        });
+
+        try {
+            const { ok, value } = await directAccessPrompt.value;
+
+            if (ok && value) {
+                const input = value.trim();
+                if (!directAccessParse(input)) {
+                    toast.error(t('prompt.direct_access_omni.message.error'));
                 }
             }
-        );
+        } catch (error) {
+            console.log(error);
+        } finally {
+            directAccessPrompt.value = null;
+        }
     }
 
     function showGroupDialogShortCode(shortCode) {
         groupRequest.groupStrictsearch({ query: shortCode }).then((args) => {
             for (const group of args.json) {
                 if (`${group.shortCode}.${group.discriminator}` === shortCode) {
-                    groupStore.showGroupDialog(group.id);
+                    showGroupDialog(group.id);
                     break;
                 }
             }
@@ -392,32 +271,29 @@ export const useSearchStore = defineStore('Search', () => {
                 const newLocation = args.json.location;
                 const newShortName = args.json.shortName;
                 if (newShortName) {
-                    worldStore.showWorldDialog(newLocation, newShortName);
+                    showWorldDialog(newLocation, newShortName);
                 } else if (newLocation) {
-                    worldStore.showWorldDialog(newLocation);
+                    showWorldDialog(newLocation);
                 } else {
-                    worldStore.showWorldDialog(location);
+                    showWorldDialog(location);
                 }
                 return args;
             });
     }
 
     return {
-        state,
         searchText,
         searchUserResults,
         stringComparer,
-        quickSearchItems,
         friendsListSearch,
+
         clearSearch,
         searchUserByDisplayName,
         moreSearchUser,
-        quickSearchUserHistory,
-        quickSearchRemoteMethod,
-        quickSearchChange,
         directAccessParse,
         directAccessPaste,
         directAccessWorld,
-        verifyShortName
+        verifyShortName,
+        setSearchText
     };
 });

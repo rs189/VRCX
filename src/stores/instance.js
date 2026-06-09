@@ -1,35 +1,52 @@
+import { reactive, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
-import Vue, { computed, reactive, watch } from 'vue';
-import { instanceRequest, userRequest, worldRequest } from '../api';
-import { $app } from '../app';
-import configRepository from '../service/config';
-import { database } from '../service/database';
-import { watchState } from '../service/watchState';
-import { instanceContentSettings } from '../shared/constants';
+import { toast } from 'vue-sonner';
+import { useI18n } from 'vue-i18n';
+
 import {
     checkVRChatCache,
     compareByDisplayName,
+    compareById,
     compareByLocationAt,
+    computeDisabledContentSettings,
+    createDefaultInstanceRef,
+    debounce,
     displayLocation,
+    evictMapCache,
     getAvailablePlatforms,
     getBundleDateSize,
     getGroupName,
     getWorldName,
     hasGroupPermission,
     isRealInstance,
-    parseLocation
+    parseLocation,
+    replaceBioSymbols
 } from '../shared/utils';
+import {
+    instanceRequest,
+    queryRequest,
+    userRequest,
+    worldRequest
+} from '../api';
+import {
+    accessTypeLocaleKeyMap,
+    instanceContentSettings
+} from '../shared/constants';
+import { database } from '../services/database';
+import { resolveRef } from '../shared/utils/resolveRef';
+import { useAppearanceSettingsStore } from './settings/appearance';
 import { useFriendStore } from './friend';
 import { useGroupStore } from './group';
 import { useLocationStore } from './location';
 import { useNotificationStore } from './notification';
 import { usePhotonStore } from './photon';
-import { useAppearanceSettingsStore } from './settings/appearance';
 import { useSharedFeedStore } from './sharedFeed';
 import { useUiStore } from './ui';
 import { useUserStore } from './user';
 import { useWorldStore } from './world';
-import { useI18n } from 'vue-i18n-bridge';
+import { watchState } from '../services/watchState';
+
+import configRepository from '../services/config';
 
 export const useInstanceStore = defineStore('Instance', () => {
     const locationStore = useLocationStore();
@@ -45,107 +62,118 @@ export const useInstanceStore = defineStore('Instance', () => {
     const { t } = useI18n();
 
     const state = reactive({
-        cachedInstances: new Map(),
-        currentInstanceWorld: {
-            ref: {},
-            instance: {},
-            isPC: false,
-            isQuest: false,
-            isIos: false,
-            avatarScalingDisabled: false,
-            focusViewDisabled: false,
-            inCache: false,
-            cacheSize: '',
-            bundleSizes: [],
-            lastUpdated: ''
-        },
-        currentInstanceLocation: {},
-        queuedInstances: new Map(),
-        previousInstancesInfoDialogVisible: false,
-        previousInstancesInfoDialogInstanceId: '',
-        instanceJoinHistory: new Map(),
-        currentInstanceUserList: {
-            data: [],
-            tableProps: {
-                stripe: true,
-                size: 'mini',
-                defaultSort: {
-                    prop: 'timer',
-                    order: 'descending'
-                }
-            },
-            layout: 'table'
-        },
         updatePlayerListTimer: null,
         updatePlayerListPending: false
     });
 
-    const cachedInstances = computed({
-        get() {
-            return state.cachedInstances;
+    let cachedInstances = new Map();
+
+    /**
+     *
+     */
+    function cleanInstanceCache() {
+        const friendLocationTags = new Set(
+            [...friendStore.friends.values()]
+                .map((f) => f.$location?.tag)
+                .filter(Boolean)
+        );
+        evictMapCache(
+            cachedInstances,
+            200,
+            (_value, key) => friendLocationTags.has(key),
+            {
+                sortFn: (a, b) =>
+                    (Date.parse(a.value.$fetchedAt) || 0) -
+                    (Date.parse(b.value.$fetchedAt) || 0),
+                logLabel: 'Instance cache cleanup'
+            }
+        );
+    }
+
+    const lastInstanceApplied = ref('');
+
+    const currentInstanceWorld = ref({
+        ref: {},
+        instance: {},
+        isPC: false,
+        isQuest: false,
+        isIos: false,
+        avatarScalingDisabled: false,
+        focusViewDisabled: false,
+        inCache: false,
+        cacheSize: '',
+        fileAnalysis: {}
+    });
+
+    /** @type {import('vue').Ref<any>} */
+    const currentInstanceLocation = ref({});
+
+    const queuedInstances = reactive(new Map());
+
+    const previousInstancesInfoDialog = ref({
+        instanceId: '',
+        lastId: '',
+        visible: false
+    });
+
+    const previousInstancesListDialog = ref({
+        visible: false,
+        variant: 'user',
+        userRef: {
+            id: '',
+            displayName: ''
         },
-        set(value) {
-            state.cachedInstances = value;
+        worldRef: {
+            id: '',
+            name: ''
+        },
+        groupRef: {
+            id: '',
+            name: ''
+        },
+        lastId: ''
+    });
+
+    const previousInstancesInfoState = ref({
+        sortBy: [{ id: 'created_at', desc: true }],
+        search: '',
+        pageSize: 10,
+        pageIndex: 0
+    });
+
+    const previousInstancesListState = ref({
+        user: {
+            sortBy: [{ id: 'created_at', desc: true }],
+            search: '',
+            pageSize: 10,
+            pageIndex: 0
+        },
+        world: {
+            sortBy: [{ id: 'created_at', desc: true }],
+            search: '',
+            pageSize: 10,
+            pageIndex: 0
+        },
+        group: {
+            sortBy: [{ id: 'created_at', desc: true }],
+            search: '',
+            pageSize: 10,
+            pageIndex: 0
         }
     });
 
-    const currentInstanceWorld = computed({
-        get: () => state.currentInstanceWorld,
-        set: (value) => {
-            state.currentInstanceWorld = value;
-        }
-    });
+    const instanceJoinHistory = reactive(new Map());
 
-    const currentInstanceLocation = computed({
-        get: () => state.currentInstanceLocation,
-        set: (value) => {
-            state.currentInstanceLocation = value;
-        }
-    });
-
-    const queuedInstances = computed({
-        get: () => state.queuedInstances,
-        set: (value) => {
-            state.queuedInstances = value;
-        }
-    });
-
-    const previousInstancesInfoDialogVisible = computed({
-        get: () => state.previousInstancesInfoDialogVisible,
-        set: (value) => {
-            state.previousInstancesInfoDialogVisible = value;
-        }
-    });
-
-    const previousInstancesInfoDialogInstanceId = computed({
-        get: () => state.previousInstancesInfoDialogInstanceId,
-        set: (value) => {
-            state.previousInstancesInfoDialogInstanceId = value;
-        }
-    });
-
-    const instanceJoinHistory = computed({
-        get: () => state.instanceJoinHistory,
-        set: (value) => {
-            state.instanceJoinHistory = value;
-        }
-    });
-
-    const currentInstanceUserList = computed({
-        get: () => state.currentInstanceUserList,
-        set: (value) => {
-            state.currentInstanceUserList = value;
-        }
-    });
+    const currentInstanceUsersData = ref([]);
 
     watch(
         () => watchState.isLoggedIn,
         (isLoggedIn) => {
-            state.currentInstanceUserList.data = [];
-            state.instanceJoinHistory = new Map();
-            state.previousInstancesInfoDialogVisible = false;
-            state.cachedInstances.clear();
-            state.queuedInstances.clear();
+            currentInstanceUsersData.value = [];
+            instanceJoinHistory.clear();
+            hidePreviousInstancesDialogs();
+            cachedInstances.clear();
+            queuedInstances.clear();
             if (isLoggedIn) {
                 getInstanceJoinHistory();
             }
@@ -153,28 +181,217 @@ export const useInstanceStore = defineStore('Instance', () => {
         { flush: 'sync' }
     );
 
+    /**
+     *
+     */
     async function getInstanceJoinHistory() {
-        state.instanceJoinHistory = await database.getInstanceJoinHistory();
+        try {
+            const data = await database.getInstanceJoinHistory();
+            instanceJoinHistory.clear();
+            for (const [key, value] of data) {
+                instanceJoinHistory.set(key, value);
+            }
+        } catch (error) {
+            console.error('Failed to get instance join history:', error);
+        }
     }
 
+    /**
+     *
+     * @param location
+     * @param dateTime
+     */
     function addInstanceJoinHistory(location, dateTime) {
         if (!location || !dateTime) {
             return;
         }
 
-        if (state.instanceJoinHistory.has(location)) {
-            state.instanceJoinHistory.delete(location);
+        if (instanceJoinHistory.has(location)) {
+            instanceJoinHistory.delete(location);
         }
 
         const epoch = new Date(dateTime).getTime();
-        state.instanceJoinHistory.set(location, epoch);
+        instanceJoinHistory.set(location, epoch);
     }
 
+    /**
+     *
+     */
+    function hidePreviousInstancesDialogs() {
+        previousInstancesInfoDialog.value.visible = false;
+        previousInstancesListDialog.value.visible = false;
+    }
+
+    /**
+     * @param {boolean} value
+     */
+    function setPreviousInstancesInfoDialogVisible(value) {
+        previousInstancesInfoDialog.value.visible = value;
+    }
+
+    /**
+     * @param {boolean} value
+     */
+    function setPreviousInstancesListDialogVisible(value) {
+        previousInstancesListDialog.value.visible = value;
+    }
+
+    /**
+     *
+     * @param input
+     */
+    function resolveUserRef(input) {
+        return resolveRef(input, {
+            emptyDefault: { id: '', displayName: '' },
+            idAlias: 'userId',
+            nameKey: 'displayName',
+            fetchFn: (id) => queryRequest.fetch('user.dialog', { userId: id })
+        });
+    }
+
+    /**
+     *
+     * @param input
+     */
+    function resolveWorldRef(input) {
+        return resolveRef(input, {
+            emptyDefault: { id: '', name: '' },
+            idAlias: 'worldId',
+            nameKey: 'name',
+            fetchFn: (id) =>
+                queryRequest.fetch('world.location', { worldId: id })
+        });
+    }
+
+    /**
+     *
+     * @param input
+     */
+    function resolveGroupRef(input) {
+        return resolveRef(input, {
+            emptyDefault: { id: '', name: '' },
+            idAlias: 'groupId',
+            nameKey: 'name',
+            fetchFn: (id) => queryRequest.fetch('group.dialog', { groupId: id })
+        });
+    }
+
+    /**
+     *
+     * @param accessTypeNameRaw
+     */
+    function translateAccessType(accessTypeNameRaw) {
+        const key = accessTypeLocaleKeyMap[accessTypeNameRaw];
+        if (!key) {
+            return accessTypeNameRaw;
+        }
+        if (
+            accessTypeNameRaw === 'groupPublic' ||
+            accessTypeNameRaw === 'groupPlus'
+        ) {
+            const groupKey = accessTypeLocaleKeyMap.group;
+            return `${t(groupKey)} ${t(key)}`;
+        }
+        return t(key);
+    }
+
+    /**
+     *
+     * @param instanceId
+     * @param worldNameOverride
+     */
+    function formatPreviousInstancesInfoLabel(
+        instanceId,
+        worldNameOverride = ''
+    ) {
+        const location = parseLocation(instanceId);
+        const worldId = location.worldId;
+        const worldName =
+            worldNameOverride ||
+            (worldId ? worldStore.cachedWorlds.get(worldId)?.name : '') ||
+            '';
+        const baseLabel = worldName || worldId || instanceId || '';
+        const accessTypeLabel = translateAccessType(
+            location.accessTypeName || ''
+        );
+        if (!accessTypeLabel || !location.instanceId) {
+            return baseLabel;
+        }
+        return `${baseLabel} · ${accessTypeLabel}`;
+    }
+
+    /**
+     *
+     * @param instanceId
+     */
     function showPreviousInstancesInfoDialog(instanceId) {
-        state.previousInstancesInfoDialogVisible = true;
-        state.previousInstancesInfoDialogInstanceId = instanceId;
+        previousInstancesInfoDialog.value.visible = true;
+        previousInstancesInfoDialog.value.instanceId = instanceId;
+        uiStore.openDialog({
+            type: 'previous-instances-info',
+            id: instanceId || '',
+            label: instanceId
+                ? formatPreviousInstancesInfoLabel(instanceId)
+                : ''
+        });
+        if (instanceId) {
+            const location = parseLocation(instanceId);
+            if (
+                location.worldId &&
+                !worldStore.cachedWorlds.get(location.worldId)?.name
+            ) {
+                queryRequest
+                    .fetch('world.dialog', { worldId: location.worldId })
+                    .then((args) => {
+                        uiStore.setDialogCrumbLabel(
+                            'previous-instances-info',
+                            instanceId,
+                            formatPreviousInstancesInfoLabel(
+                                instanceId,
+                                args?.ref?.name || ''
+                            )
+                        );
+                    })
+                    .catch(() => {});
+            }
+        }
     }
 
+    /**
+     *
+     * @param variant
+     * @param targetRef
+     */
+    async function showPreviousInstancesListDialog(variant, targetRef) {
+        previousInstancesListDialog.value.variant = variant;
+        let resolved = null;
+        if (variant === 'user') {
+            resolved = await resolveUserRef(targetRef);
+            previousInstancesListDialog.value.userRef = resolved;
+        } else if (variant === 'world') {
+            resolved = await resolveWorldRef(targetRef);
+            previousInstancesListDialog.value.worldRef = resolved;
+        } else {
+            resolved = await resolveGroupRef(targetRef);
+            previousInstancesListDialog.value.groupRef = resolved;
+        }
+        previousInstancesListDialog.value.visible = true;
+        const dialogId = resolved?.id || '';
+        const label = resolved?.id
+            ? variant === 'user'
+                ? resolved.displayName || resolved.id
+                : resolved.name || resolved.id
+            : '';
+        uiStore.openDialog({
+            type: `previous-instances-${variant}`,
+            id: dialogId,
+            label
+        });
+    }
+
+    /**
+     *
+     */
     function updateCurrentInstanceWorld() {
         let L;
         let instanceId = locationStore.lastLocation.location;
@@ -182,7 +399,7 @@ export const useInstanceStore = defineStore('Instance', () => {
             instanceId = locationStore.lastLocationDestination;
         }
         if (!instanceId) {
-            state.currentInstanceWorld = {
+            currentInstanceWorld.value = {
                 ref: {},
                 instance: {},
                 isPC: false,
@@ -192,12 +409,11 @@ export const useInstanceStore = defineStore('Instance', () => {
                 focusViewDisabled: false,
                 inCache: false,
                 cacheSize: '',
-                bundleSizes: [],
-                lastUpdated: ''
+                fileAnalysis: {}
             };
-            state.currentInstanceLocation = {};
-        } else if (instanceId !== state.currentInstanceLocation.tag) {
-            state.currentInstanceWorld = {
+            currentInstanceLocation.value = {};
+        } else if (instanceId !== currentInstanceLocation.value.tag) {
+            currentInstanceWorld.value = {
                 ref: {},
                 instance: {},
                 isPC: false,
@@ -207,34 +423,33 @@ export const useInstanceStore = defineStore('Instance', () => {
                 focusViewDisabled: false,
                 inCache: false,
                 cacheSize: '',
-                bundleSizes: [],
-                lastUpdated: ''
+                fileAnalysis: {}
             };
             L = parseLocation(instanceId);
-            state.currentInstanceLocation = L;
+            currentInstanceLocation.value = L;
             worldRequest
                 .getWorld({
                     worldId: L.worldId
                 })
                 .then((args) => {
-                    state.currentInstanceWorld.ref = args.ref;
+                    currentInstanceWorld.value.ref = args.ref;
                     const { isPC, isQuest, isIos } = getAvailablePlatforms(
                         args.ref.unityPackages
                     );
-                    state.currentInstanceWorld.isPC = isPC;
-                    state.currentInstanceWorld.isQuest = isQuest;
-                    state.currentInstanceWorld.isIos = isIos;
-                    state.currentInstanceWorld.avatarScalingDisabled =
+                    currentInstanceWorld.value.isPC = isPC;
+                    currentInstanceWorld.value.isQuest = isQuest;
+                    currentInstanceWorld.value.isIos = isIos;
+                    currentInstanceWorld.value.avatarScalingDisabled =
                         args.ref?.tags.includes(
                             'feature_avatar_scaling_disabled'
                         );
-                    state.currentInstanceWorld.focusViewDisabled =
+                    currentInstanceWorld.value.focusViewDisabled =
                         args.ref?.tags.includes('feature_focus_view_disabled');
                     checkVRChatCache(args.ref)
                         .then((cacheInfo) => {
                             if (cacheInfo.Item1 > 0) {
-                                state.currentInstanceWorld.inCache = true;
-                                state.currentInstanceWorld.cacheSize = `${(
+                                currentInstanceWorld.value.inCache = true;
+                                currentInstanceWorld.value.cacheSize = `${(
                                     cacheInfo.Item1 / 1048576
                                 ).toFixed(2)} MB`;
                             }
@@ -245,39 +460,29 @@ export const useInstanceStore = defineStore('Instance', () => {
                                 error
                             );
                         });
-                    getBundleDateSize(args.ref)
-                        .then((bundleSizes) => {
-                            state.currentInstanceWorld.bundleSizes =
-                                bundleSizes;
-                        })
-                        .catch((error) => {
-                            console.error(
-                                'Error fetching bundle sizes:',
-                                error
-                            );
-                        });
+                    getBundleDateSize(args.ref);
                     return args;
                 })
                 .catch((error) => {
                     console.error('Error fetching world data:', error);
                 });
         } else {
-            worldRequest
-                .getCachedWorld({
-                    worldId: state.currentInstanceLocation.worldId
+            queryRequest
+                .fetch('world.location', {
+                    worldId: currentInstanceLocation.value.worldId
                 })
                 .then((args) => {
-                    state.currentInstanceWorld.ref = args.ref;
+                    currentInstanceWorld.value.ref = args.ref;
                     const { isPC, isQuest, isIos } = getAvailablePlatforms(
                         args.ref.unityPackages
                     );
-                    state.currentInstanceWorld.isPC = isPC;
-                    state.currentInstanceWorld.isQuest = isQuest;
-                    state.currentInstanceWorld.isIos = isIos;
+                    currentInstanceWorld.value.isPC = isPC;
+                    currentInstanceWorld.value.isQuest = isQuest;
+                    currentInstanceWorld.value.isIos = isIos;
                     checkVRChatCache(args.ref).then((cacheInfo) => {
                         if (cacheInfo.Item1 > 0) {
-                            state.currentInstanceWorld.inCache = true;
-                            state.currentInstanceWorld.cacheSize = `${(
+                            currentInstanceWorld.value.inCache = true;
+                            currentInstanceWorld.value.cacheSize = `${(
                                 cacheInfo.Item1 / 1048576
                             ).toFixed(2)} MB`;
                         }
@@ -285,9 +490,9 @@ export const useInstanceStore = defineStore('Instance', () => {
                 });
         }
         if (isRealInstance(instanceId)) {
-            const ref = state.cachedInstances.get(instanceId);
+            const ref = cachedInstances.get(instanceId);
             if (typeof ref !== 'undefined') {
-                state.currentInstanceWorld.instance = ref;
+                currentInstanceWorld.value.instance = ref;
             } else {
                 L = parseLocation(instanceId);
                 if (L.isRealInstance) {
@@ -297,7 +502,7 @@ export const useInstanceStore = defineStore('Instance', () => {
                             instanceId: L.instanceId
                         })
                         .then((args) => {
-                            state.currentInstanceWorld.instance = args.ref;
+                            currentInstanceWorld.value.instance = args.ref;
                         })
                         .catch((error) => {
                             console.error(
@@ -322,63 +527,18 @@ export const useInstanceStore = defineStore('Instance', () => {
         if (!json.$fetchedAt) {
             json.$fetchedAt = new Date().toJSON();
         }
-        let ref = state.cachedInstances.get(json.id);
+        let ref = cachedInstances.get(json.id);
         if (typeof ref === 'undefined') {
-            ref = {
-                id: '',
-                location: '',
-                instanceId: '',
-                name: '',
-                worldId: '',
-                type: '',
-                ownerId: '',
-                tags: [],
-                active: false,
-                full: false,
-                n_users: 0,
-                hasCapacityForYou: true, // not present depending on endpoint
-                capacity: 0,
-                recommendedCapacity: 0,
-                userCount: 0,
-                queueEnabled: false, // only present with group instance type
-                queueSize: 0, // only present when queuing is enabled
-                platforms: {},
-                gameServerVersion: 0,
-                hardClose: null, // boolean or null
-                closedAt: null, // string or null
-                secureName: '',
-                shortName: '',
-                world: {},
-                users: [], // only present when you're the owner
-                clientNumber: '',
-                contentSettings: {},
-                photonRegion: '',
-                region: '',
-                canRequestInvite: false,
-                permanent: false,
-                private: '', // part of instance tag
-                hidden: '', // part of instance tag
-                nonce: '', // only present when you're the owner
-                strict: false, // deprecated
-                displayName: null,
-                groupAccessType: null, // only present with group instance type
-                roleRestricted: false, // only present with group instance type
-                instancePersistenceEnabled: null,
-                playerPersistenceEnabled: null,
-                ageGate: null,
-                // VRCX
-                $fetchedAt: '',
-                $disabledContentSettings: [],
-                ...json
-            };
-            state.cachedInstances.set(ref.id, ref);
+            ref = createDefaultInstanceRef(json);
+            cachedInstances.set(ref.id, ref);
+            cleanInstanceCache();
         } else {
             Object.assign(ref, json);
         }
         ref.$location = parseLocation(ref.location);
         if (ref.world?.id) {
-            worldRequest
-                .getCachedWorld({
+            queryRequest
+                .fetch('world.location', {
                     worldId: ref.world.id
                 })
                 .then((args) => {
@@ -386,21 +546,16 @@ export const useInstanceStore = defineStore('Instance', () => {
                     return args;
                 });
         }
-        ref.$disabledContentSettings = [];
-        if (json.contentSettings && Object.keys(json.contentSettings).length) {
-            for (const setting of instanceContentSettings) {
-                if (
-                    typeof json.contentSettings[setting] === 'undefined' ||
-                    json.contentSettings[setting] === true
-                ) {
-                    continue;
-                }
-                ref.$disabledContentSettings.push(setting);
-            }
+        ref.$disabledContentSettings = computeDisabledContentSettings(
+            json.contentSettings,
+            instanceContentSettings
+        );
+        if (ref.displayName) {
+            ref.displayName = replaceBioSymbols(ref.displayName);
         }
         if (
             userStore.userDialog.visible &&
-            userStore.userDialog.ref.$location.tag === ref.id
+            userStore.userDialog.ref?.$location?.tag === ref.id
         ) {
             userStore.applyUserDialogLocation();
         }
@@ -421,7 +576,31 @@ export const useInstanceStore = defineStore('Instance', () => {
                 groupInstance.instance = ref;
             }
         }
+        lastInstanceApplied.value = ref.id;
         return ref;
+    }
+
+    /**
+     *
+     * @param location
+     */
+    async function getInstanceName(location) {
+        let instanceName = '';
+
+        const L = parseLocation(location);
+        if (L.isRealInstance && L.worldId && L.instanceId) {
+            try {
+                const args = await instanceRequest.getInstance({
+                    worldId: L.worldId,
+                    instanceId: L.instanceId
+                });
+                instanceName = args.ref.displayName;
+            } catch (e) {
+                console.error('getInstanceName failed location', location, e);
+            }
+        }
+
+        return instanceName;
     }
 
     /**
@@ -508,6 +687,9 @@ export const useInstanceStore = defineStore('Instance', () => {
             if (D.groupAccessType === 'members') {
                 params.roleIds = D.roleIds;
             }
+            if (D.minimumAvatarPerformance) {
+                params.minimumAvatarPerformance = D.minimumAvatarPerformance;
+            }
         }
         if (
             D.ageGate &&
@@ -515,6 +697,9 @@ export const useInstanceStore = defineStore('Instance', () => {
             hasGroupPermission(D.groupRef, 'group-instance-age-gated-create')
         ) {
             params.ageGate = true;
+        }
+        if (D.displayName) {
+            params.displayName = D.displayName;
         }
         try {
             const args = await instanceRequest.createInstance(params);
@@ -525,7 +710,17 @@ export const useInstanceStore = defineStore('Instance', () => {
         }
     }
 
+    /**
+     *
+     */
     function applyWorldDialogInstances() {
+        debounce(applyWorldDialogInstancesDebounced, 100)();
+    }
+
+    /**
+     *
+     */
+    function applyWorldDialogInstancesDebounced() {
         let ref;
         let instance;
         const D = worldStore.worldDialog;
@@ -548,7 +743,7 @@ export const useInstanceStore = defineStore('Instance', () => {
                 };
             }
         }
-        const { instanceId, shortName } = D.$location;
+        const { instanceId, shortName } = D?.$location || {};
         if (instanceId && typeof instances[instanceId] === 'undefined') {
             instances[instanceId] = {
                 id: instanceId,
@@ -563,9 +758,9 @@ export const useInstanceStore = defineStore('Instance', () => {
         const cachedCurrentUser = userStore.cachedUsers.get(
             userStore.currentUser.id
         );
-        const lastLocation$ = cachedCurrentUser.$location;
+        const lastLocation$ = cachedCurrentUser?.$location;
         const playersInInstance = locationStore.lastLocation.playerList;
-        if (lastLocation$.worldId === D.id && playersInInstance.size > 0) {
+        if (lastLocation$?.worldId === D.id && playersInInstance.size > 0) {
             // pull instance json from cache
             const friendsInInstance = locationStore.lastLocation.friendList;
             instance = {
@@ -597,7 +792,7 @@ export const useInstanceStore = defineStore('Instance', () => {
                 typeof ref === 'undefined' ||
                 typeof ref.$location === 'undefined' ||
                 ref.$location.worldId !== D.id ||
-                (ref.$location.instanceId === lastLocation$.instanceId &&
+                (ref.$location.instanceId === lastLocation$?.instanceId &&
                     playersInInstance.size > 0 &&
                     ref.location !== 'traveling')
             ) {
@@ -651,6 +846,7 @@ export const useInstanceStore = defineStore('Instance', () => {
                 L.shortName = instance.shortName;
             }
             instance.$location = L;
+            L.user = {};
             if (L.userId) {
                 ref = userStore.cachedUsers.get(L.userId);
                 if (typeof ref === 'undefined') {
@@ -659,11 +855,11 @@ export const useInstanceStore = defineStore('Instance', () => {
                             userId: L.userId
                         })
                         .then((args) => {
-                            Vue.set(L, 'user', args.ref);
-                            return args;
-                        })
-                        .catch((error) => {
-                            console.error('Error fetching user:', error);
+                            if (args.ref.id === L.userId) {
+                                Object.assign(L.user, args.ref);
+                                instance.$location = L;
+                                applyWorldDialogInstances();
+                            }
                         });
                 } else {
                     L.user = ref;
@@ -681,16 +877,16 @@ export const useInstanceStore = defineStore('Instance', () => {
         }
         // get instance from cache
         for (const room of rooms) {
-            ref = state.cachedInstances.get(room.tag);
+            ref = cachedInstances.get(room.tag);
             if (typeof ref !== 'undefined') {
-                room.ref = ref;
+                Object.assign(room.ref, ref);
             }
         }
         rooms.sort(function (a, b) {
             // sort selected and current instance to top
             if (
                 b.location === D.$location.tag ||
-                b.location === lastLocation$.tag
+                b.location === lastLocation$?.tag
             ) {
                 // sort selected instance above current instance
                 if (a.location === D.$location.tag) {
@@ -700,7 +896,7 @@ export const useInstanceStore = defineStore('Instance', () => {
             }
             if (
                 a.location === D.$location.tag ||
-                a.location === lastLocation$.tag
+                a.location === lastLocation$?.tag
             ) {
                 // sort selected instance above current instance
                 if (b.location === D.$location.tag) {
@@ -709,17 +905,25 @@ export const useInstanceStore = defineStore('Instance', () => {
                 return -1;
             }
             // sort by number of users when no friends in instance
-            if (a.users.length === 0 && b.users.length === 0) {
+            if (
+                a.users.length === 0 &&
+                b.users.length === 0 &&
+                a.ref?.userCount !== b.ref?.userCount
+            ) {
                 if (a.ref?.userCount < b.ref?.userCount) {
                     return 1;
                 }
                 return -1;
             }
             // sort by number of friends in instance
-            if (a.users.length < b.users.length) {
-                return 1;
+            if (a.users.length !== b.users.length) {
+                if (a.users.length < b.users.length) {
+                    return 1;
+                }
+                return -1;
             }
-            return -1;
+            // sort by id
+            return compareById(a, b);
         });
         D.rooms = rooms;
     }
@@ -759,10 +963,10 @@ export const useInstanceStore = defineStore('Instance', () => {
         const cachedCurrentUser = userStore.cachedUsers.get(
             userStore.currentUser.id
         );
-        const lastLocation$ = cachedCurrentUser.$location;
-        const currentLocation = lastLocation$.tag;
+        const lastLocation$ = cachedCurrentUser?.$location;
+        const currentLocation = lastLocation$?.tag;
         const playersInInstance = locationStore.lastLocation.playerList;
-        if (lastLocation$.groupId === D.id && playersInInstance.size > 0) {
+        if (lastLocation$?.groupId === D.id && playersInInstance.size > 0) {
             const friendsInInstance = locationStore.lastLocation.friendList;
             instance = {
                 id: lastLocation$.instanceId,
@@ -793,7 +997,7 @@ export const useInstanceStore = defineStore('Instance', () => {
                 typeof ref === 'undefined' ||
                 typeof ref.$location === 'undefined' ||
                 ref.$location.groupId !== D.id ||
-                (ref.$location.instanceId === lastLocation$.instanceId &&
+                (ref.$location.instanceId === lastLocation$?.instanceId &&
                     playersInInstance.size > 0 &&
                     ref.location !== 'traveling')
             ) {
@@ -856,9 +1060,9 @@ export const useInstanceStore = defineStore('Instance', () => {
         }
         // get instance
         for (const room of rooms) {
-            ref = cachedInstances.value.get(room.tag);
+            ref = cachedInstances.get(room.tag);
             if (typeof ref !== 'undefined') {
-                room.ref = ref;
+                Object.assign(room.ref, ref);
             } else if (isRealInstance(room.tag)) {
                 instanceRequest.getInstance({
                     worldId: room.$location.worldId,
@@ -890,15 +1094,15 @@ export const useInstanceStore = defineStore('Instance', () => {
         D.instances = rooms;
     }
 
+    /**
+     *
+     */
     function removeAllQueuedInstances() {
-        state.queuedInstances.forEach((ref) => {
-            $app.$message({
-                message: `Removed instance ${ref.$worldName} from queue`,
-                type: 'info'
-            });
-            ref.$msgBox?.close();
+        queuedInstances.forEach((ref) => {
+            toast.info(`Removed instance ${ref.$worldName} from queue`);
+            toast.dismiss(ref.$msgBox);
         });
-        state.queuedInstances.clear();
+        queuedInstances.clear();
     }
 
     /**
@@ -906,10 +1110,10 @@ export const useInstanceStore = defineStore('Instance', () => {
      * @param {string} instanceId
      */
     function removeQueuedInstance(instanceId) {
-        const ref = state.queuedInstances.get(instanceId);
+        const ref = queuedInstances.get(instanceId);
         if (typeof ref !== 'undefined') {
-            ref.$msgBox.close();
-            state.queuedInstances.delete(instanceId);
+            toast.dismiss(ref.$msgBox);
+            queuedInstances.delete(instanceId);
         }
     }
 
@@ -918,22 +1122,21 @@ export const useInstanceStore = defineStore('Instance', () => {
      * @param {string} instanceId
      */
     function applyQueuedInstance(instanceId) {
-        state.queuedInstances.forEach((ref) => {
+        queuedInstances.forEach((ref) => {
             if (ref.location !== instanceId) {
-                $app.$message({
-                    message: t('message.instance.removed_form_queue', {
+                toast.info(
+                    t('message.instance.removed_form_queue', {
                         worldName: ref.$worldName
-                    }),
-                    type: 'info'
-                });
-                ref.$msgBox?.close();
-                state.queuedInstances.delete(ref.location);
+                    })
+                );
+                toast.dismiss(ref.$msgBox);
+                queuedInstances.delete(ref.location);
             }
         });
         if (!instanceId) {
             return;
         }
-        if (!state.queuedInstances.has(instanceId)) {
+        if (!queuedInstances.has(instanceId)) {
             const L = parseLocation(instanceId);
             if (L.isRealInstance) {
                 instanceRequest
@@ -966,26 +1169,24 @@ export const useInstanceStore = defineStore('Instance', () => {
      * @param {string} instanceId
      */
     function instanceQueueReady(instanceId) {
-        const ref = state.queuedInstances.get(instanceId);
+        const ref = queuedInstances.get(instanceId);
         if (typeof ref !== 'undefined') {
-            ref.$msgBox.close();
-            state.queuedInstances.delete(instanceId);
+            toast.dismiss(ref.$msgBox);
+            queuedInstances.delete(instanceId);
         }
         const L = parseLocation(instanceId);
         const group = groupStore.cachedGroups.get(L.groupId);
         const groupName = group?.name ?? '';
         const worldName = ref?.$worldName ?? '';
         const location = displayLocation(instanceId, worldName, groupName);
-        $app.$message({
-            message: `Instance ready to join ${location}`,
-            type: 'success'
-        });
+        toast.success(`Instance ready to join ${location}`);
         const noty = {
             created_at: new Date().toJSON(),
             type: 'group.queueReady',
             imageUrl: group?.iconUrl,
             message: `Instance ready to join ${location}`,
             location: instanceId,
+            senderUserId: L.groupId,
             groupName,
             worldName
         };
@@ -998,8 +1199,8 @@ export const useInstanceStore = defineStore('Instance', () => {
             uiStore.notifyMenu('notification');
         }
         notificationStore.queueNotificationNoty(noty);
+        sharedFeedStore.addEntry(noty);
         notificationStore.notificationTable.data.push(noty);
-        sharedFeedStore.updateSharedFeed(true);
     }
 
     /**
@@ -1010,7 +1211,7 @@ export const useInstanceStore = defineStore('Instance', () => {
      * @returns {Promise<void>}
      */
     async function instanceQueueUpdate(instanceId, position, queueSize) {
-        let ref = state.queuedInstances.get(instanceId);
+        let ref = queuedInstances.get(instanceId);
         if (typeof ref === 'undefined') {
             ref = {
                 $msgBox: null,
@@ -1025,15 +1226,6 @@ export const useInstanceStore = defineStore('Instance', () => {
         ref.position = position;
         ref.queueSize = queueSize;
         ref.updatedAt = Date.now();
-        if (!ref.$msgBox || ref.$msgBox.closed) {
-            ref.$msgBox = $app.$message({
-                message: '',
-                type: 'info',
-                duration: 0,
-                showClose: true,
-                customClass: 'vrc-instance-queue-message'
-            });
-        }
         if (!ref.$groupName) {
             ref.$groupName = await getGroupName(instanceId);
         }
@@ -1045,11 +1237,23 @@ export const useInstanceStore = defineStore('Instance', () => {
             ref.$worldName,
             ref.$groupName
         );
-        ref.$msgBox.message = `You are in position ${ref.position} of ${ref.queueSize} in the queue for ${location} `;
-        state.queuedInstances.set(instanceId, ref);
+        toast.dismiss(ref.$msgBox ?? undefined);
+        ref.$msgBox = toast.info(
+            `You are in position ${ref.position} of ${ref.queueSize} in the queue for ${location} `,
+            {
+                duration: Infinity,
+                position: 'bottom-right',
+                closeButton: true,
+                class: 'vrc-instance-queue-message'
+            }
+        );
+        queuedInstances.set(instanceId, ref);
         // workerTimers.setTimeout(this.instanceQueueTimeout, 3600000);
     }
 
+    /**
+     *
+     */
     function getCurrentInstanceUserList() {
         if (!watchState.isFriendsLoaded) {
             return;
@@ -1067,6 +1271,9 @@ export const useInstanceStore = defineStore('Instance', () => {
         }
     }
 
+    /**
+     *
+     */
     function updatePlayerListExecute() {
         try {
             updatePlayerListDebounce();
@@ -1077,6 +1284,9 @@ export const useInstanceStore = defineStore('Instance', () => {
         state.updatePlayerListPending = false;
     }
 
+    /**
+     *
+     */
     function updatePlayerListDebounce() {
         const users = [];
         const pushUser = function (ref) {
@@ -1086,6 +1296,7 @@ export const useInstanceStore = defineStore('Instance', () => {
             let isMuted = false;
             let isAvatarInteractionDisabled = false;
             let isChatBoxMuted = false;
+            let ageVerified = false;
             photonStore.photonLobbyCurrent.forEach((ref1, id) => {
                 if (typeof ref1 !== 'undefined') {
                     if (
@@ -1147,6 +1358,7 @@ export const useInstanceStore = defineStore('Instance', () => {
                 isAvatarInteractionDisabled =
                     ref.$moderations.isAvatarInteractionDisabled;
                 isChatBoxMuted = ref.$moderations.isChatBoxMuted;
+                ageVerified = ref.ageVerificationStatus === '18+';
             }
             users.push({
                 ref,
@@ -1159,9 +1371,13 @@ export const useInstanceStore = defineStore('Instance', () => {
                 inVRMode,
                 groupOnNameplate,
                 isFriend,
-                timeoutTime
+                timeoutTime,
+                isBlocked,
+                isMuted,
+                isAvatarInteractionDisabled,
+                isChatBoxMuted,
+                ageVerified
             });
-            // get block, mute
         };
 
         const playersInInstance = locationStore.lastLocation.playerList;
@@ -1201,27 +1417,32 @@ export const useInstanceStore = defineStore('Instance', () => {
                 }
             }
         }
-        state.currentInstanceUserList.data = users;
+        currentInstanceUsersData.value = users;
     }
 
     // $app.methods.instanceQueueClear = function () {
     //     // remove all instances from queue
-    //     state.queuedInstances.forEach((ref) => {
-    //         ref.$msgBox.close();
-    //         state.queuedInstances.delete(ref.location);
+    //     queuedInstances.forEach((ref) => {
+    //         toast.dismiss(ref.$msgBox);
+    //         queuedInstances.delete(ref.location);
     //     });
     // };
 
     return {
         state,
+
         cachedInstances,
+        lastInstanceApplied,
         currentInstanceWorld,
         currentInstanceLocation,
         queuedInstances,
-        previousInstancesInfoDialogVisible,
-        previousInstancesInfoDialogInstanceId,
+        previousInstancesInfoDialog,
+        previousInstancesInfoState,
+        previousInstancesListDialog,
+        previousInstancesListState,
         instanceJoinHistory,
-        currentInstanceUserList,
+        currentInstanceUsersData,
+
         applyInstance,
         updateCurrentInstanceWorld,
         createNewInstance,
@@ -1232,9 +1453,14 @@ export const useInstanceStore = defineStore('Instance', () => {
         applyQueuedInstance,
         instanceQueueReady,
         instanceQueueUpdate,
+        hidePreviousInstancesDialogs,
+        setPreviousInstancesInfoDialogVisible,
+        setPreviousInstancesListDialogVisible,
         showPreviousInstancesInfoDialog,
+        showPreviousInstancesListDialog,
         addInstanceJoinHistory,
         getCurrentInstanceUserList,
-        getInstanceJoinHistory
+        getInstanceJoinHistory,
+        getInstanceName
     };
 });

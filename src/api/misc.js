@@ -1,17 +1,22 @@
-import { request } from '../service/request';
+import { queryClient, queryKeys } from '../queries';
+import { request } from '../services/request';
 import { useUserStore } from '../stores';
 
+/**
+ *
+ */
 function getCurrentUserId() {
     return useUserStore().currentUser.id;
 }
 
 const miscReq = {
-    getBundles(fileId) {
-        return request(`file/${fileId}`, {
+    getFile(params) {
+        return request(`file/${params.fileId}`, {
             method: 'GET'
         }).then((json) => {
             const args = {
-                json
+                json,
+                params
             };
             return args;
         });
@@ -37,7 +42,7 @@ const miscReq = {
      *       reason: string,
      *       type: string
      * }} params
-     * @return { Promise<{json: any, params}> }
+     * @returns { Promise<{json: any, params}> }
      */
     reportUser(params) {
         return request(`feedback/${params.userId}/user`, {
@@ -62,7 +67,7 @@ const miscReq = {
      *       version: number,
      *       variant: string
      * }} params
-     * @return { Promise<{json: any, params}> }
+     * @returns { Promise<{json: any, params}> }
      */
     getFileAnalysis(params) {
         return request(
@@ -191,30 +196,37 @@ const miscReq = {
                 json,
                 fileId
             };
+            queryClient.removeQueries({
+                queryKey: queryKeys.file(fileId),
+                exact: true
+            });
+            return args;
+        });
+    },
+
+    /**
+     * @param params
+     * @params {{
+        userId: string,
+        emojiId: string
+     }} params
+     * @returns {Promise<{json: any, params}>}
+     */
+    sendBoop(params) {
+        return request(`users/${params.userId}/boop`, {
+            method: 'POST',
+            params: {
+                emojiId: params.emojiId
+                // inventoryItemId
+            }
+        }).then((json) => {
+            const args = {
+                json,
+                params
+            };
             return args;
         });
     }
-
-    // /**
-    //  * @params {{
-    //  userId: string,
-    //  emojiId: string
-    //  }} params
-    //  * @returns {Promise<{json: any, params}>}
-    //  */
-    // sendBoop(params) {
-    //     return request(`users/${params.userId}/boop`, {
-    //         method: 'POST',
-    //         params
-    //     }).then((json) => {
-    //         const args = {
-    //             json,
-    //             params
-    //         };
-    //         this.$emit('BOOP:SEND', args);
-    //         return args;
-    //     });
-    // }
 };
 
 export default miscReq;

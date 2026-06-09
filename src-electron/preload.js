@@ -8,6 +8,27 @@
  */
 const { contextBridge, ipcRenderer, app } = require('electron');
 
+const managedListeners = new Map();
+
+function registerManagedListener(channel, callback, mapKey = channel) {
+    const existingListener = managedListeners.get(mapKey);
+    if (existingListener) {
+        ipcRenderer.removeListener(channel, existingListener);
+    }
+
+    const listener = (event, ...args) => callback(event, ...args);
+    managedListeners.set(mapKey, listener);
+    ipcRenderer.on(channel, listener);
+
+    return () => {
+        const currentListener = managedListeners.get(mapKey);
+        if (currentListener === listener) {
+            ipcRenderer.removeListener(channel, listener);
+            managedListeners.delete(mapKey);
+        }
+    };
+}
+
 contextBridge.exposeInMainWorld('interopApi', {
     callDotNetMethod: (className, methodName, args) => {
         return ipcRenderer.invoke(
@@ -22,20 +43,25 @@ contextBridge.exposeInMainWorld('interopApi', {
 const validChannels = ['launch-command'];
 
 contextBridge.exposeInMainWorld('electron', {
+    getArch: () => ipcRenderer.invoke('app:getArch'),
+    getClipboardText: () => ipcRenderer.invoke('app:getClipboardText'),
+    getNoUpdater: () => ipcRenderer.invoke('app:getNoUpdater'),
+    setTrayIconNotification: (notify) =>
+        ipcRenderer.invoke('app:setTrayIconNotification', notify),
     openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
     openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
     onWindowPositionChanged: (callback) =>
-        ipcRenderer.on('setWindowPosition', callback),
+        registerManagedListener('setWindowPosition', callback),
     onWindowSizeChanged: (callback) =>
-        ipcRenderer.on('setWindowSize', callback),
+        registerManagedListener('setWindowSize', callback),
     onWindowStateChange: (callback) =>
-        ipcRenderer.on('setWindowState', callback),
+        registerManagedListener('setWindowState', callback),
+    onBrowserFocus: (callback) =>
+        registerManagedListener('onBrowserFocus', callback),
     desktopNotification: (title, body, icon) =>
         ipcRenderer.invoke('notification:showNotification', title, body, icon),
     restartApp: () => ipcRenderer.invoke('app:restart'),
-    getWristOverlayWindow: () =>
-        ipcRenderer.invoke('app:getWristOverlayWindow'),
-    getHmdOverlayWindow: () => ipcRenderer.invoke('app:getHmdOverlayWindow'),
+    getOverlayWindow: () => ipcRenderer.invoke('app:getOverlayWindow'),
     updateVr: (active, hmdOverlay, wristOverlay, menuButton, overlayHand) =>
         ipcRenderer.invoke(
             'app:updateVr',
@@ -48,9 +74,14 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer: {
         on(channel, func) {
             if (validChannels.includes(channel)) {
-                console.log('contextBridge', channel, func);
-                ipcRenderer.on(channel, (event, ...args) => func(...args));
+                return registerManagedListener(
+                    channel,
+                    (_event, ...args) => func(...args),
+                    `ipcRenderer:${channel}`
+                );
             }
+
+            return undefined;
         }
     }
 });

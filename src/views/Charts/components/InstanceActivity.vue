@@ -1,207 +1,370 @@
 <template>
-    <div>
-        <div class="options-container instance-activity" style="margin-top: 0">
-            <div>
-                <span>{{ t('view.charts.instance_activity.header') }}</span>
-                <el-popover placement="bottom-start" trigger="hover" width="300">
-                    <div class="tips-popover">
-                        <div>{{ t('view.charts.instance_activity.tips.online_time') }}</div>
-                        <div>{{ t('view.charts.instance_activity.tips.click_Y_axis') }}</div>
-                        <div>{{ t('view.charts.instance_activity.tips.click_instance_name') }}</div>
-                        <div>
-                            <i class="el-icon-warning-outline"></i
-                            ><i>{{ t('view.charts.instance_activity.tips.accuracy_notice') }}</i>
-                        </div>
-                    </div>
-
-                    <i
-                        slot="reference"
-                        class="el-icon-info"
-                        style="margin-left: 5px; font-size: 12px; opacity: 0.7"></i>
-                </el-popover>
-            </div>
-
-            <div>
-                <el-tooltip :content="t('view.charts.instance_activity.refresh')" placement="top"
-                    ><el-button icon="el-icon-refresh" circle style="margin-right: 9px" @click="reloadData"></el-button
-                ></el-tooltip>
-                <el-tooltip :content="t('view.charts.instance_activity.settings.header')" placement="top">
-                    <el-popover placement="bottom" trigger="click" style="margin-right: 9px">
-                        <div class="settings">
+    <div id="chart" class="x-container">
+        <div ref="instanceActivityRef" class="pt-12">
+            <BackToTop :target="instanceActivityRef" :right="30" :bottom="30" :teleport="false" />
+            <div class="options-container flex items-center justify-between mt-0">
+                <div class="flex items-center justify-between">
+                    <span class="shrink-0">{{ t('view.charts.instance_activity.header') }}</span>
+                    <HoverCard>
+                        <HoverCardTrigger as-child>
+                            <Info class="ml-1 text-xs opacity-70" />
+                        </HoverCardTrigger>
+                        <HoverCardContent side="bottom" align="start" class="w-75">
                             <div>
-                                <span>{{ t('view.charts.instance_activity.settings.bar_width') }}</span>
-                                <div>
-                                    <el-slider
-                                        v-model.lazy="barWidth"
-                                        :max="50"
-                                        :min="1"
-                                        @change="changeBarWidth"></el-slider>
+                                <div class="mb-1.5 text-xs">
+                                    {{ t('view.charts.instance_activity.tips.online_time') }}
+                                </div>
+                                <div class="mb-1.5 text-xs">
+                                    {{ t('view.charts.instance_activity.tips.click_Y_axis') }}
+                                </div>
+                                <div class="mb-1.5 text-xs flex items-center mt-2">
+                                    {{ t('view.charts.instance_activity.tips.click_instance_name') }}
                                 </div>
                             </div>
+                        </HoverCardContent>
+                    </HoverCard>
+                </div>
+
+                <div class="flex items-center">
+                    <TooltipWrapper :content="t('view.charts.instance_activity.refresh')" side="top">
+                        <Button class="rounded-full mr-1.5" size="icon" variant="ghost" @click="reloadData">
+                            <RefreshCcw />
+                        </Button>
+                    </TooltipWrapper>
+
+                    <Popover>
+                        <PopoverTrigger asChild>
                             <div>
-                                <span>{{ t('view.charts.instance_activity.settings.show_detail') }}</span>
-                                <el-switch v-model="isDetailVisible" @change="changeIsDetailInstanceVisible">
-                                </el-switch>
+                                <TooltipWrapper
+                                    :content="t('view.charts.instance_activity.settings.header')"
+                                    side="top">
+                                    <Button class="rounded-full mr-1.5" size="icon" variant="ghost">
+                                        <Settings />
+                                    </Button>
+                                </TooltipWrapper>
                             </div>
-                            <div v-if="isDetailVisible">
-                                <span>{{ t('view.charts.instance_activity.settings.show_solo_instance') }}</span>
-                                <el-switch v-model="isSoloInstanceVisible" @change="changeIsSoloInstanceVisible">
-                                </el-switch>
+                        </PopoverTrigger>
+                        <PopoverContent side="bottom" class="w-62.5">
+                            <div>
+                                <div class="flex items-center justify-between px-0.5 h-[30px]">
+                                    <span class="shrink-0">{{
+                                        t('view.charts.instance_activity.settings.bar_width')
+                                    }}</span>
+                                    <div class="w-40 ml-5">
+                                        <Slider
+                                            v-model="barWidthDraftValue"
+                                            :max="50"
+                                            :min="1"
+                                            @valueCommit="handleBarWidthCommit"></Slider>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between px-0.5 h-[30px]">
+                                    <span class="shrink-0">{{
+                                        t('view.charts.instance_activity.settings.show_detail')
+                                    }}</span>
+                                    <Switch
+                                        v-model="isDetailVisible"
+                                        @update:modelValue="
+                                            (value) =>
+                                                changeIsDetailInstanceVisible(value, () => handleSettingsChange())
+                                        " />
+                                </div>
+                                <div v-if="isDetailVisible" class="flex items-center justify-between px-0.5 h-[30px]">
+                                    <span class="shrink-0">{{
+                                        t('view.charts.instance_activity.settings.show_solo_instance')
+                                    }}</span>
+                                    <Switch
+                                        v-model="isSoloInstanceVisible"
+                                        @update:modelValue="
+                                            (value) => changeIsSoloInstanceVisible(value, () => handleSettingsChange())
+                                        " />
+                                </div>
+                                <div v-if="isDetailVisible" class="flex items-center justify-between px-0.5 h-[30px]">
+                                    <span class="shrink-0">{{
+                                        t('view.charts.instance_activity.settings.show_no_friend_instance')
+                                    }}</span>
+                                    <Switch
+                                        v-model="isNoFriendInstanceVisible"
+                                        @update:modelValue="
+                                            (value) =>
+                                                changeIsNoFriendInstanceVisible(value, () => handleSettingsChange())
+                                        " />
+                                </div>
                             </div>
-                            <div v-if="isDetailVisible">
-                                <span>{{ t('view.charts.instance_activity.settings.show_no_friend_instance') }}</span>
-                                <el-switch
-                                    v-model="isNoFriendInstanceVisible"
-                                    @change="changeIsNoFriendInstanceVisible">
-                                </el-switch>
+                        </PopoverContent>
+                    </Popover>
+                    <ButtonGroup class="mr-2">
+                        <TooltipWrapper :content="t('view.charts.instance_activity.previous_day')" side="top">
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                :disabled="isPrevDayBtnDisabled"
+                                @click="changeSelectedDateFromBtn(false)">
+                                <ArrowLeft />
+                            </Button>
+                        </TooltipWrapper>
+                        <TooltipWrapper :content="t('view.charts.instance_activity.next_day')" side="top">
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                :disabled="isNextDayBtnDisabled"
+                                @click="changeSelectedDateFromBtn(true)">
+                                <ArrowRight />
+                            </Button>
+                        </TooltipWrapper>
+                    </ButtonGroup>
+                    <Popover v-model:open="isDatePickerOpen">
+                        <PopoverTrigger asChild>
+                            <div>
+                                <Button
+                                    variant="outline"
+                                    class="w-50 justify-start text-left font-normal"
+                                    :disabled="isLoading">
+                                    <CalendarIcon class="mr-2 h-4 w-4" />
+                                    {{ dayjs(selectedDate).format('YYYY-MM-DD') }}
+                                </Button>
                             </div>
-                        </div>
-
-                        <el-button slot="reference" icon="el-icon-setting" circle></el-button>
-                    </el-popover>
-                </el-tooltip>
-                <el-button-group style="margin-right: 10px">
-                    <el-tooltip :content="t('view.charts.instance_activity.previous_day')" placement="top">
-                        <el-button
-                            icon="el-icon-arrow-left"
-                            :disabled="isPrevDayBtnDisabled"
-                            @click="changeSelectedDateFromBtn(false)"></el-button>
-                    </el-tooltip>
-                    <el-tooltip :content="t('view.charts.instance_activity.next_day')" placement="top">
-                        <el-button :disabled="isNextDayBtnDisabled" @click="changeSelectedDateFromBtn(true)"
-                            ><i class="el-icon-arrow-right el-icon--right"></i
-                        ></el-button>
-                    </el-tooltip>
-                </el-button-group>
-                <el-date-picker
-                    v-model="selectedDate"
-                    type="date"
-                    :clearable="false"
-                    align="right"
-                    :picker-options="{
-                        disabledDate: (time) => getDatePickerDisabledDate(time)
-                    }"
-                    @change="reloadData"></el-date-picker>
+                        </PopoverTrigger>
+                        <PopoverContent class="w-auto p-0" align="end">
+                            <Calendar
+                                :model-value="calendarModelValue"
+                                :default-placeholder="defaultCalendarPlaceholder"
+                                :is-date-disabled="isCalendarDateDisabled"
+                                :prevent-deselect="true"
+                                :week-starts-on="weekStartsOn"
+                                initial-focus
+                                @update:modelValue="handleCalendarModelUpdate" />
+                        </PopoverContent>
+                    </Popover>
+                </div>
             </div>
-        </div>
-        <div style="position: relative">
-            <el-statistic :title="t('view.charts.instance_activity.online_time')">
-                <template #formatter>
-                    <span :style="isDarkMode ? 'color:rgb(120,120,120)' : ''">{{ totalOnlineTime }}</span>
-                </template>
-            </el-statistic>
-        </div>
-
-        <div ref="activityChartRef" style="width: 100%"></div>
-        <div v-if="!isLoading && activityData.length === 0" class="nodata">
-            <span>No data here, try another day</span>
-        </div>
-
-        <transition name="el-fade-in-linear">
-            <div v-show="isDetailVisible && !isLoading && activityData.length !== 0" class="divider">
-                <el-divider>·</el-divider>
+            <div class="flex justify-center text-center">
+                <div class="text-center">
+                    <div class="text-sm text-muted-foreground">
+                        {{ t('view.charts.instance_activity.online_time') }}
+                    </div>
+                    <div class="text-2xl font-semibold">
+                        {{ timeToText(totalOnlineTime, true) }}
+                    </div>
+                </div>
             </div>
-        </transition>
-        <InstanceActivityDetail
-            v-for="arr in filteredActivityDetailData"
-            :key="arr[0].location + arr[0].created_at"
-            ref="activityDetailChartRef"
-            :activity-detail-data="arr"
-            :bar-width="barWidth" />
+
+            <div ref="activityChartRef" style="width: 100%"></div>
+            <div v-if="!isLoading && activityData.length === 0" class="flex items-center justify-center mt-[100px]">
+                <DataTableEmpty type="nodata" />
+            </div>
+
+            <transition name="el-fade-in-linear">
+                <div
+                    v-show="isDetailVisible && !isLoading && activityData.length !== 0"
+                    class="px-[400px] transition-[top] duration-300 ease-in-out">
+                    <div class="flex items-center">
+                        <Separator class="flex-1" />
+                        <span class="px-2 text-muted-foreground">·</span>
+                        <Separator class="flex-1" />
+                    </div>
+                </div>
+            </transition>
+            <template v-if="isDetailVisible && activityData.length !== 0">
+                <InstanceActivityDetail
+                    v-for="arr in filteredActivityDetailData"
+                    :key="arr[0].location + arr[0].created_at"
+                    ref="activityDetailChartRef"
+                    :activity-detail-data="arr"
+                    :bar-width="barWidth" />
+            </template>
+        </div>
     </div>
 </template>
 
 <script setup>
-    import { ref, onActivated, onDeactivated, watch, computed, onMounted, nextTick, onBeforeMount } from 'vue';
-    import dayjs from 'dayjs';
+    defineOptions({ name: 'ChartsInstance' });
+
+    import { computed, nextTick, onBeforeMount, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+    import { ArrowLeft, ArrowRight, Calendar as CalendarIcon, Info, RefreshCcw, Settings } from 'lucide-vue-next';
+    import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+    import { fromDate, getLocalTimeZone, today } from '@internationalized/date';
+    import { Button } from '@/components/ui/button';
+    import { ButtonGroup } from '@/components/ui/button-group';
+    import { Calendar } from '@/components/ui/calendar';
+    import { DataTableEmpty } from '@/components/ui/data-table';
+    import { Separator } from '@/components/ui/separator';
     import { storeToRefs } from 'pinia';
-    import { useI18n } from 'vue-i18n-bridge';
-    import configRepository from '../../../service/config';
-    import { database } from '../../../service/database';
-    import { getWorldName, loadEcharts, parseLocation, timeToText } from '../../../shared/utils';
+    import { toDate } from 'reka-ui/date';
+    import { useI18n } from 'vue-i18n';
+
+    import BackToTop from '@/components/BackToTop.vue';
+    import dayjs from 'dayjs';
+
+    import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
     import { useAppearanceSettingsStore, useFriendStore, useUserStore } from '../../../stores';
+    import { parseLocation, timeToText } from '../../../shared/utils';
+    import { Slider } from '../../../components/ui/slider';
+    import { Switch } from '../../../components/ui/switch';
+    import { useActivityDataProcessor } from '../composables/useActivityDataProcessor';
+    import { useChartHelpers } from '../composables/useChartHelpers';
+    import { useDateNavigation } from '../composables/useDateNavigation';
+    import { useInstanceActivityData } from '../composables/useInstanceActivityData';
+    import { useInstanceActivitySettings } from '../composables/useInstanceActivitySettings';
+    import { useIntersectionObserver } from '../composables/useIntersectionObserver';
+
     import InstanceActivityDetail from './InstanceActivityDetail.vue';
+    import InstanceActivityTooltip from './InstanceActivityTooltip.jsx';
+
+    import * as echarts from 'echarts';
+    import { renderToHtml } from '@/lib/utils';
 
     const appearanceSettingsStore = useAppearanceSettingsStore();
     const friendStore = useFriendStore();
-    const { isDarkMode, dtHour12 } = storeToRefs(appearanceSettingsStore);
-    const { localFavoriteFriends, friends } = storeToRefs(friendStore);
+    const { friends, allFavoriteFriendIds } = storeToRefs(friendStore);
     const { currentUser } = storeToRefs(useUserStore());
     const { t } = useI18n();
+    const { isDarkMode, dtHour12, weekStartsOn } = storeToRefs(appearanceSettingsStore);
 
-    // echarts and observer
-    const echarts = ref(null);
-    const echartsInstance = ref(null);
+    const instanceActivityRef = ref(null);
+
+    const instanceActivityResizeObserver = new ResizeObserver(() => {
+        setInstanceActivityHeight();
+    });
+
+    /**
+     *
+     */
+    function setInstanceActivityHeight() {
+        if (instanceActivityRef.value) {
+            const availableHeight = window.innerHeight - 110;
+            instanceActivityRef.value.style.height = `${availableHeight}px`;
+            instanceActivityRef.value.style.overflowY = 'auto';
+        }
+    }
+
+    onMounted(() => {
+        if (instanceActivityRef.value) {
+            instanceActivityResizeObserver.observe(instanceActivityRef.value);
+        }
+        setInstanceActivityHeight();
+    });
+
+    onBeforeUnmount(() => {
+        if (instanceActivityRef.value) {
+            instanceActivityResizeObserver.unobserve(instanceActivityRef.value);
+        }
+    });
+
+    const {
+        barWidth,
+        isDetailVisible,
+        isSoloInstanceVisible,
+        isNoFriendInstanceVisible,
+        initializeSettings,
+        changeBarWidth,
+        changeIsDetailInstanceVisible,
+        changeIsSoloInstanceVisible,
+        changeIsNoFriendInstanceVisible,
+        handleChangeSettings
+    } = useInstanceActivitySettings();
+    const barWidthDraft = ref(barWidth.value);
+    const barWidthDraftValue = computed({
+        get: () => [barWidthDraft.value],
+        set: (value) => {
+            const next = value?.[0];
+            if (typeof next === 'number') {
+                barWidthDraft.value = next;
+            }
+        }
+    });
+
+    /**
+     *
+     * @param value
+     */
+    function handleBarWidthCommit(value) {
+        changeBarWidth(value?.[0] ?? barWidthDraft.value, () => handleEchartsRerender());
+    }
+
+    watch(
+        () => barWidth.value,
+        (value) => {
+            barWidthDraft.value = value;
+        }
+    );
+
+    const {
+        activityData,
+        activityDetailData,
+        allDateOfActivity,
+        worldNameArray,
+        getAllDateOfActivity,
+        getWorldNameData,
+        getActivityData
+    } = useInstanceActivityData();
+
+    let echartsInstance = null;
     const resizeObserver = ref(null);
-    const intersectionObservers = ref([]);
-    const selectedDate = ref(dayjs());
-    // data
-    const activityData = ref([]);
-    const activityDetailData = ref([]);
-    const allDateOfActivity = ref(new Set());
-    const worldNameArray = ref([]);
+    const { handleIntersectionObserver } = useIntersectionObserver();
     const isLoading = ref(true);
-    // settings
-    const barWidth = ref(25);
-    const isDetailVisible = ref(true);
-    const isSoloInstanceVisible = ref(true);
-    const isNoFriendInstanceVisible = ref(true);
+
+    let reloadData;
+    const {
+        selectedDate,
+        isNextDayBtnDisabled,
+        isPrevDayBtnDisabled,
+        changeSelectedDateFromBtn,
+        getDatePickerDisabledDate
+    } = useDateNavigation(allDateOfActivity, () => reloadData());
+
+    const isDatePickerOpen = ref(false);
+    const calendarTimeZone = getLocalTimeZone();
+    const defaultCalendarPlaceholder = today(calendarTimeZone);
+
+    const calendarModelValue = computed(() => {
+        // Keep the rest of the feature using JS Date; adapt to Calendar's DateValue model.
+        return fromDate(selectedDate.value ?? new Date(), calendarTimeZone);
+    });
+
+    /**
+     *
+     * @param dateValue
+     */
+    function isCalendarDateDisabled(dateValue) {
+        try {
+            return getDatePickerDisabledDate(toDate(dateValue, calendarTimeZone));
+        } catch {
+            return true;
+        }
+    }
+
+    /**
+     *
+     * @param dateValue
+     */
+    function handleCalendarModelUpdate(dateValue) {
+        if (!dateValue) return;
+        selectedDate.value = toDate(dateValue, calendarTimeZone);
+        isDatePickerOpen.value = false;
+        reloadData();
+    }
 
     const activityChartRef = ref(null);
     const activityDetailChartRef = ref(null);
 
-    const totalOnlineTime = computed(() => {
-        return timeToText(
-            activityData.value?.reduce((acc, item) => acc + item.time, 0),
-            true
-        );
-    });
+    const { totalOnlineTime, filteredActivityDetailData } = useActivityDataProcessor(
+        activityData,
+        activityDetailData,
+        isDetailVisible,
+        isSoloInstanceVisible,
+        isNoFriendInstanceVisible,
+        selectedDate
+    );
 
-    const allDateOfActivityArray = computed(() => {
-        return allDateOfActivity.value
-            ? Array.from(allDateOfActivity.value)
-                  .map((item) => dayjs(item))
-                  .sort((a, b) => b.valueOf() - a.valueOf())
-            : [];
-    });
-
-    const isNextDayBtnDisabled = computed(() => {
-        return dayjs(selectedDate.value).isSameOrAfter(allDateOfActivityArray.value[0], 'day');
-    });
-
-    const isPrevDayBtnDisabled = computed(() => {
-        return dayjs(selectedDate.value).isSame(
-            allDateOfActivityArray.value[allDateOfActivityArray.value.length - 1],
-            'day'
-        );
-    });
-
-    const filteredActivityDetailData = computed(() => {
-        if (!isDetailVisible.value) {
-            return [];
-        }
-        let result = [...activityDetailData.value];
-        if (!isSoloInstanceVisible.value) {
-            result = result.filter((arr) => arr.length > 1);
-        }
-        if (!isNoFriendInstanceVisible.value) {
-            result = result.filter((arr) => {
-                // solo instance
-                if (arr.length === 1) {
-                    return true;
-                }
-                return arr.some((item) => item.isFriend);
-            });
-        }
-        return result;
-    });
+    const { isDetailDataFiltered, findMatchingDetailData, generateYAxisLabel } = useChartHelpers();
 
     watch(
         () => isDarkMode.value,
         () => {
-            if (echartsInstance.value) {
-                echartsInstance.value.dispose();
-                echartsInstance.value = null;
+            if (echartsInstance) {
+                echartsInstance.dispose();
+                echartsInstance = null;
                 initEcharts();
             }
         }
@@ -210,165 +373,209 @@
     watch(
         () => dtHour12.value,
         () => {
-            if (echartsInstance.value) {
+            if (echartsInstance) {
                 initEcharts();
             }
         }
     );
 
-    onActivated(() => {
-        // first time also call activated
-        if (!echartsInstance.value) {
-            reloadData();
-        }
-    });
+    // onActivated(() => {
+    //     // first time also call activated
+    //     if (echartsInstance) {
+    //         reloadData();
+    //     }
+    // });
 
-    onDeactivated(() => {
-        // prevent resize animation when switch tab
-        if (resizeObserver.value) {
-            resizeObserver.value.disconnect();
-        }
-    });
-
-    function created() {
-        resizeObserver.value = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                echartsInstance.value.resize({
-                    width: entry.contentRect.width,
-                    animation: {
-                        duration: 300
-                    }
-                });
-            }
-        });
-        configRepository.getInt('VRCX_InstanceActivityBarWidth', 25).then((value) => {
-            barWidth.value = value;
-        });
-        configRepository.getBool('VRCX_InstanceActivityDetailVisible', true).then((value) => {
-            isDetailVisible.value = value;
-        });
-        configRepository.getBool('VRCX_InstanceActivitySoloInstanceVisible', true).then((value) => {
-            isSoloInstanceVisible.value = value;
-        });
-        configRepository.getBool('VRCX_InstanceActivityNoFriendInstanceVisible', true).then((value) => {
-            isNoFriendInstanceVisible.value = value;
-        });
-    }
+    // onDeactivated(() => {
+    //     // prevent resize animation when switch tab
+    //     if (resizeObserver.value) {
+    //         resizeObserver.value.disconnect();
+    //     }
+    // });
 
     onBeforeMount(() => {
-        // ensure created is called before mounted
-        created();
+        initializeSettings();
     });
 
     onMounted(async () => {
         try {
             getAllDateOfActivity();
-            const [echartsModule] = await Promise.all([
-                // lazy load echarts
-                loadEcharts().catch((error) => {
-                    console.error('lazy load echarts failed', error);
-                    return null;
-                }),
-                getActivityData()
-            ]);
-            if (echartsModule) {
-                echarts.value = echartsModule;
-            }
-            if (echartsModule) {
-                initEcharts();
-                getWorldNameData();
-            } else {
-                isLoading.value = false;
-            }
+            await getActivityData(selectedDate, currentUser, friends, allFavoriteFriendIds, () =>
+                handleIntersectionObserver(activityDetailChartRef)
+            );
+            await getWorldNameData();
+            initEcharts();
         } catch (error) {
             console.error('error in mounted', error);
+            isLoading.value = false;
         }
     });
 
-    async function reloadData() {
+    onBeforeUnmount(() => {
+        if (resizeObserver.value) {
+            resizeObserver.value.disconnect();
+            resizeObserver.value = null;
+        }
+        if (echartsInstance) {
+            echartsInstance.dispose();
+            echartsInstance = null;
+        }
+    });
+
+    reloadData = async function () {
         isLoading.value = true;
-        await getActivityData();
-        getWorldNameData();
-        // possibility past 24:00
-        getAllDateOfActivity();
+        try {
+            await getActivityData(selectedDate, currentUser, friends, allFavoriteFriendIds, () =>
+                handleIntersectionObserver(activityDetailChartRef)
+            );
+            await getWorldNameData();
+            // possibility past 24:00
+            getAllDateOfActivity();
+
+            await nextTick();
+
+            echartsInstance.off('click');
+
+            if (echartsInstance && activityData.value.length) {
+                const chartsHeight = activityData.value.length * (barWidth.value + 10) + 200;
+                echartsInstance.resize({
+                    height: chartsHeight,
+                    animation: {
+                        duration: 300
+                    }
+                });
+                echartsInstance.setOption(getNewOption(), { notMerge: true });
+                const handleClickYAxisLabel = handleYAxisLabelClick;
+                echartsInstance.on('click', 'yAxis', handleClickYAxisLabel);
+            } else if (echartsInstance) {
+                echartsInstance.clear();
+            }
+        } catch (error) {
+            console.error('Error in reloadData:', error);
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
+    /**
+     *
+     * @param params
+     */
+    function handleYAxisLabelClick(params) {
+        const targetActivity = activityData.value[params?.dataIndex];
+        if (!targetActivity) {
+            console.error('handleClickYAxisLabel failed, no activity data found for index:', params?.dataIndex);
+            return;
+        }
+
+        const detailDataIdx = filteredActivityDetailData.value.findIndex((arr) => {
+            const sameLocation = arr[0]?.location === targetActivity.location;
+            const sameJoinTime = arr
+                .find((item) => item.user_id === currentUser.value.id)
+                ?.joinTime.isSame(targetActivity.joinTime);
+            return sameLocation && sameJoinTime;
+        });
+
+        if (detailDataIdx === -1) {
+            console.error(
+                "handleClickYAxisLabel failed, likely current user wasn't in this instance or chart is filtered out.",
+                params
+            );
+            return;
+        }
+
+        if (activityDetailChartRef.value && activityDetailChartRef.value[detailDataIdx]) {
+            activityDetailChartRef.value[detailDataIdx].$el.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        } else {
+            console.error('handleClickYAxisLabel failed, chart ref not found at index:', detailDataIdx);
+        }
     }
 
-    // echarts - start
+    /**
+     *
+     */
+    function getYAxisData() {
+        return worldNameArray.value.map((worldName, index) => {
+            const activityItem = activityData.value[index];
+            if (!activityItem) return worldName;
+
+            const detailData = findMatchingDetailData(activityItem, activityDetailData.value, currentUser.value);
+            if (!detailData) return worldName;
+
+            const shouldFilter =
+                isDetailVisible.value &&
+                isDetailDataFiltered(detailData, isSoloInstanceVisible.value, isNoFriendInstanceVisible.value);
+
+            return generateYAxisLabel(worldName, shouldFilter);
+        });
+    }
+
+    /**
+     *
+     */
     function initEcharts() {
         const chartsHeight = activityData.value.length * (barWidth.value + 10) + 200;
         const chartDom = activityChartRef.value;
 
         const afterInit = () => {
-            echartsInstance.value.resize({
+            if (!echartsInstance) {
+                console.error('ECharts instance not initialized');
+                return;
+            }
+
+            echartsInstance.resize({
                 height: chartsHeight,
                 animation: {
                     duration: 300
                 }
             });
 
-            const handleClickYAxisLabel = (params) => {
-                const detailDataIdx = filteredActivityDetailData.value.findIndex((arr) => {
-                    const sameLocation = arr[0]?.location === activityData.value[params?.dataIndex]?.location;
-                    const sameJoinTime = arr
-                        .find((item) => item.user_id === currentUser.value.id)
-                        ?.joinTime.isSame(activityData.value[params?.dataIndex].joinTime);
-                    return sameLocation && sameJoinTime;
-                });
-                if (detailDataIdx === -1) {
-                    // no detail chart down below, it's hidden, so can't find instance data index
-                    console.error("handleClickYAxisLabel failed, likely current user wasn't in this instance.", params);
-                } else {
-                    activityDetailChartRef.value[detailDataIdx].$el.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            };
+            const handleClickYAxisLabel = handleYAxisLabelClick;
 
-            const options = activityData.value.length ? getNewOption() : {};
+            echartsInstance.off('click');
 
-            echartsInstance.value.setOption(options, { lazyUpdate: true });
-            echartsInstance.value.on('click', 'yAxis', handleClickYAxisLabel);
+            if (activityData.value.length && worldNameArray.value.length) {
+                const options = getNewOption();
+                echartsInstance.clear();
+                echartsInstance.setOption(options, { notMerge: true });
+                echartsInstance.on('click', 'yAxis', handleClickYAxisLabel);
+            } else {
+                echartsInstance.clear();
+            }
             isLoading.value = false;
         };
 
         const initEchartsInstance = () => {
-            echartsInstance.value = echarts.value.init(chartDom, `${isDarkMode.value ? 'dark' : null}`, {
+            echartsInstance = echarts.init(chartDom, `${isDarkMode.value ? 'dark' : null}`, {
                 height: chartsHeight
+            });
+            resizeObserver.value = new ResizeObserver((entries) => {
+                for (const entry of entries) {
+                    echartsInstance.resize({
+                        width: entry.contentRect.width,
+                        animation: {
+                            duration: 300
+                        }
+                    });
+                }
             });
             resizeObserver.value.observe(chartDom);
         };
 
-        const loadEchartsWithTimeout = () => {
-            const timeout = 5000;
-            let time = 0;
-            const timer = setInterval(() => {
-                if (echarts.value) {
-                    initEchartsInstance();
-                    afterInit();
-                    clearInterval(timer);
-                    return;
-                }
-                time += 100;
-                if (time >= timeout) {
-                    clearInterval(timer);
-                    console.error('echarts init timeout');
-                }
-            }, 100);
-        };
-
-        if (!echartsInstance.value) {
-            if (!echarts.value) {
-                loadEchartsWithTimeout();
-            } else {
-                initEchartsInstance();
-                afterInit();
-            }
-        } else {
-            afterInit();
+        if (!echartsInstance) {
+            initEchartsInstance();
         }
+        afterInit();
     }
+    /**
+     *
+     */
     function getNewOption() {
+        // FIXME(kube): this is a bandaid to make the formater shut up
+        // this should be looked at by someone with more experience
         const getTooltip = (params) => {
             const activityDataArray = activityData.value;
             const param = params[1];
@@ -378,27 +585,25 @@
             }
 
             const instanceData = activityDataArray[param.dataIndex];
-
             const format = dtHour12.value ? 'hh:mm:ss A' : 'HH:mm:ss';
 
-            const formattedLeftDateTime = dayjs(instanceData.leaveTime).format(format);
-            const formattedJoinDateTime = dayjs(instanceData.joinTime).format(format);
-
-            const timeString = timeToText(param.data, true);
-            const color = param.color;
-            const name = param.name;
             const location = parseLocation(instanceData.location);
 
-            return `
-                        <div style="display: flex; align-items: center;">
-                            <div style="width: 10px; height: 55px; background-color: ${color}; margin-right: 5px;"></div>
-                            <div>
-                                <div>${name} #${location.instanceName} ${location.accessTypeName}</div>
-                                <div>${formattedJoinDateTime} - ${formattedLeftDateTime}</div>
-                                <div>${timeString}</div>
-                            </div>
-                        </div>
-                    `;
+            let name = param.name;
+            // jank: remove axis label rich text formatting
+            name = name.endsWith('}') ? name.slice(0, -1) : name;
+            name = name.replaceAll('{filtered|', '').replaceAll('{normal|', '');
+
+            return renderToHtml(
+                InstanceActivityTooltip({
+                    color: param.color,
+                    displayName: `${name} #${location.instanceName}`,
+                    icon: location.accessTypeName,
+                    joinTime: dayjs(instanceData.joinTime).format(format),
+                    leaveTime: dayjs(instanceData.leaveTime).format(format),
+                    duration: timeToText(param.data, true)
+                })
+            );
         };
 
         const format = dtHour12.value ? 'hh:mm A' : 'HH:mm';
@@ -420,10 +625,17 @@
                 type: 'category',
                 axisLabel: {
                     interval: 0,
-                    formatter: (value) => (value.length > 20 ? `${value.slice(0, 20)}...` : value)
+                    rich: {
+                        filtered: {
+                            opacity: 0.4
+                        },
+                        normal: {
+                            opacity: 1
+                        }
+                    }
                 },
                 inverse: true,
-                data: worldNameArray.value,
+                data: getYAxisData(),
                 triggerEvent: true
             },
             xAxis: {
@@ -461,7 +673,7 @@
                                 return 0;
                             }
                         }
-                        return item.joinTime - dayjs.tz(selectedDate.value).startOf('day');
+                        return item.joinTime - dayjs.tz(selectedDate.value).startOf('day').valueOf();
                     })
                 },
                 {
@@ -485,7 +697,7 @@
                         if (idx === 0) {
                             const midnight = dayjs.tz(selectedDate.value).startOf('day');
                             if (midnight.isAfter(item.joinTime)) {
-                                return item.leaveTime - dayjs.tz(midnight);
+                                return item.leaveTime - dayjs.tz(midnight).valueOf();
                             }
                         }
                         return item.time;
@@ -494,334 +706,31 @@
             ],
             backgroundColor: 'transparent'
         };
-
         return echartsOption;
     }
-    // echarts - end
 
-    // settings - start
-    function changeBarWidth(value) {
-        barWidth.value = value;
+    /**
+     *
+     */
+    function handleEchartsRerender() {
         initEcharts();
-        configRepository.setInt('VRCX_InstanceActivityBarWidth', value).finally(() => {
-            handleChangeSettings();
-        });
+        handleSettingsChange();
     }
-    function changeIsDetailInstanceVisible(value) {
-        isDetailVisible.value = value;
-        configRepository.setBool('VRCX_InstanceActivityDetailVisible', value).finally(() => {
-            handleChangeSettings();
-        });
-    }
-    function changeIsSoloInstanceVisible(value) {
-        isSoloInstanceVisible.value = value;
-        configRepository.setBool('VRCX_InstanceActivitySoloInstanceVisible', value).finally(() => {
-            handleChangeSettings();
-        });
-    }
-    function changeIsNoFriendInstanceVisible(value) {
-        isNoFriendInstanceVisible.value = value;
-        configRepository.setBool('VRCX_InstanceActivityNoFriendInstanceVisible', value).finally(() => {
-            handleChangeSettings();
-        });
-    }
-    function handleChangeSettings() {
+    /**
+     *
+     */
+    function handleSettingsChange() {
+        handleChangeSettings(activityDetailChartRef);
+
+        if (echartsInstance) {
+            const newOptions = getNewOption();
+            echartsInstance.setOption({
+                yAxis: newOptions.yAxis
+            });
+        }
+
         nextTick(() => {
-            if (activityDetailChartRef.value) {
-                activityDetailChartRef.value.forEach((child) => {
-                    requestAnimationFrame(() => {
-                        if (child.echartsInstance) {
-                            child.initEcharts();
-                        }
-                    });
-                });
-            }
-        });
-        //rerender detail chart
-    }
-    // settings - end
-
-    // options - start
-    function changeSelectedDateFromBtn(isNext = false) {
-        if (!allDateOfActivityArray.value || allDateOfActivityArray.value.length === 0) {
-            return;
-        }
-
-        const idx = allDateOfActivityArray.value.findIndex((date) => date.isSame(selectedDate.value, 'day'));
-        if (idx !== -1) {
-            const newIdx = isNext ? idx - 1 : idx + 1;
-
-            if (newIdx >= 0 && newIdx < allDateOfActivityArray.value.length) {
-                selectedDate.value = allDateOfActivityArray.value[newIdx];
-                reloadData();
-                return;
-            }
-        }
-        selectedDate.value = isNext
-            ? allDateOfActivityArray.value[0]
-            : allDateOfActivityArray.value[allDateOfActivityArray.value.length - 1];
-        reloadData();
-    }
-    function getDatePickerDisabledDate(time) {
-        if (
-            time > Date.now() ||
-            allDateOfActivityArray.value[allDateOfActivityArray.value.length - 1]
-                ?.add(-1, 'day')
-                .isAfter(time, 'day') ||
-            !allDateOfActivity.value
-        ) {
-            return true;
-        }
-        return !allDateOfActivity.value.has(dayjs(time).format('YYYY-MM-DD'));
-    }
-    // options - end
-
-    // data - start
-    async function getWorldNameData() {
-        worldNameArray.value = await Promise.all(
-            activityData.value.map(async (item) => {
-                try {
-                    return await getWorldName(item.location);
-                } catch {
-                    console.error('getWorldName failed location', item.location);
-                    return 'Unknown world';
-                }
-            })
-        );
-
-        if (worldNameArray.value) {
-            initEcharts();
-        }
-    }
-    async function getAllDateOfActivity() {
-        const utcDateStrings = (await database.getDateOfInstanceActivity()) || [];
-        const uniqueDates = new Set();
-
-        for (const utcString of utcDateStrings) {
-            const formattedDate = dayjs.utc(utcString).tz().format('YYYY-MM-DD');
-            uniqueDates.add(formattedDate);
-        }
-
-        allDateOfActivity.value = uniqueDates;
-    }
-    async function getActivityData() {
-        const localStartDate = dayjs.tz(selectedDate.value).startOf('day').toISOString();
-        const localEndDate = dayjs.tz(selectedDate.value).endOf('day').toISOString();
-        const dbData = await database.getInstanceActivity(localStartDate, localEndDate);
-
-        const transformData = (item) => ({
-            ...item,
-            joinTime: dayjs(item.created_at).subtract(item.time, 'millisecond'),
-            leaveTime: dayjs(item.created_at),
-            time: item.time < 0 ? 0 : item.time,
-            isFriend: item.user_id === currentUser.value.id ? null : friends.value.has(item.user_id),
-            isFavorite: item.user_id === currentUser.value.id ? null : localFavoriteFriends.value.has(item.user_id)
-        });
-
-        activityData.value = dbData.currentUserData.map(transformData);
-
-        const transformAndSort = (arr) => {
-            return arr.map(transformData).sort((a, b) => {
-                const timeDiff = Math.abs(a.joinTime.diff(b.joinTime, 'second'));
-                // recording delay, under 3s is considered the same time entry, beautify the chart
-                return timeDiff < 3 ? a.leaveTime - b.leaveTime : a.joinTime - b.joinTime;
-            });
-        };
-
-        const filterByLocation = (innerArray, locationSet) => {
-            return innerArray.every((innerObject) => locationSet.has(innerObject.location));
-        };
-        const locationSet = new Set(activityData.value.map((item) => item.location));
-
-        const preSplitActivityDetailData = Array.from(dbData.detailData.values())
-            .map(transformAndSort)
-            .filter((innerArray) => filterByLocation(innerArray, locationSet));
-
-        activityDetailData.value = handleSplitActivityDetailData(preSplitActivityDetailData, currentUser.value.id);
-
-        if (activityDetailData.value.length) {
-            nextTick(() => {
-                handleIntersectionObserver();
-            });
-        }
-    }
-    function handleSplitActivityDetailData(activityDetailData, currentUserId) {
-        function countTargetIdOccurrences(innerArray, targetId) {
-            let count = 0;
-            for (const obj of innerArray) {
-                if (obj.user_id === targetId) {
-                    count++;
-                }
-            }
-            return count;
-        }
-
-        function areIntervalsOverlapping(objA, objB) {
-            const isObj1EndTimeBeforeObj2StartTime = objA.leaveTime.isBefore(objB.joinTime, 'second');
-            const isObj2EndTimeBeforeObj1StartTime = objB.leaveTime.isBefore(objA.joinTime, 'second');
-            return !(isObj1EndTimeBeforeObj2StartTime || isObj2EndTimeBeforeObj1StartTime);
-        }
-
-        function buildOverlapGraph(innerArray) {
-            const numObjects = innerArray.length;
-            const adjacencyList = Array.from({ length: numObjects }, () => []);
-
-            for (let i = 0; i < numObjects; i++) {
-                for (let j = i + 1; j < numObjects; j++) {
-                    if (areIntervalsOverlapping(innerArray[i], innerArray[j])) {
-                        adjacencyList[i].push(j);
-                        adjacencyList[j].push(i);
-                    }
-                }
-            }
-            return adjacencyList;
-        }
-
-        function depthFirstSearch(nodeIndex, visited, graph, component) {
-            visited[nodeIndex] = true;
-            component.push(nodeIndex);
-            for (const neighborIndex of graph[nodeIndex]) {
-                if (!visited[neighborIndex]) {
-                    depthFirstSearch(neighborIndex, visited, graph, component);
-                }
-            }
-        }
-
-        function findConnectedComponents(graph, numNodes) {
-            const visited = new Array(numNodes).fill(false);
-            const components = [];
-
-            for (let i = 0; i < numNodes; i++) {
-                if (!visited[i]) {
-                    const component = [];
-                    depthFirstSearch(i, visited, graph, component);
-                    components.push(component);
-                }
-            }
-            return components;
-        }
-
-        function processOuterArrayWithTargetId(outerArray, targetId) {
-            let i = 0;
-            while (i < outerArray.length) {
-                let currentInnerArray = outerArray[i];
-                let targetIdCount = countTargetIdOccurrences(currentInnerArray, targetId);
-                if (targetIdCount > 1) {
-                    let graph = buildOverlapGraph(currentInnerArray);
-                    let connectedComponents = findConnectedComponents(graph, currentInnerArray.length);
-                    let newInnerArrays = connectedComponents.map((componentIndices) => {
-                        return componentIndices.map((index) => currentInnerArray[index]);
-                    });
-                    outerArray.splice(i, 1, ...newInnerArrays);
-                    i += newInnerArrays.length;
-                } else {
-                    i += 1;
-                }
-            }
-            return outerArray.sort((a, b) => a[0].joinTime - b[0].joinTime);
-        }
-
-        return processOuterArrayWithTargetId(activityDetailData, currentUserId);
-    }
-    // data - end
-
-    // intersection observer - start
-    function handleIntersectionObserver() {
-        activityDetailChartRef.value?.forEach((child, index) => {
-            const observer = new IntersectionObserver((entries) => handleIntersection(index, entries));
-            observer.observe(child.$el);
-            intersectionObservers.value[index] = observer;
+            handleIntersectionObserver(activityDetailChartRef);
         });
     }
-    function handleIntersection(index, entries) {
-        if (!entries) {
-            console.error('handleIntersection failed');
-            return;
-        }
-        entries.forEach((entry) => {
-            if (entry.isIntersecting && activityDetailChartRef.value[index]) {
-                activityDetailChartRef.value[index].initEcharts();
-                intersectionObservers.value[index].unobserve(entry.target);
-            }
-        });
-    }
-    // intersection observer - end
 </script>
-
-<style lang="scss" scoped>
-    %flex {
-        display: flex;
-        align-items: center;
-    }
-    %flex-between {
-        justify-content: space-between;
-    }
-    .instance-activity {
-        @extend %flex;
-        @extend %flex-between;
-        & > div:first-child {
-            @extend %flex-between;
-        }
-        & > div {
-            @extend %flex;
-            > span {
-                flex-shrink: 0;
-            }
-        }
-    }
-    .tips-popover {
-        & > div {
-            margin-bottom: 5px;
-            font-size: 12px;
-        }
-        & > div:last-child {
-            @extend %flex;
-            margin-top: 10px;
-            i {
-                margin-right: 3px;
-            }
-        }
-        & .el-icon-warning-outline {
-            font-size: 12px;
-        }
-    }
-    .settings {
-        & > div {
-            @extend %flex;
-            @extend %flex-between;
-            padding: 0 2px;
-            height: 30px;
-            > span {
-                flex-shrink: 0;
-            }
-        }
-        & > div:first-child {
-            > div {
-                width: 160px;
-                padding-left: 20px;
-            }
-        }
-    }
-
-    .nodata {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-top: 100px;
-        color: #5c5c5c;
-    }
-    .divider {
-        padding: 0 400px;
-        transition: top 0.3s ease;
-    }
-
-    // override el-ui
-    .el-date-editor.el-input,
-    .el-date-editor.el-input__inner {
-        width: 200px;
-    }
-    .el-divider__text {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-</style>

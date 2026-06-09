@@ -1,38 +1,38 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible.sync="pronounsDialog.visible"
-        :title="t('dialog.pronouns.header')"
-        width="600px"
-        append-to-body>
-        <div v-loading="pronounsDialog.loading">
-            <el-input
-                type="textarea"
-                v-model="pronounsDialog.pronouns"
-                size="mini"
-                maxlength="32"
-                show-word-limit
-                :autosize="{ minRows: 2, maxRows: 5 }"
-                :placeholder="t('dialog.pronouns.pronouns_placeholder')">
-            </el-input>
-        </div>
-        <template #footer>
-            <el-button type="primary" size="small" :disabled="pronounsDialog.loading" @click="savePronouns">
-                {{ t('dialog.pronouns.update') }}
-            </el-button>
-        </template>
-    </safe-dialog>
+    <Dialog v-model:open="pronounsDialog.visible">
+        <DialogContent class="x-dialog sm:max-w-150">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.pronouns.header') }}</DialogTitle>
+            </DialogHeader>
+
+            <div>
+                <InputGroupTextareaField
+                    v-model="pronounsDialog.pronouns"
+                    :maxlength="32"
+                    :rows="2"
+                    :placeholder="t('dialog.pronouns.pronouns_placeholder')"
+                    show-count />
+            </div>
+
+            <DialogFooter>
+                <Button :disabled="pronounsDialog.loading" @click="savePronouns">
+                    {{ t('dialog.pronouns.update') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
     import { userRequest } from '../../../api';
 
     const { t } = useI18n();
-    const { proxy } = getCurrentInstance();
-    const { $message } = proxy;
-
     const props = defineProps({
         pronounsDialog: {
             type: Object,
@@ -55,10 +55,7 @@
             })
             .then((args) => {
                 D.visible = false;
-                $message({
-                    message: 'Pronouns updated',
-                    type: 'success'
-                });
+                toast.success('Pronouns updated');
                 return args;
             });
     }

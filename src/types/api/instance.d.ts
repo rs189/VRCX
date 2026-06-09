@@ -6,6 +6,7 @@ export type GetInstance = (params: {
     instanceId: string;
 }) => Promise<{
     json: GetInstanceResponse;
+    ref: GetInstanceResponse;
     params: { worldId: string; instanceId: string };
 }>;
 
@@ -17,6 +18,7 @@ export type CreateInstance = (params: {
     roleIds?: string[];
     groupAccessType?: string;
     queueEnabled?: boolean;
+    minimumAvatarPerformance?: 'Poor' | 'Medium' | 'Good';
 }) => Promise<{
     json: any;
     params: any;
@@ -51,6 +53,7 @@ interface GetInstanceResponse {
     instanceId: string;
     instancePersistenceEnabled: boolean | null;
     location: string;
+    minimumAvatarPerformance: string | null;
     n_users: number;
     name: string;
     ownerId: string;

@@ -1,277 +1,182 @@
-<!--<template>-->
-<!--    <safe-dialog-->
-<!--        class="x-dialog"-->
-<!--        :visible="sendBoopDialog.visible"-->
-<!--        :title="t('dialog.boop_dialog.header')"-->
-<!--        width="450px"-->
-<!--        @close="closeDialog">-->
-<!--        <el-select-->
-<!--            v-model="sendBoopDialog.userId"-->
-<!--            :placeholder="t('dialog.new_instance.instance_creator_placeholder')"-->
-<!--            filterable-->
-<!--            style="width: 100%">-->
-<!--            <el-option-group v-if="vipFriends.length" :label="t('side_panel.favorite')">-->
-<!--                <el-option-->
-<!--                    v-for="friend in vipFriends"-->
-<!--                    :key="friend.id"-->
-<!--                    class="x-friend-item"-->
-<!--                    :label="friend.name"-->
-<!--                    :value="friend.id"-->
-<!--                    style="height: auto">-->
-<!--                    <template v-if="friend.ref">-->
-<!--                        <div class="avatar" :class="userStatusClass(friend.ref)">-->
-<!--                            <img v-lazy="userImage(friend.ref)" />-->
-<!--                        </div>-->
-<!--                        <div class="detail">-->
-<!--                            <span-->
-<!--                                class="name"-->
-<!--                                :style="{ color: friend.ref.$userColour }"-->
-<!--                                v-text="friend.ref.displayName"></span>-->
-<!--                        </div>-->
-<!--                    </template>-->
-<!--                    <span v-else v-text="friend.id"></span>-->
-<!--                </el-option>-->
-<!--            </el-option-group>-->
-<!--            <el-option-group v-if="onlineFriends.length" :label="t('side_panel.online')">-->
-<!--                <el-option-->
-<!--                    v-for="friend in onlineFriends"-->
-<!--                    :key="friend.id"-->
-<!--                    class="x-friend-item"-->
-<!--                    :label="friend.name"-->
-<!--                    :value="friend.id"-->
-<!--                    style="height: auto">-->
-<!--                    <template v-if="friend.ref">-->
-<!--                        <div class="avatar" :class="userStatusClass(friend.ref)">-->
-<!--                            <img v-lazy="userImage(friend.ref)" />-->
-<!--                        </div>-->
-<!--                        <div class="detail">-->
-<!--                            <span-->
-<!--                                class="name"-->
-<!--                                :style="{ color: friend.ref.$userColour }"-->
-<!--                                v-text="friend.ref.displayName"></span>-->
-<!--                        </div>-->
-<!--                    </template>-->
-<!--                    <span v-else v-text="friend.id"></span>-->
-<!--                </el-option>-->
-<!--            </el-option-group>-->
-<!--            <el-option-group v-if="activeFriends.length" :label="t('side_panel.active')">-->
-<!--                <el-option-->
-<!--                    v-for="friend in activeFriends"-->
-<!--                    :key="friend.id"-->
-<!--                    class="x-friend-item"-->
-<!--                    :label="friend.name"-->
-<!--                    :value="friend.id"-->
-<!--                    style="height: auto">-->
-<!--                    <template v-if="friend.ref">-->
-<!--                        <div class="avatar">-->
-<!--                            <img v-lazy="userImage(friend.ref)" />-->
-<!--                        </div>-->
-<!--                        <div class="detail">-->
-<!--                            <span-->
-<!--                                class="name"-->
-<!--                                :style="{ color: friend.ref.$userColour }"-->
-<!--                                v-text="friend.ref.displayName"></span>-->
-<!--                        </div>-->
-<!--                    </template>-->
-<!--                    <span v-else v-text="friend.id"></span>-->
-<!--                </el-option>-->
-<!--            </el-option-group>-->
-<!--            <el-option-group v-if="offlineFriends.length" :label="t('side_panel.offline')">-->
-<!--                <el-option-->
-<!--                    v-for="friend in offlineFriends"-->
-<!--                    :key="friend.id"-->
-<!--                    class="x-friend-item"-->
-<!--                    :label="friend.name"-->
-<!--                    :value="friend.id"-->
-<!--                    style="height: auto">-->
-<!--                    <template v-if="friend.ref">-->
-<!--                        <div class="avatar">-->
-<!--                            <img v-lazy="userImage(friend.ref)" />-->
-<!--                        </div>-->
-<!--                        <div class="detail">-->
-<!--                            <span-->
-<!--                                class="name"-->
-<!--                                :style="{ color: friend.ref.$userColour }"-->
-<!--                                v-text="friend.ref.displayName"></span>-->
-<!--                        </div>-->
-<!--                    </template>-->
-<!--                    <span v-else v-text="friend.id"></span>-->
-<!--                </el-option>-->
-<!--            </el-option-group>-->
-<!--        </el-select>-->
+<template>
+    <Dialog v-model:open="sendBoopDialog.visible">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.boop_dialog.header') }}</DialogTitle>
+            </DialogHeader>
+            <span>{{ displayName }}</span>
 
-<!--        <br />-->
-<!--        <br />-->
+            <div v-if="sendBoopDialog.visible" style="width: 100%">
+                <VirtualCombobox
+                    v-model="emojiModel"
+                    :groups="emojiPickerGroups"
+                    :placeholder="t('dialog.boop_dialog.select_default_emoji')"
+                    :search-placeholder="t('dialog.boop_dialog.select_default_emoji')"
+                    :clearable="true"
+                    :close-on-select="true"
+                    :deselect-on-reselect="true"
+                    :maxHeight="230">
+                    <template #item="{ item, selected }">
+                        <span v-text="item.label"></span>
+                        <CheckIcon :class="['ml-auto size-4', selected ? 'opacity-100' : 'opacity-0']" />
+                    </template>
+                </VirtualCombobox>
+            </div>
 
-<!--        <el-select-->
-<!--            v-model="fileId"-->
-<!--            clearable-->
-<!--            :placeholder="t('dialog.boop_dialog.select_emoji')"-->
-<!--            size="small"-->
-<!--            style="width: 100%"-->
-<!--            popper-class="max-height-el-select">-->
-<!--            <el-option-group :label="t('dialog.boop_dialog.my_emojis')">-->
-<!--                <el-option-->
-<!--                    v-for="image in emojiTable"-->
-<!--                    v-if="image.versions && image.versions.length > 0"-->
-<!--                    :key="image.id"-->
-<!--                    :value="image.id"-->
-<!--                    style="width: 100%; height: 100%">-->
-<!--                    <div-->
-<!--                        v-if="image.versions[image.versions.length - 1].file.url"-->
-<!--                        class="vrcplus-icon"-->
-<!--                        style="overflow: hidden; width: 200px; height: 200px; padding: 10px">-->
-<!--                        <template v-if="image.frames">-->
-<!--                            <div-->
-<!--                                class="avatar"-->
-<!--                                :style="-->
-<!--                                    generateEmojiStyle(-->
-<!--                                        image.versions[image.versions.length - 1].file.url,-->
-<!--                                        image.framesOverTime,-->
-<!--                                        image.frames,-->
-<!--                                        image.loopStyle-->
-<!--                                    )-->
-<!--                                "></div>-->
-<!--                        </template>-->
-<!--                        <template v-else>-->
-<!--                            <img-->
-<!--                                v-lazy="image.versions[image.versions.length - 1].file.url"-->
-<!--                                class="avatar"-->
-<!--                                style="width: 200px; height: 200px" />-->
-<!--                        </template>-->
-<!--                    </div>-->
-<!--                </el-option>-->
-<!--            </el-option-group>-->
-<!--            <el-option-group :label="t('dialog.boop_dialog.default_emojis')">-->
-<!--                <el-option-->
-<!--                    v-for="emojiName in photonEmojis"-->
-<!--                    :key="emojiName"-->
-<!--                    :value="getEmojiValue(emojiName)"-->
-<!--                    style="width: 100%; height: 100%">-->
-<!--                    <span v-text="emojiName"></span>-->
-<!--                </el-option>-->
-<!--            </el-option-group>-->
-<!--        </el-select>-->
+            <div
+                v-if="isLocalUserVrcPlusSupporter"
+                style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                    gap: 6px;
+                    margin-top: 8px;
+                    max-height: 600px;
+                    overflow-y: auto;
+                ">
+                <div
+                    v-for="image in emojiTable"
+                    :key="image.id"
+                    :class="image.id === fileId ? 'x-image-selected' : ''"
+                    style="cursor: pointer; border: 1px solid transparent; border-radius: var(--radius-xl)"
+                    @click="fileId = image.id">
+                    <div
+                        v-if="
+                            image.versions &&
+                            image.versions.length > 0 &&
+                            image.versions[image.versions.length - 1].file.url
+                        "
+                        class="max-w-full max-h-full"
+                        style="padding: 8px">
+                        <Emoji :imageUrl="image.versions[image.versions.length - 1].file.url" :size="100"></Emoji>
+                    </div>
+                </div>
+            </div>
 
-<!--        <template #footer>-->
-<!--            <el-button size="small" @click="showGalleryDialog(2)">{{-->
-<!--                t('dialog.boop_dialog.emoji_manager')-->
-<!--            }}</el-button>-->
-<!--            <el-button size="small" @click="closeDialog">{{ t('dialog.boop_dialog.cancel') }}</el-button>-->
-<!--            <el-button size="small" :disabled="!sendBoopDialog.userId" @click="sendBoop">{{-->
-<!--                t('dialog.boop_dialog.send')-->
-<!--            }}</el-button>-->
-<!--        </template>-->
-<!--    </safe-dialog>-->
-<!--</template>-->
+            <DialogFooter>
+                <Button size="sm" variant="outline" class="mr-2" @click="showGalleryPage">{{
+                    t('dialog.boop_dialog.emoji_manager')
+                }}</Button>
+                <Button size="sm" variant="secondary" class="mr-2" @click="closeDialog">{{
+                    t('dialog.boop_dialog.cancel')
+                }}</Button>
+                <Button size="sm" :disabled="!sendBoopDialog.userId" @click="sendBoop">{{
+                    t('dialog.boop_dialog.send')
+                }}</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+</template>
 
-<!--<script setup>-->
-<!--    import { inject, ref } from 'vue';-->
-<!--    import { useI18n } from 'vue-i18n-bridge';-->
-<!--    import { photonEmojis } from '../../composables/shared/constants/photon.js';-->
-<!--    import { notificationRequest } from '../../api';-->
-<!--    // import { miscRequest } from '../../api';-->
+<script setup>
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, ref, watch } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { Check as CheckIcon } from 'lucide-vue-next';
+    import { storeToRefs } from 'pinia';
+    import { useI18n } from 'vue-i18n';
 
-<!--    const { t } = useI18n();-->
+    import { miscRequest, notificationRequest, queryRequest } from '../../api';
+    import { useGalleryStore, useNotificationStore, useUserStore } from '../../stores';
+    import { VirtualCombobox } from '../ui/virtual-combobox';
+    import { photonEmojis } from '../../shared/constants/photon.js';
 
-<!--    const userStatusClass = inject('userStatusClass');-->
-<!--    const userImage = inject('userImage');-->
-<!--    const showGalleryDialog = inject('showGalleryDialog');-->
+    import Emoji from '../Emoji.vue';
 
-<!--    const props = defineProps({-->
-<!--        sendBoopDialog: {-->
-<!--            type: Object,-->
-<!--            required: true-->
-<!--        },-->
-<!--        emojiTable: {-->
-<!--            type: Array,-->
-<!--            required: true-->
-<!--        },-->
-<!--        vipFriends: {-->
-<!--            type: Array,-->
-<!--            required: true-->
-<!--        },-->
-<!--        onlineFriends: {-->
-<!--            type: Array,-->
-<!--            required: true-->
-<!--        },-->
-<!--        activeFriends: {-->
-<!--            type: Array,-->
-<!--            required: true-->
-<!--        },-->
-<!--        offlineFriends: {-->
-<!--            type: Array,-->
-<!--            required: true-->
-<!--        },-->
-<!--        generateEmojiStyle: {-->
-<!--            type: Function,-->
-<!--            required: true-->
-<!--        },-->
-<!--        notificationTable: {-->
-<!--            type: Object,-->
-<!--            required: true-->
-<!--        }-->
-<!--    });-->
+    const { t } = useI18n();
 
-<!--    const emit = defineEmits(['update:sendBoopDialog']);-->
+    const { sendBoopDialog } = storeToRefs(useUserStore());
+    const { notificationTable } = storeToRefs(useNotificationStore());
+    const { showGalleryPage, refreshEmojiTable } = useGalleryStore();
+    const { emojiTable } = storeToRefs(useGalleryStore());
+    const { isLocalUserVrcPlusSupporter } = storeToRefs(useUserStore());
+    const { isNotificationExpired, handleNotificationV2Hide } = useNotificationStore();
 
-<!--    const fileId = ref('');-->
+    const fileId = ref('');
+    const displayName = ref('');
 
-<!--    // $app.data.sendBoopDialog = {-->
-<!--    //     visible: false,-->
-<!--    //     userId: ''-->
-<!--    // };-->
-<!--    // $app.methods.showSendBoopDialog = function (userId) {-->
-<!--    //     this.$nextTick(() =>-->
-<!--    //         $app.adjustDialogZ(this.$refs.sendBoopDialog.$el)-->
-<!--    //     );-->
-<!--    //     const D = this.sendBoopDialog;-->
-<!--    //     D.userId = userId;-->
-<!--    //     D.visible = true;-->
-<!--    //     if (this.emojiTable.length === 0 && API.currentUser.$isVRCPlus) {-->
-<!--    //         this.refreshEmojiTable();-->
-<!--    //     }-->
-<!--    // };-->
+    watch(
+        () => sendBoopDialog.value.visible,
+        (visible) => {
+            if (visible) {
+                displayName.value = '';
+                queryRequest.fetch('user.dialog', { userId: sendBoopDialog.value.userId }).then((user) => {
+                    displayName.value = user.ref.displayName;
+                });
+            }
+            if (visible && isLocalUserVrcPlusSupporter && emojiTable.value.length === 0) {
+                refreshEmojiTable();
+            }
+        }
+    );
 
-<!--    function closeDialog() {-->
-<!--        emit('update:sendBoopDialog', {-->
-<!--            ...props.sendBoopDialog,-->
-<!--            visible: false-->
-<!--        });-->
-<!--    }-->
-<!--    function getEmojiValue(emojiName) {-->
-<!--        if (!emojiName) {-->
-<!--            return '';-->
-<!--        }-->
-<!--        return `vrchat_${emojiName.replace(/ /g, '_').toLowerCase()}`;-->
-<!--    }-->
+    /**
+     *
+     */
+    function closeDialog() {
+        sendBoopDialog.value.visible = false;
+    }
 
-<!--    function sendBoop() {-->
-<!--        const D = props.sendBoopDialog;-->
-<!--        dismissBoop(D.userId);-->
-<!--        const params = {-->
-<!--            userId: D.userId-->
-<!--        };-->
-<!--        if (fileId.value) {-->
-<!--            params.emojiId = fileId.value;-->
-<!--        }-->
-<!--        // miscRequest.sendBoop(params);-->
-<!--        D.visible = false;-->
-<!--    }-->
+    const emojiModel = computed({
+        get: () => (fileId.value ? String(fileId.value) : null),
+        set: (value) => {
+            fileId.value = value ? String(value) : '';
+        }
+    });
 
-<!--    function dismissBoop(userId) {-->
-<!--        // JANK: This is a hack to remove boop notifications when responding-->
-<!--        const array = props.notificationTable.data;-->
-<!--        for (let i = array.length - 1; i >= 0; i&#45;&#45;) {-->
-<!--            const ref = array[i];-->
-<!--            if (ref.type !== 'boop' || ref.$isExpired || ref.senderUserId !== userId) {-->
-<!--                continue;-->
-<!--            }-->
-<!--            notificationRequest.sendNotificationResponse({-->
-<!--                notificationId: ref.id,-->
-<!--                responseType: 'delete',-->
-<!--                responseData: ''-->
-<!--            });-->
-<!--        }-->
-<!--    }-->
-<!--</script>-->
+    /**
+     *
+     * @param emojiName
+     */
+    function getEmojiValue(emojiName) {
+        if (!emojiName) {
+            return '';
+        }
+        return `default_${emojiName.replace(/ /g, '_').toLowerCase()}`;
+    }
+
+    const emojiPickerGroups = computed(() => [
+        {
+            key: 'defaultEmojis',
+            label: t('dialog.boop_dialog.default_emojis'),
+            items: photonEmojis.map((emojiName) => ({
+                value: getEmojiValue(emojiName),
+                label: emojiName,
+                search: emojiName
+            }))
+        }
+    ]);
+
+    /**
+     *
+     */
+    function sendBoop() {
+        const D = sendBoopDialog.value;
+        dismissBoop(D.userId);
+        const params = {
+            userId: D.userId
+        };
+        if (fileId.value) {
+            params.emojiId = fileId.value;
+        }
+        miscRequest.sendBoop(params);
+        D.visible = false;
+    }
+
+    /**
+     *
+     * @param userId
+     */
+    function dismissBoop(userId) {
+        // JANK: This is a hack to remove boop notifications when responding
+        const array = notificationTable.value.data;
+        for (let i = array.length - 1; i >= 0; i--) {
+            const ref = array[i];
+            if (ref.type !== 'boop' || isNotificationExpired(ref) || ref.link !== `user:${userId}`) {
+                continue;
+            }
+            console.log('Dismissing boop notification with id', ref.id);
+            handleNotificationV2Hide(ref.id);
+            notificationRequest.hideNotificationV2(ref.id);
+        }
+    }
+</script>

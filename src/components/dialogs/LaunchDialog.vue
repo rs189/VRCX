@@ -1,130 +1,195 @@
 <template>
-    <safe-dialog ref="launchDialogRef" :visible.sync="isVisible" :title="t('dialog.launch.header')" width="450px">
-        <el-form :model="launchDialog" label-width="100px">
-            <el-form-item :label="t('dialog.launch.url')">
-                <el-input
-                    v-model="launchDialog.url"
-                    size="mini"
-                    style="width: 260px"
-                    @click.native="$event.target.tagName === 'INPUT' && $event.target.select()" />
-                <el-tooltip placement="right" :content="t('dialog.launch.copy_tooltip')" :disabled="hideTooltips">
-                    <el-button
-                        size="mini"
-                        icon="el-icon-s-order"
-                        style="margin-left: 5px"
-                        circle
-                        @click="copyInstanceMessage(launchDialog.url)" />
-                </el-tooltip>
-            </el-form-item>
-            <el-form-item v-if="launchDialog.shortUrl">
-                <template slot="label">
-                    <span>{{ t('dialog.launch.short_url') }}</span>
-                    <el-tooltip placement="top" style="margin-left: 5px" :content="t('dialog.launch.short_url_notice')">
-                        <i class="el-icon-warning" />
-                    </el-tooltip>
-                </template>
-                <el-input
-                    v-model="launchDialog.shortUrl"
-                    size="mini"
-                    style="width: 260px"
-                    @click.native="$event.target.tagName === 'INPUT' && $event.target.select()" />
-                <el-tooltip placement="right" :content="t('dialog.launch.copy_tooltip')" :disabled="hideTooltips">
-                    <el-button
-                        size="mini"
-                        icon="el-icon-s-order"
-                        style="margin-left: 5px"
-                        circle
-                        @click="copyInstanceMessage(launchDialog.shortUrl)" />
-                </el-tooltip>
-            </el-form-item>
-            <el-form-item :label="t('dialog.launch.location')">
-                <el-input
-                    v-model="launchDialog.location"
-                    size="mini"
-                    style="width: 260px"
-                    @click.native="$event.target.tagName === 'INPUT' && $event.target.select()" />
-                <el-tooltip placement="right" :content="t('dialog.launch.copy_tooltip')" :disabled="hideTooltips">
-                    <el-button
-                        size="mini"
-                        icon="el-icon-s-order"
-                        style="margin-left: 5px"
-                        circle
-                        @click="copyInstanceMessage(launchDialog.location)" />
-                </el-tooltip>
-            </el-form-item>
-        </el-form>
-        <el-checkbox v-model="launchDialog.desktop" style="float: left; margin-top: 5px" @change="saveLaunchDialog">
-            {{ t('dialog.launch.start_as_desktop') }}
-        </el-checkbox>
-        <template slot="footer">
-            <el-button size="small" @click="showPreviousInstancesInfoDialog(launchDialog.location)">
-                {{ t('dialog.launch.info') }}
-            </el-button>
-            <el-button
-                size="small"
-                :disabled="!checkCanInvite(launchDialog.location)"
-                @click="showInviteDialog(launchDialog.location)">
-                {{ t('dialog.launch.invite') }}
-            </el-button>
-            <template v-if="isGameRunning">
-                <el-button
-                    type="default"
-                    size="small"
-                    :disabled="!launchDialog.secureOrShortName"
-                    @click="handleLaunchGame(launchDialog.location, launchDialog.shortName, launchDialog.desktop)">
-                    {{ t('dialog.launch.launch') }}
-                </el-button>
-                <el-button
-                    type="primary"
-                    size="small"
+    <Dialog v-model:open="isVisible">
+        <DialogContent class="sm:max-w-xl">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.launch.header') }}</DialogTitle>
+                <DialogDescription class="sr-only">{{ t('dialog.launch.header') }}</DialogDescription>
+            </DialogHeader>
+            <FieldGroup class="gap-4">
+                <Field>
+                    <FieldLabel>{{ t('dialog.launch.url') }}</FieldLabel>
+                    <FieldContent class="flex-row items-center gap-2">
+                        <InputGroupField
+                            v-model="launchDialog.url"
+                            size="sm"
+                            @click="$event.target.tagName === 'INPUT' && $event.target.select()" />
+                        <TooltipWrapper side="right" :content="t('dialog.launch.copy_tooltip')">
+                            <Button
+                                class="rounded-full"
+                                size="icon-sm"
+                                variant="ghost"
+                                @click="copyInstanceMessage(launchDialog.url)"
+                                ><Copy
+                            /></Button>
+                        </TooltipWrapper>
+                    </FieldContent>
+                </Field>
+                <Field v-if="launchDialog.shortUrl">
+                    <FieldLabel>
+                        <span class="flex items-center gap-1">
+                            <span>{{ t('dialog.launch.short_url') }}</span>
+                            <TooltipWrapper side="top" :content="t('dialog.launch.short_url_notice')">
+                                <Info class="text-muted-foreground" />
+                            </TooltipWrapper>
+                        </span>
+                    </FieldLabel>
+                    <FieldContent class="flex-row items-center gap-2">
+                        <InputGroupField
+                            v-model="launchDialog.shortUrl"
+                            size="sm"
+                            @click="$event.target.tagName === 'INPUT' && $event.target.select()" />
+                        <TooltipWrapper side="right" :content="t('dialog.launch.copy_tooltip')">
+                            <Button
+                                class="rounded-full"
+                                size="icon-sm"
+                                variant="ghost"
+                                @click="copyInstanceMessage(launchDialog.shortUrl)"
+                                ><Copy
+                            /></Button>
+                        </TooltipWrapper>
+                    </FieldContent>
+                </Field>
+                <Field>
+                    <FieldLabel>{{ t('dialog.launch.location') }}</FieldLabel>
+                    <FieldContent class="flex-row items-center gap-2">
+                        <InputGroupField
+                            v-model="launchDialog.location"
+                            size="sm"
+                            @click="$event.target.tagName === 'INPUT' && $event.target.select()" />
+                        <TooltipWrapper side="right" :content="t('dialog.launch.copy_tooltip')">
+                            <Button
+                                class="rounded-full"
+                                size="icon-sm"
+                                variant="ghost"
+                                @click="copyInstanceMessage(launchDialog.location)"
+                                ><Copy
+                            /></Button>
+                        </TooltipWrapper>
+                    </FieldContent>
+                </Field>
+            </FieldGroup>
+            <DialogFooter>
+                <Button
+                    class="mr-1.5"
+                    variant="outline"
+                    :disabled="!checkCanInvite(launchDialog.location)"
+                    @click="showInviteDialog(launchDialog.location)">
+                    {{ t('dialog.launch.invite') }}
+                </Button>
+                <Button
+                    v-if="canOpenInstanceInGame"
+                    variant="outline"
                     :disabled="!launchDialog.secureOrShortName"
                     @click="handleAttachGame(launchDialog.location, launchDialog.shortName)">
                     {{ t('dialog.launch.open_ingame') }}
-                </el-button>
-            </template>
-            <template v-else>
-                <el-button
-                    type="primary"
-                    size="small"
+                </Button>
+                <Button
+                    v-else
+                    variant="outline"
+                    class="mr-1.25"
                     :disabled="!launchDialog.secureOrShortName"
-                    @click="handleLaunchGame(launchDialog.location, launchDialog.shortName, launchDialog.desktop)">
-                    {{ t('dialog.launch.launch') }}
-                </el-button>
-            </template>
-        </template>
-        <InviteDialog :invite-dialog="inviteDialog" @closeInviteDialog="closeInviteDialog" />
-    </safe-dialog>
+                    @click="selfInvite(launchDialog.location, launchDialog.shortName)">
+                    {{ t('dialog.launch.self_invite') }}
+                </Button>
+                <ButtonGroup>
+                    <Button
+                        :disabled="!launchDialog.secureOrShortName"
+                        @click="handleLaunchDefault(launchDialog.location, launchDialog.shortName)">
+                        {{ launchModeLabel }}
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                            <Button size="icon" :disabled="!launchDialog.secureOrShortName" aria-label="More options">
+                                <MoreHorizontal class="size-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" class="w-52">
+                            <DropdownMenuItem
+                                @click="
+                                    handleLaunchCommand(
+                                        launchDialog.desktop ? 'vr' : 'desktop',
+                                        launchDialog.location,
+                                        launchDialog.shortName
+                                    )
+                                ">
+                                {{
+                                    launchDialog.desktop
+                                        ? t('dialog.launch.launch')
+                                        : t('dialog.launch.start_as_desktop')
+                                }}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </ButtonGroup>
+            </DialogFooter>
+
+            <InviteDialog :invite-dialog="inviteDialog" @closeInviteDialog="closeInviteDialog" />
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { ref, computed, nextTick, watch, getCurrentInstance } from 'vue';
-    import { storeToRefs } from 'pinia';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { instanceRequest, worldRequest } from '../../api';
-    import configRepository from '../../service/config';
-    import { adjustDialogZ, checkCanInvite, getLaunchURL, isRealInstance, parseLocation } from '../../shared/utils';
     import {
-        useAppearanceSettingsStore,
+        Dialog,
+        DialogContent,
+        DialogDescription,
+        DialogFooter,
+        DialogHeader,
+        DialogTitle
+    } from '@/components/ui/dialog';
+    import {
+        DropdownMenu,
+        DropdownMenuContent,
+        DropdownMenuItem,
+        DropdownMenuTrigger
+    } from '@/components/ui/dropdown-menu';
+    import { Field, FieldContent, FieldGroup, FieldLabel } from '@/components/ui/field';
+    import { computed, onBeforeUnmount, ref, watch } from 'vue';
+    import { Copy, Info, MoreHorizontal } from 'lucide-vue-next';
+    import { Button } from '@/components/ui/button';
+    import { ButtonGroup } from '@/components/ui/button-group';
+    import { InputGroupField } from '@/components/ui/input-group';
+    import { storeToRefs } from 'pinia';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
+    import {
         useFriendStore,
         useGameStore,
-        useInstanceStore,
+        useInviteStore,
         useLaunchStore,
-        useLocationStore
+        useLocationStore,
+        useModalStore
     } from '../../stores';
-    import InviteDialog from './InviteDialog/InviteDialog.vue';
+    import { getLaunchURL, isRealInstance, parseLocation } from '../../shared/utils';
+    import { useInviteChecks } from '../../composables/useInviteChecks';
+    import { instanceRequest, queryRequest } from '../../api';
 
-    const { proxy } = getCurrentInstance();
+    import InviteDialog from './InviteDialog/InviteDialog.vue';
+    import configRepository from '../../services/config';
+
     const { t } = useI18n();
 
+    const modalStore = useModalStore();
+
     const { friends } = storeToRefs(useFriendStore());
-    const { hideTooltips } = storeToRefs(useAppearanceSettingsStore());
     const { lastLocation } = storeToRefs(useLocationStore());
     const { launchGame, tryOpenInstanceInVrc } = useLaunchStore();
     const { launchDialogData } = storeToRefs(useLaunchStore());
-    const { showPreviousInstancesInfoDialog } = useInstanceStore();
-    const { isGameRunning } = storeToRefs(useGameStore());
 
-    const launchDialogRef = ref(null);
+    const { canOpenInstanceInGame } = storeToRefs(useInviteStore());
+    const { isGameRunning } = storeToRefs(useGameStore());
+    const { checkCanInvite } = useInviteChecks();
+
+    const launchModeLabel = computed(() =>
+        launchDialog.value.desktop ? t('dialog.launch.start_as_desktop') : t('dialog.launch.launch')
+    );
+
+    let launchAsDesktopTimeoutId;
+
+    onBeforeUnmount(() => {
+        clearTimeout(launchAsDesktopTimeoutId);
+    });
 
     const launchDialog = ref({
         loading: false,
@@ -167,16 +232,23 @@
 
     getConfig();
 
+    /**
+     *
+     */
     function closeInviteDialog() {
         inviteDialog.value.visible = false;
     }
+    /**
+     *
+     * @param tag
+     */
     function showInviteDialog(tag) {
         if (!isRealInstance(tag)) {
             return;
         }
         const L = parseLocation(tag);
-        worldRequest
-            .getCachedWorld({
+        queryRequest
+            .fetch('world', {
                 worldId: L.worldId
             })
             .then((args) => {
@@ -188,7 +260,7 @@
                 const friendsInCurrentInstance = lastLocation.value.friendList;
                 for (const friend of friendsInCurrentInstance.values()) {
                     const ctx = friends.value.get(friend.userId);
-                    if (typeof ctx.ref === 'undefined') {
+                    if (typeof ctx?.ref === 'undefined') {
                         continue;
                     }
                     D.friendsInInstance.push(ctx);
@@ -196,26 +268,102 @@
                 D.visible = true;
             });
     }
+    /**
+     *
+     * @param location
+     * @param shortName
+     * @param desktop
+     */
     function handleLaunchGame(location, shortName, desktop) {
+        if (isGameRunning.value) {
+            modalStore
+                .confirm({
+                    description: t('dialog.launch.game_running_warning'),
+                    title: t('dialog.launch.header'),
+                    confirmText: t('dialog.launch.confirm_yes'),
+                    cancelText: t('dialog.launch.confirm_no')
+                })
+                .then(({ ok }) => {
+                    if (!ok) return;
+                    launchGame(location, shortName, desktop);
+                    isVisible.value = false;
+                })
+                .catch(() => {});
+            return;
+        }
         launchGame(location, shortName, desktop);
         isVisible.value = false;
     }
+
+    /**
+     *
+     * @param location
+     * @param shortName
+     */
+    function handleLaunchDefault(location, shortName) {
+        handleLaunchGame(location, shortName, launchDialog.value.desktop);
+    }
+
+    /**
+     *
+     * @param command
+     * @param location
+     * @param shortName
+     */
+    function handleLaunchCommand(command, location, shortName) {
+        const desktop = command === 'desktop';
+        configRepository.setBool('launchAsDesktop', desktop);
+        handleLaunchGame(location, shortName, desktop);
+        clearTimeout(launchAsDesktopTimeoutId);
+        launchAsDesktopTimeoutId = setTimeout(() => {
+            launchDialog.value.desktop = desktop;
+        }, 500);
+    }
+    /**
+     *
+     * @param location
+     * @param shortName
+     */
     function handleAttachGame(location, shortName) {
         tryOpenInstanceInVrc(location, shortName);
         isVisible.value = false;
     }
+    /**
+     *
+     * @param location
+     * @param shortName
+     */
+    function selfInvite(location, shortName) {
+        const L = parseLocation(location);
+        if (!L.isRealInstance) {
+            return;
+        }
+        instanceRequest
+            .selfInvite({
+                instanceId: L.instanceId,
+                worldId: L.worldId,
+                shortName
+            })
+            .then((args) => {
+                toast.success(t('message.invite.self_sent'));
+                return args;
+            });
+    }
+
+    /**
+     *
+     */
     function getConfig() {
         configRepository.getBool('launchAsDesktop').then((value) => (launchDialog.value.desktop = value));
     }
-    function saveLaunchDialog() {
-        configRepository.setBool('launchAsDesktop', launchDialog.value.desktop);
-    }
+    /**
+     *
+     */
     async function initLaunchDialog() {
         const { tag, shortName } = launchDialogData.value;
         if (!isRealInstance(tag)) {
             return;
         }
-        nextTick(() => adjustDialogZ(launchDialogRef.value.$el));
         const D = launchDialog.value;
         D.tag = tag;
         D.secureOrShortName = shortName;
@@ -255,18 +403,16 @@
             }
         }
     }
+    /**
+     *
+     * @param input
+     */
     async function copyInstanceMessage(input) {
         try {
             await navigator.clipboard.writeText(input);
-            proxy.$message({
-                message: 'Instance copied to clipboard',
-                type: 'success'
-            });
+            toast.success('Instance copied to clipboard');
         } catch (error) {
-            proxy.$message({
-                message: 'Instance copied failed',
-                type: 'error'
-            });
+            toast.error('Instance copied failed');
             console.error(error.message);
         }
     }

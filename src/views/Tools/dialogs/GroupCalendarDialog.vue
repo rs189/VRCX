@@ -1,30 +1,30 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="visible"
-        :title="t('dialog.group_calendar.header')"
-        :show-close="false"
-        width="90vw"
-        height="80vh"
-        @close="closeDialog">
-        <template #title>
-            <div class="dialog-title-container">
-                <span>{{ t('dialog.group_calendar.header') }}</span>
-                <!-- <el-button @click="toggleViewMode" type="primary" size="small" class="view-toggle-btn">
-                    {{ viewMode === 'timeline' ? 'List View' : 'Calendar View' }}
-                </el-button> -->
-            </div>
-        </template>
-        <div class="top-content">
-            <transition name="el-fade-in-linear" mode="out-in">
+    <Dialog :open="visible" @update:open="(open) => (open ? null : closeDialog())">
+        <DialogContent class="x-dialog sm:max-w-[50vw] h-[70vh] overflow-hidden">
+            <DialogHeader>
+                <div class="dialog-title-container">
+                    <DialogTitle>{{ t('dialog.group_calendar.header') }}</DialogTitle>
+                </div>
+                <div class="featured-switch">
+                    <span class="featured-switch-text">{{ t('dialog.group_calendar.featured_events') }}</span>
+                    <Switch v-model="showFeaturedEvents" @update:modelValue="toggleFeaturedEvents" class="mr-2" />
+                    <Button size="sm" variant="outline" @click="toggleViewMode" class="view-toggle-btn">
+                        {{
+                            viewMode === 'timeline'
+                                ? t('dialog.group_calendar.list_view')
+                                : t('dialog.group_calendar.calendar_view')
+                        }}
+                    </Button>
+                </div>
+            </DialogHeader>
+            <div class="top-content">
                 <div v-if="viewMode === 'timeline'" key="timeline" class="timeline-view">
                     <div class="timeline-container">
-                        <el-timeline v-if="groupedTimelineEvents.length">
-                            <el-timeline-item
-                                v-for="(timeGroup, key) of groupedTimelineEvents"
-                                :key="key"
-                                :timestamp="dayjs(timeGroup.startsAt).format('MM-DD ddd') + ' ' + timeGroup.startTime"
-                                placement="top">
+                        <div v-if="groupedTimelineEvents.length" class="timeline-list">
+                            <div v-for="(timeGroup, key) of groupedTimelineEvents" :key="key" class="timeline-group">
+                                <div class="timeline-timestamp">
+                                    {{ dayjs(timeGroup.startsAt).format('MM-DD ddd') }} {{ timeGroup.startTime }}
+                                </div>
                                 <div class="time-group-container">
                                     <GroupCalendarEventCard
                                         v-for="value in timeGroup.events"
@@ -32,57 +32,39 @@
                                         :event="value"
                                         mode="timeline"
                                         :is-following="isEventFollowing(value.id)"
-                                        :card-class="{ 'grouped-card': timeGroup.events.length > 1 }" />
+                                        :card-class="{ 'grouped-card': timeGroup.events.length > 1 }"
+                                        @update-following-calendar-data="updateFollowingCalendarData"
+                                        @click-action="showGroupDialog(value.ownerId)" />
                                 </div>
-                            </el-timeline-item>
-                        </el-timeline>
-                        <div v-else>No events found</div>
+                            </div>
+                        </div>
+                        <div v-else class="timeline-empty">{{ t('dialog.group_calendar.no_events') }}</div>
                     </div>
 
                     <div class="calendar-container">
-                        <el-calendar v-model="selectedDay" v-loading="isLoading">
-                            <template #dateCell="{ date }">
-                                <div class="date">
-                                    <div
-                                        class="calendar-date-content"
-                                        :class="{
-                                            'has-events': filteredCalendar[formatDateKey(date)]?.length
-                                        }">
-                                        {{ dayjs(date).utc().format('D') }}
-                                        <div
-                                            v-if="filteredCalendar[formatDateKey(date)]?.length"
-                                            class="calendar-event-badge"
-                                            :class="
-                                                followingCalendarDate[formatDateKey(date)]
-                                                    ? 'has-following'
-                                                    : 'no-following'
-                                            ">
-                                            {{ filteredCalendar[formatDateKey(date)]?.length }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-                        </el-calendar>
+                        <GroupCalendarMonth
+                            v-model="selectedDay"
+                            :is-loading="isLoading"
+                            :events-by-date="filteredCalendar"
+                            :following-by-date="followingCalendarDate" />
                     </div>
                 </div>
                 <div v-else key="grid" class="grid-view">
                     <div class="search-container">
-                        <el-input
+                        <InputGroupSearch
                             v-model="searchQuery"
-                            placeholder="Search groups or events..."
-                            clearable
-                            size="small"
-                            prefix-icon="el-icon-search"
+                            size="sm"
+                            :placeholder="t('dialog.group_calendar.search_placeholder')"
                             class="search-input" />
                     </div>
 
-                    <div class="groups-grid" v-loading="isLoading">
+                    <div class="groups-grid">
                         <div v-if="filteredGroupEvents.length" class="groups-container">
                             <div v-for="group in filteredGroupEvents" :key="group.groupId" class="group-row">
                                 <div class="group-header" @click="toggleGroup(group.groupId)">
-                                    <i
-                                        class="el-icon-arrow-right"
-                                        :class="{ rotate: !groupCollapsed[group.groupId] }"></i>
+                                    <ChevronDown
+                                        class="rotation-transition"
+                                        :class="{ 'is-rotated': groupCollapsed[group.groupId] }" />
                                     {{ group.groupName }}
                                 </div>
                                 <div class="events-row" v-show="!groupCollapsed[group.groupId]">
@@ -92,31 +74,48 @@
                                         :event="event"
                                         mode="grid"
                                         :is-following="isEventFollowing(event.id)"
+                                        @update-following-calendar-data="updateFollowingCalendarData"
+                                        @click-action="showGroupDialog(event.ownerId)"
                                         card-class="grid-card" />
                                 </div>
                             </div>
                         </div>
                         <div v-else class="no-events">
-                            {{ searchQuery ? 'No matching events found' : 'No events this month' }}
+                            {{
+                                searchQuery
+                                    ? t('dialog.group_calendar.search_no_matching')
+                                    : t('dialog.group_calendar.search_no_this_month')
+                            }}
                         </div>
                     </div>
                 </div>
-            </transition>
-        </div>
-    </safe-dialog>
+            </div>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { ref, watch, computed } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { storeToRefs } from 'pinia';
-    import dayjs from 'dayjs';
-    import { groupRequest } from '../../../api';
-    import { useGroupStore } from '../../../stores';
-    import GroupCalendarEventCard from '../components/GroupCalendarEventCard.vue';
-    import { replaceBioSymbols } from '../../../shared/utils';
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, onMounted, ref, watch } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { ChevronDown } from 'lucide-vue-next';
+    import { InputGroupSearch } from '@/components/ui/input-group';
+    import { useI18n } from 'vue-i18n';
 
-    const { cachedGroups } = storeToRefs(useGroupStore());
+    import dayjs from 'dayjs';
+
+    import { formatDateFilter, getGroupName, replaceBioSymbols } from '../../../shared/utils';
+    import { Switch } from '../../../components/ui/switch';
+    import { groupRequest } from '../../../api';
+    import { processBulk } from '../../../services/request';
+    import { useGroupStore } from '../../../stores';
+    import { showGroupDialog } from '@/coordinators/groupCoordinator';
+
+    import GroupCalendarEventCard from '../components/GroupCalendarEventCard.vue';
+    import GroupCalendarMonth from '../components/GroupCalendarMonth.vue';
+    import configRepository from '../../../services/config';
+
+    const { applyGroupEvent } = useGroupStore();
 
     const { t } = useI18n();
 
@@ -131,25 +130,33 @@
 
     const calendar = ref([]);
     const followingCalendar = ref([]);
+    const featuredCalendar = ref([]);
     const selectedDay = ref(new Date());
     const isLoading = ref(false);
-    const viewMode = ref('grid');
+    const viewMode = ref('timeline');
     const searchQuery = ref('');
     const groupCollapsed = ref({});
+    const showFeaturedEvents = ref(false);
+    const groupNamesCache = new Map();
+
+    onMounted(async () => {
+        showFeaturedEvents.value = await configRepository.getBool('VRCX_groupCalendarShowFeaturedEvents', false);
+    });
+
+    /**
+     *
+     */
+    function toggleFeaturedEvents() {
+        configRepository.setBool('VRCX_groupCalendarShowFeaturedEvents', showFeaturedEvents.value);
+        updateCalenderData();
+    }
 
     watch(
         () => props.visible,
         async (newVisible) => {
             if (newVisible) {
                 selectedDay.value = new Date();
-                isLoading.value = true;
-                await Promise.all([getCalendarData(), getFollowingCalendarData()])
-                    .catch((error) => {
-                        console.error('Error fetching calendar data:', error);
-                    })
-                    .finally(() => {
-                        isLoading.value = false;
-                    });
+                updateCalenderData();
             }
         }
     );
@@ -162,27 +169,45 @@
                 const oldMonth = dayjs(oldDate).format('YYYY-MM');
 
                 if (newMonth !== oldMonth) {
-                    isLoading.value = true;
-                    await Promise.all([getCalendarData(), getFollowingCalendarData()])
-                        .catch((error) => {
-                            console.error('Error fetching calendar data:', error);
-                        })
-                        .finally(() => {
-                            isLoading.value = false;
-                        });
+                    updateCalenderData();
                 }
             }
         }
     );
 
+    /**
+     *
+     */
+    async function updateCalenderData() {
+        isLoading.value = true;
+        let fetchPromises = [getCalendarData(), getFollowingCalendarData()];
+        if (showFeaturedEvents.value) {
+            fetchPromises.push(getFeaturedCalendarData());
+        }
+        await Promise.all(fetchPromises)
+            .catch((error) => {
+                console.error('Error fetching calendar data:', error);
+            })
+            .finally(() => {
+                isLoading.value = false;
+            });
+    }
+
     const groupedByGroupEvents = computed(() => {
         const currentMonth = dayjs(selectedDay.value).month();
         const currentYear = dayjs(selectedDay.value).year();
 
-        const currentMonthEvents = calendar.value.filter((event) => {
+        let currentMonthEvents = calendar.value.filter((event) => {
             const eventDate = dayjs(event.startsAt);
             return eventDate.month() === currentMonth && eventDate.year() === currentYear;
         });
+        if (showFeaturedEvents.value) {
+            const featuredMonthEvents = featuredCalendar.value.filter((event) => {
+                const eventDate = dayjs(event.startsAt);
+                return eventDate.month() === currentMonth && eventDate.year() === currentYear;
+            });
+            currentMonthEvents = currentMonthEvents.concat(featuredMonthEvents);
+        }
 
         const groupMap = new Map();
         currentMonthEvents.forEach((event) => {
@@ -199,7 +224,7 @@
 
         return Array.from(groupMap.entries()).map(([groupId, events]) => ({
             groupId,
-            groupName: getGroupName(events[0]),
+            groupName: groupNamesCache.get(groupId),
             events: events
         }));
     });
@@ -252,6 +277,15 @@
             }
             result[currentDate].push(item);
         });
+        if (showFeaturedEvents.value) {
+            featuredCalendar.value.forEach((item) => {
+                const currentDate = formatDateKey(item.startsAt);
+                if (!Array.isArray(result[currentDate])) {
+                    result[currentDate] = [];
+                }
+                result[currentDate].push(item);
+            });
+        }
 
         Object.values(result).forEach((events) => {
             events.sort((a, b) => dayjs(a.startsAt).diff(dayjs(b.startsAt)));
@@ -285,7 +319,7 @@
         const timeGroups = {};
 
         eventsForDay.forEach((event) => {
-            const startTimeKey = dayjs(event.startsAt).format('HH:mm');
+            const startTimeKey = formatDateFilter(event.startsAt, 'time');
             if (!timeGroups[startTimeKey]) {
                 timeGroups[startTimeKey] = [];
             }
@@ -302,47 +336,135 @@
             .sort((a, b) => dayjs(a.startsAt).diff(dayjs(b.startsAt)));
     });
 
+    // Use a stable key for calendar maps (independent of locale/appearance date formatting).
     const formatDateKey = (date) => dayjs(date).format('YYYY-MM-DD');
 
-    function getGroupName(event) {
-        if (!event) return '';
-        return cachedGroups.value.get(event.ownerId)?.name || '';
+    /**
+     *
+     * @param groupId
+     */
+    async function getGroupNameFromCache(groupId) {
+        if (!groupNamesCache.has(groupId)) {
+            groupNamesCache.set(groupId, await getGroupName(groupId));
+        }
     }
 
+    /**
+     *
+     */
     async function getCalendarData() {
+        calendar.value = [];
         try {
-            const response = await groupRequest.getGroupCalendars(dayjs(selectedDay.value).toISOString());
-            response.results.forEach((event) => {
-                event.title = replaceBioSymbols(event.title);
-                event.description = replaceBioSymbols(event.description);
+            await processBulk({
+                fn: (bulkParams) => groupRequest.getGroupCalendars(bulkParams),
+                N: -1,
+                params: {
+                    n: 100,
+                    offset: 0,
+                    date: dayjs(selectedDay.value).format('YYYY-MM-DDTHH:mm:ss[Z]') // this need to be local time because UTC time may cause month shift
+                },
+                async handle(args) {
+                    for (const event of args.results) {
+                        event.title = replaceBioSymbols(event.title);
+                        event.description = replaceBioSymbols(event.description);
+                        applyGroupEvent(event);
+                        await getGroupNameFromCache(event.ownerId);
+                    }
+                    calendar.value.push(...args.results);
+                }
             });
-            calendar.value = response.results;
         } catch (error) {
             console.error('Error fetching calendars:', error);
         }
     }
 
+    /**
+     *
+     */
     async function getFollowingCalendarData() {
+        followingCalendar.value = [];
         try {
-            const response = await groupRequest.getFollowingGroupCalendars(dayjs(selectedDay.value).toISOString());
-            response.results.forEach((event) => {
-                event.title = replaceBioSymbols(event.title);
-                event.description = replaceBioSymbols(event.description);
+            await processBulk({
+                fn: (bulkParams) => groupRequest.getFollowingGroupCalendars(bulkParams),
+                N: -1,
+                params: {
+                    n: 100,
+                    offset: 0,
+                    date: dayjs(selectedDay.value).format('YYYY-MM-DDTHH:mm:ss[Z]')
+                },
+                async handle(args) {
+                    for (const event of args.results) {
+                        applyGroupEvent(event);
+                        await getGroupNameFromCache(event.ownerId);
+                    }
+                    followingCalendar.value.push(...args.results);
+                }
             });
-            followingCalendar.value = response.results;
         } catch (error) {
             console.error('Error fetching following calendars:', error);
         }
     }
 
+    /**
+     *
+     */
+    async function getFeaturedCalendarData() {
+        featuredCalendar.value = [];
+        try {
+            await processBulk({
+                fn: (bulkParams) => groupRequest.getFeaturedGroupCalendars(bulkParams),
+                N: -1,
+                params: {
+                    n: 100,
+                    offset: 0,
+                    date: dayjs(selectedDay.value).format('YYYY-MM-DDTHH:mm:ss[Z]')
+                },
+                async handle(args) {
+                    for (const event of args.results) {
+                        applyGroupEvent(event);
+                        await getGroupNameFromCache(event.ownerId);
+                    }
+                    featuredCalendar.value.push(...args.results);
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching featured calendars:', error);
+        }
+    }
+
+    /**
+     *
+     * @param updatedEvent
+     */
+    function updateFollowingCalendarData(updatedEvent) {
+        const index = followingCalendar.value.findIndex((item) => item.id === updatedEvent.id);
+        if (index !== -1) {
+            followingCalendar.value.splice(index, 1);
+        }
+        if (updatedEvent.userInterest?.isFollowing) {
+            followingCalendar.value.push(updatedEvent);
+        }
+    }
+
+    /**
+     *
+     * @param eventId
+     */
     function isEventFollowing(eventId) {
         return followingCalendar.value.some((item) => item.id === eventId);
     }
 
+    /**
+     *
+     */
     function toggleViewMode() {
         viewMode.value = viewMode.value === 'timeline' ? 'grid' : 'timeline';
     }
 
+    /**
+     *
+     * @param groupId
+     */
     function toggleGroup(groupId) {
         groupCollapsed.value = {
             ...groupCollapsed.value,
@@ -350,37 +472,51 @@
         };
     }
 
+    /**
+     *
+     */
     function closeDialog() {
         emit('close');
     }
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
     .x-dialog {
-        ::v-deep .el-dialog {
-            max-height: 750px;
-            .el-dialog__body {
-                height: 680px;
-            }
-        }
         .top-content {
             height: 640px;
             position: relative;
             overflow: hidden;
             .timeline-view {
                 .timeline-container {
-                    ::v-deep .el-timeline {
-                        width: 100%;
+                    min-width: 200px;
+                    padding-left: 4px;
+                    padding-right: 16px;
+                    margin-left: 8px;
+                    margin-right: 8px;
+                    overflow: auto;
+                    height: 50vh;
+
+                    .timeline-list {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 14px;
+                    }
+
+                    .timeline-group {
+                        padding: 0 20px 8px 8px;
+                    }
+
+                    .timeline-timestamp {
+                        font-size: 13px;
+                        font-weight: 600;
+                        margin-bottom: 8px;
+                    }
+
+                    .timeline-empty {
                         height: 100%;
-                        min-width: 200px;
-                        padding-left: 4px;
-                        padding-right: 16px;
-                        margin-left: 10px;
-                        margin-right: 6px;
-                        overflow: auto;
-                        .el-timeline-item {
-                            padding: 0 20px 20px 10px;
-                        }
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
                     }
                     .time-group-container {
                         display: flex;
@@ -402,12 +538,12 @@
                             display: flex;
                             align-items: center;
                             justify-content: center;
-                            border-radius: 8px;
+                            border-radius: var(--radius-xl);
                             font-size: 18px;
                             position: relative;
 
                             &.has-events {
-                                background-color: var(--group-calendar-event-bg, rgba(25, 102, 154, 0.05));
+                                background-color: var(--group-calendar-event-bg,);
                             }
                             .calendar-event-badge {
                                 position: absolute;
@@ -415,23 +551,15 @@
                                 right: 2px;
                                 min-width: 16px;
                                 height: 16px;
-                                border-radius: 8px;
-                                color: #ffffff;
+                                border-radius: var(--radius-xl);
                                 display: flex;
                                 align-items: center;
                                 justify-content: center;
                                 font-size: 10px;
                                 font-weight: bold;
-                                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
                                 z-index: 10;
                                 padding: 0 4px;
                                 line-height: 16px;
-                                &.has-following {
-                                    background-color: var(--group-calendar-badge-following, #67c23a);
-                                }
-                                &.no-following {
-                                    background-color: var(--group-calendar-badge-normal, #409eff);
-                                }
                             }
                         }
                     }
@@ -451,25 +579,22 @@
         }
     }
 
+    .featured-switch {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-top: 8px;
+        .featured-switch-text {
+            font-size: 13px;
+            margin-right: 6px;
+        }
+    }
+
     .timeline-view {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
         display: flex;
         align-items: center;
         .timeline-container {
             flex: 1;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .calendar-container {
-            width: 609px;
-            flex-shrink: 0;
         }
     }
 
@@ -483,7 +608,6 @@
         flex-direction: column;
         .search-container {
             padding: 2px 20px 12px 20px;
-            border-bottom: 1px solid #ebeef5;
             display: flex;
             justify-content: flex-end;
             .search-input {
@@ -503,19 +627,17 @@
                     .group-header {
                         font-size: 16px;
                         font-weight: bold;
-                        color: var(--el-text-color-primary);
-                        padding: 4px 12px 10px 12px;
+                        padding: 4px 12px 8px 12px;
                         cursor: pointer;
-                        border-radius: 4px;
-                        margin: 0 -12px 10px -12px;
+                        border-radius: var(--radius-md);
+                        margin: 0 -12px 8px -12px;
                         display: flex;
                         align-items: center;
 
-                        .el-icon-arrow-right {
+                        .rotation-transition {
                             font-size: 14px;
                             margin-right: 8px;
                             transition: transform 0.3s;
-                            color: var(--el-color-primary);
                         }
                     }
                     .events-row {
@@ -532,12 +654,15 @@
                 align-items: center;
                 height: 200px;
                 font-size: 16px;
-                color: var(--el-text-color-secondary);
             }
         }
     }
 
-    .rotate {
-        transform: rotate(90deg);
+    .is-rotated {
+        transform: rotate(-90deg);
+    }
+
+    .rotation-transition {
+        transition: transform 0.2s ease-in-out;
     }
 </style>

@@ -1,46 +1,35 @@
+import { nextTick, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
-import { computed, reactive, watch } from 'vue';
+import { toast } from 'vue-sonner';
+import { useI18n } from 'vue-i18n';
+
 import { instanceRequest } from '../api';
-import { $app } from '../app';
-import configRepository from '../service/config';
-import { watchState } from '../service/watchState';
 import { parseLocation } from '../shared/utils';
+import { watchState } from '../services/watchState';
+
+import configRepository from '../services/config';
 
 export const useLaunchStore = defineStore('Launch', () => {
-    const state = reactive({
-        isLaunchOptionsDialogVisible: false,
-        launchDialogData: {
-            visible: false,
-            loading: false,
-            tag: '',
-            shortName: ''
-        }
-    });
-
-    const isLaunchOptionsDialogVisible = computed({
-        get: () => state.isLaunchOptionsDialogVisible,
-        set: (value) => {
-            state.isLaunchOptionsDialogVisible = value;
-        }
-    });
-
-    const launchDialogData = computed({
-        get: () => state.launchDialogData,
-        set: (value) => {
-            state.launchDialogData = value;
-        }
+    const isLaunchOptionsDialogVisible = ref(false);
+    const isOpeningInstance = ref(false);
+    const { t } = useI18n();
+    const launchDialogData = ref({
+        visible: false,
+        loading: false,
+        tag: '',
+        shortName: ''
     });
 
     watch(
         () => watchState.isLoggedIn,
         () => {
-            state.isLaunchOptionsDialogVisible = false;
+            isLaunchOptionsDialogVisible.value = false;
         },
         { flush: 'sync' }
     );
 
     function showLaunchOptions() {
-        state.isLaunchOptionsDialogVisible = true;
+        isLaunchOptionsDialogVisible.value = true;
     }
 
     /**
@@ -50,14 +39,14 @@ export const useLaunchStore = defineStore('Launch', () => {
      * @returns {Promise<void>}
      */
     async function showLaunchDialog(tag, shortName = null) {
-        state.launchDialogData = {
+        launchDialogData.value = {
             visible: true,
             // flag, use for trigger adjustDialogZ
             loading: true,
             tag,
             shortName
         };
-        $app.$nextTick(() => (state.launchDialogData.loading = false));
+        nextTick(() => (launchDialogData.value.loading = false));
     }
 
     /**
@@ -102,32 +91,39 @@ export const useLaunchStore = defineStore('Launch', () => {
      * @returns {Promise<void>}
      */
     async function tryOpenInstanceInVrc(location, shortName) {
-        const launchUrl = await getLaunchUrl(location, shortName);
+        if (isOpeningInstance.value) {
+            return;
+        }
+        isOpeningInstance.value = true;
+        let launchUrl = '';
         let result = false;
         try {
+            launchUrl = await getLaunchUrl(location, shortName);
             result = await AppApi.TryOpenInstanceInVrc(launchUrl);
         } catch (e) {
             console.error(e);
         }
         console.log('Attach Game', launchUrl, result);
         if (!result) {
-            $app.$message({
-                message:
-                    'Failed open instance in VRChat, falling back to self invite',
-                type: 'warning'
-            });
+            toast.warning(
+                'Failed open instance in VRChat, falling back to self invite'
+            );
             // self invite fallback
-            const L = parseLocation(location);
-            await instanceRequest.selfInvite({
-                instanceId: L.instanceId,
-                worldId: L.worldId,
-                shortName
-            });
-            $app.$message({
-                message: 'Self invite sent',
-                type: 'success'
-            });
+            try {
+                const L = parseLocation(location);
+                await instanceRequest.selfInvite({
+                    instanceId: L.instanceId,
+                    worldId: L.worldId,
+                    shortName
+                });
+                toast.success(t('message.invite.self_sent'));
+            } catch (e) {
+                console.error(e);
+            }
         }
+        setTimeout(() => {
+            isOpeningInstance.value = false;
+        }, 1000);
     }
 
     /**
@@ -151,49 +147,43 @@ export const useLaunchStore = defineStore('Launch', () => {
         if (desktopMode) {
             args.push('--no-vr');
         }
-        if (vrcLaunchPathOverride && !LINUX) {
-            AppApi.StartGameFromPath(
-                vrcLaunchPathOverride,
-                args.join(' ')
-            ).then((result) => {
+        try {
+            if (vrcLaunchPathOverride && !LINUX) {
+                const result = await AppApi.StartGameFromPath(
+                    vrcLaunchPathOverride,
+                    args.join(' ')
+                );
                 if (!result) {
-                    $app.$message({
-                        message:
-                            'Failed to launch VRChat, invalid custom path set',
-                        type: 'error'
-                    });
+                    toast.error(
+                        'Failed to launch VRChat, invalid custom path set'
+                    );
                 } else {
-                    $app.$message({
-                        message: 'VRChat launched',
-                        type: 'success'
-                    });
+                    toast.success('VRChat launched');
                 }
-            });
-        } else {
-            AppApi.StartGame(args.join(' ')).then((result) => {
+            } else {
+                const result = await AppApi.StartGame(args.join(' '));
                 if (!result) {
-                    $app.$message({
-                        message:
-                            'Failed to find VRChat, set a custom path in launch options',
-                        type: 'error'
-                    });
+                    toast.error(
+                        'Failed to find VRChat, set a custom path in launch options'
+                    );
                 } else {
-                    $app.$message({
-                        message: 'VRChat launched',
-                        type: 'success'
-                    });
+                    toast.success('VRChat launched');
                 }
-            });
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error(`Failed to launch VRChat: ${e.message}`);
         }
         console.log('Launch Game', args.join(' '), desktopMode);
     }
 
     return {
-        state,
         isLaunchOptionsDialogVisible,
+        isOpeningInstance,
         launchDialogData,
         showLaunchOptions,
         showLaunchDialog,
+        getLaunchUrl,
         launchGame,
         tryOpenInstanceInVrc
     };

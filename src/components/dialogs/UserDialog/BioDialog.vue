@@ -1,61 +1,72 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible.sync="bioDialog.visible"
-        :title="t('dialog.bio.header')"
-        width="600px"
-        append-to-body>
-        <div v-loading="bioDialog.loading">
-            <el-input
-                v-model="bioDialog.bio"
-                type="textarea"
-                size="mini"
-                maxlength="512"
-                show-word-limit
-                :autosize="{ minRows: 5, maxRows: 20 }"
-                :placeholder="t('dialog.bio.bio_placeholder')"
-                style="margin-bottom: 10px">
-            </el-input>
+    <Dialog v-model:open="bioDialog.visible">
+        <DialogContent class="x-dialog sm:max-w-150">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.bio.header') }}</DialogTitle>
+            </DialogHeader>
 
-            <el-input
-                v-for="(link, index) in bioDialog.bioLinks"
-                :key="index"
-                v-model="bioDialog.bioLinks[index]"
-                size="small"
-                style="margin-top: 5px">
-                <img
-                    slot="prepend"
-                    :src="getFaviconUrl(link)"
-                    style="width: 16px; height: 16px; vertical-align: middle" />
-                <el-button slot="append" icon="el-icon-delete" @click="bioDialog.bioLinks.splice(index, 1)" />
-            </el-input>
+            <div>
+                <InputGroupTextareaField
+                    v-model="bioDialog.bio"
+                    :maxlength="512"
+                    :rows="5"
+                    :placeholder="t('dialog.bio.bio_placeholder')"
+                    class="mb-2.5"
+                    show-count
+                    autosize />
 
-            <el-button
-                :disabled="bioDialog.bioLinks.length >= 3"
-                size="mini"
-                style="margin-top: 5px"
-                @click="bioDialog.bioLinks.push('')">
-                {{ t('dialog.bio.add_link') }}
-            </el-button>
-        </div>
+                <InputGroupAction
+                    class="mt-1.5"
+                    v-for="(link, index) in bioDialog.bioLinks"
+                    :key="index"
+                    v-model="bioDialog.bioLinks[index]"
+                    :maxlength="1000"
+                    size="sm">
+                    <template #leading>
+                        <img
+                            v-if="link"
+                            :src="getFaviconUrl(link)"
+                            style="width: 16px; height: 16px; vertical-align: middle" />
+                        <div v-else style="width: 16px; height: 16px" />
+                    </template>
+                    <template #actions>
+                        <Button variant="ghost" size="icon-sm" @click="bioDialog.bioLinks.splice(index, 1)"
+                            ><Trash2 class="size-4"
+                        /></Button>
+                    </template>
+                </InputGroupAction>
 
-        <template #footer>
-            <el-button type="primary" size="small" :disabled="bioDialog.loading" @click="saveBio">
-                {{ t('dialog.bio.update') }}
-            </el-button>
-        </template>
-    </safe-dialog>
+                <Button
+                    variant="outline"
+                    :disabled="bioDialog.bioLinks.length >= 3"
+                    size="sm"
+                    class="mt-2"
+                    @click="bioDialog.bioLinks.push('')">
+                    {{ t('dialog.bio.add_link') }}
+                </Button>
+            </div>
+
+            <DialogFooter>
+                <Button :disabled="bioDialog.loading" @click="saveBio">
+                    {{ t('dialog.bio.update') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { userRequest } from '../../../api';
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { InputGroupAction, InputGroupTextareaField } from '@/components/ui/input-group';
+    import { Button } from '@/components/ui/button';
+    import { Trash2 } from 'lucide-vue-next';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
     import { getFaviconUrl } from '../../../shared/utils';
+    import { userRequest } from '../../../api';
 
     const { t } = useI18n();
-    const { $message } = getCurrentInstance().proxy;
-
     const props = defineProps({
         bioDialog: {
             type: Object,
@@ -63,6 +74,9 @@
         }
     });
 
+    /**
+     *
+     */
     function saveBio() {
         const D = props.bioDialog;
         if (D.loading) {
@@ -79,10 +93,7 @@
             })
             .then((args) => {
                 D.visible = false;
-                $message({
-                    message: 'Bio updated',
-                    type: 'success'
-                });
+                toast.success('Bio updated');
                 return args;
             });
     }

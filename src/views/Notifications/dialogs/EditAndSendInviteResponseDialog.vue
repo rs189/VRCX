@@ -1,44 +1,47 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible.sync="editAndSendInviteResponseDialog.visible"
-        :title="t('dialog.edit_send_invite_response_message.header')"
-        width="400px"
-        append-to-body>
-        <div style="font-size: 12px">
-            <span>{{ t('dialog.edit_send_invite_response_message.description') }}</span>
-        </div>
-        <el-input
-            v-model="editAndSendInviteResponseDialog.newMessage"
-            type="textarea"
-            size="mini"
-            maxlength="64"
-            show-word-limit
-            :autosize="{ minRows: 2, maxRows: 5 }"
-            placeholder=""
-            style="margin-top: 10px">
-        </el-input>
-        <template #footer>
-            <el-button type="small" @click="cancelEditAndSendInviteResponse">{{
-                t('dialog.edit_send_invite_response_message.cancel')
-            }}</el-button>
-            <el-button type="primary" size="small" @click="saveEditAndSendInviteResponse">{{
-                t('dialog.edit_send_invite_response_message.send')
-            }}</el-button>
-        </template>
-    </safe-dialog>
+    <Dialog
+        :open="editAndSendInviteResponseDialog.visible"
+        @update:open="(open) => (open ? null : cancelEditAndSendInviteResponse())">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.edit_send_invite_response_message.header') }}</DialogTitle>
+            </DialogHeader>
+            <div class="text-xs">
+                <span>{{ t('dialog.edit_send_invite_response_message.description') }}</span>
+            </div>
+            <InputGroupTextareaField
+                v-model="editAndSendInviteResponseDialog.newMessage"
+                :maxlength="64"
+                :rows="2"
+                class="mt-2.5"
+                placeholder=""
+                show-count />
+            <DialogFooter>
+                <Button variant="secondary" class="mr-2" @click="cancelEditAndSendInviteResponse">{{
+                    t('dialog.edit_send_invite_response_message.cancel')
+                }}</Button>
+                <Button
+                    @click="saveEditAndSendInviteResponse"
+                    :disabled="!editAndSendInviteResponseDialog.newMessage"
+                    >{{ t('dialog.edit_send_invite_response_message.send') }}</Button
+                >
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
     import { storeToRefs } from 'pinia';
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
     import { inviteMessagesRequest, notificationRequest } from '../../../api';
-    import { useGalleryStore } from '../../../stores';
+    import { useGalleryStore, useNotificationStore } from '../../../stores';
 
     const { t } = useI18n();
-    const instance = getCurrentInstance();
-    const $message = instance.proxy.$message;
     const galleryStore = useGalleryStore();
     const { uploadImage } = storeToRefs(galleryStore);
 
@@ -53,10 +56,10 @@
         }
     });
 
-    const emit = defineEmits(['closeInviteDialog', 'update:editAndSendInviteResponseDialog']);
+    const emit = defineEmits(['closeInviteDialog', 'closeResponseConfirmDialog']);
 
     function cancelEditAndSendInviteResponse() {
-        emit('update:editAndSendInviteResponseDialog', { ...props.editAndSendInviteResponseDialog, visible: false });
+        emit('closeResponseConfirmDialog');
     }
 
     async function saveEditAndSendInviteResponse() {
@@ -72,17 +75,16 @@
             await inviteMessagesRequest
                 .editInviteMessage(params, messageType, slot)
                 .catch((err) => {
-                    throw err;
+                    console.error('Invite response message update failed', err);
+                    toast.error(t('message.error'));
                 })
                 .then((args) => {
                     if (args.json[slot].message === I.messageSlot.message) {
-                        $message({
-                            message: "VRChat API didn't update message, try again",
-                            type: 'error'
-                        });
-                        throw new Error("VRChat API didn't update message, try again");
+                        const errorMessage = t('message.invite.message_update_failed');
+                        toast.error(errorMessage);
+                        throw new Error(errorMessage);
                     } else {
-                        $message('Invite message updated');
+                        toast(t('message.invite.message_updated'));
                     }
                     return args;
                 });
@@ -95,16 +97,18 @@
             notificationRequest
                 .sendInviteResponsePhoto(params, I.invite.id)
                 .catch((err) => {
-                    throw err;
+                    console.error('Invite response photo failed', err);
+                    toast.error(t('message.error'));
                 })
                 .then((args) => {
-                    notificationRequest.hideNotification({
-                        notificationId: I.invite.id
-                    });
-                    $message({
-                        message: 'Invite response message sent',
-                        type: 'success'
-                    });
+                    notificationRequest
+                        .hideNotification({
+                            notificationId: I.invite.id
+                        })
+                        .then(() => {
+                            useNotificationStore().handleNotificationHide(I.invite.id);
+                        });
+                    toast.success(t('message.invite.response_sent'));
                     return args;
                 })
                 .finally(() => {
@@ -114,16 +118,18 @@
             notificationRequest
                 .sendInviteResponse(params, I.invite.id)
                 .catch((err) => {
-                    throw err;
+                    console.error('Invite response failed', err);
+                    toast.error(t('message.error'));
                 })
                 .then((args) => {
-                    notificationRequest.hideNotification({
-                        notificationId: I.invite.id
-                    });
-                    $message({
-                        message: 'Invite response message sent',
-                        type: 'success'
-                    });
+                    notificationRequest
+                        .hideNotification({
+                            notificationId: I.invite.id
+                        })
+                        .then(() => {
+                            useNotificationStore().handleNotificationHide(I.invite.id);
+                        });
+                    toast.success(t('message.invite.response_sent'));
                     return args;
                 })
                 .finally(() => {

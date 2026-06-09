@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using System.Windows.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -24,7 +23,7 @@ namespace VRCX
             }
 
             path = path.Replace("\\", "/");
-            
+
             var fileName = Path.GetFileNameWithoutExtension(path);
             if (!File.Exists(path) || !path.EndsWith(".png") || !fileName.StartsWith("VRChat_"))
                 return string.Empty;

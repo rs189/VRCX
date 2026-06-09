@@ -1,105 +1,79 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="isNoteExportDialogVisible"
-        :title="t('dialog.note_export.header')"
-        width="1000px"
-        @close="closeDialog">
-        <div style="font-size: 12px">
-            {{ t('dialog.note_export.description1') }} <br />
-            {{ t('dialog.note_export.description2') }} <br />
-            {{ t('dialog.note_export.description3') }} <br />
-            {{ t('dialog.note_export.description4') }} <br />
-            {{ t('dialog.note_export.description5') }} <br />
-            {{ t('dialog.note_export.description6') }} <br />
-            {{ t('dialog.note_export.description7') }} <br />
-            {{ t('dialog.note_export.description8') }} <br />
-        </div>
+    <Dialog :open="isNoteExportDialogVisible" @update:open="(open) => !open && closeDialog()">
+        <DialogContent class="sm:max-w-5xl">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.note_export.header') }}</DialogTitle>
+            </DialogHeader>
+            <div class="text-xs">
+                {{ t('dialog.note_export.description1') }} <br />
+                {{ t('dialog.note_export.description2') }} <br />
+                {{ t('dialog.note_export.description3') }} <br />
+                {{ t('dialog.note_export.description4') }} <br />
+                {{ t('dialog.note_export.description5') }} <br />
+                {{ t('dialog.note_export.description6') }} <br />
+                {{ t('dialog.note_export.description7') }} <br />
+                {{ t('dialog.note_export.description8') }} <br />
+            </div>
 
-        <el-button size="small" :disabled="loading" style="margin-top: 10px" @click="updateNoteExportDialog">
-            {{ t('dialog.note_export.refresh') }}
-        </el-button>
-        <el-button size="small" :disabled="loading" style="margin-top: 10px" @click="exportNoteExport">
-            {{ t('dialog.note_export.export') }}
-        </el-button>
-        <el-button v-if="loading" size="small" style="margin-top: 10px" @click="cancelNoteExport">
-            {{ t('dialog.note_export.cancel') }}
-        </el-button>
-        <span v-if="loading" style="margin: 10px">
-            <i class="el-icon-loading" style="margin-right: 5px"></i>
-            {{ t('dialog.note_export.progress') }} {{ progress }}/{{ progressTotal }}
-        </span>
+            <Button size="sm" class="mr-2 mt-2" variant="outline" :disabled="loading" @click="updateNoteExportDialog">
+                {{ t('dialog.note_export.refresh') }}
+            </Button>
+            <Button size="sm" class="mr-2 mt-2" variant="outline" :disabled="loading" @click="exportNoteExport">
+                {{ t('dialog.note_export.export') }}
+            </Button>
+            <Button class="mt-2" v-if="loading" size="sm" variant="outline" @click="cancelNoteExport">
+                {{ t('dialog.note_export.cancel') }}
+            </Button>
+            <span class="m-2" v-if="loading">
+                <Spinner class="inline-block ml-2 mr-2" />
+                {{ t('dialog.note_export.progress') }} {{ progress }}/{{ progressTotal }}
+            </span>
 
-        <template v-if="errors">
-            <el-button size="small" @click="errors = ''">
-                {{ t('dialog.note_export.clear_errors') }}
-            </el-button>
-            <h2 style="font-weight: bold; margin: 0">
-                {{ t('dialog.note_export.errors') }}
-            </h2>
-            <pre style="white-space: pre-wrap; font-size: 12px" v-text="errors"></pre>
-        </template>
+            <template v-if="errors">
+                <Button size="sm" variant="outline" @click="errors = ''">
+                    {{ t('dialog.note_export.clear_errors') }}
+                </Button>
+                <h2 class="m-0" style="font-weight: bold">
+                    {{ t('dialog.note_export.errors') }}
+                </h2>
+                <pre class="whitespace-pre-wrap text-xs" v-text="errors"></pre>
+            </template>
 
-        <data-tables v-loading="loading" v-bind="noteExportTable" style="margin-top: 10px">
-            <el-table-column :label="t('table.import.image')" width="70" prop="currentAvatarThumbnailImageUrl">
-                <template slot-scope="scope">
-                    <el-popover placement="right" height="500px" trigger="hover">
-                        <img slot="reference" v-lazy="userImage(scope.row.ref)" class="friends-list-avatar" />
-                        <img
-                            v-lazy="userImageFull(scope.row.ref)"
-                            class="friends-list-avatar"
-                            style="height: 500px; cursor: pointer"
-                            @click="showFullscreenImageDialog(userImageFull(scope.row.ref))" />
-                    </el-popover>
-                </template>
-            </el-table-column>
-
-            <el-table-column :label="t('table.import.name')" width="170" prop="name">
-                <template slot-scope="scope">
-                    <span class="x-link" @click="showUserDialog(scope.row.id)" v-text="scope.row.name"></span>
-                </template>
-            </el-table-column>
-
-            <el-table-column :label="t('table.import.note')" prop="memo">
-                <template slot-scope="scope">
-                    <el-input
-                        v-model="scope.row.memo"
-                        type="textarea"
-                        maxlength="256"
-                        show-word-limit
-                        :rows="2"
-                        :autosize="{ minRows: 1, maxRows: 10 }"
-                        size="mini"
-                        resize="none"></el-input>
-                </template>
-            </el-table-column>
-
-            <el-table-column :label="t('table.import.skip_export')" width="90" align="right">
-                <template slot-scope="scope">
-                    <el-button
-                        type="text"
-                        icon="el-icon-close"
-                        size="mini"
-                        @click="removeFromNoteExportTable(scope.row)"></el-button>
-                </template>
-            </el-table-column>
-        </data-tables>
-    </safe-dialog>
+            <DataTableLayout
+                class="min-w-0 w-full"
+                :table="table"
+                :loading="loading"
+                :table-style="tableStyle"
+                :show-pagination="false"
+                style="margin-top: 8px" />
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, ref, watch } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { DataTableLayout } from '@/components/ui/data-table';
+    import { Spinner } from '@/components/ui/spinner';
     import { storeToRefs } from 'pinia';
-    import { ref, watch } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import * as workerTimers from 'worker-timers';
-    import { miscRequest } from '../../../api';
-    import { removeFromArray, userImage, userImageFull } from '../../../shared/utils';
-    import { useFriendStore, useGalleryStore, useUserStore } from '../../../stores';
+    import { useI18n } from 'vue-i18n';
 
+    import { removeFromArray } from '../../../shared/utils';
+    import { useUserDisplay } from '../../../composables/useUserDisplay';
+    import { useFriendStore, useGalleryStore, useUserStore } from '../../../stores';
+    import { createColumns } from './noteExportColumns.jsx';
+    import { miscRequest } from '../../../api';
+    import { useVrcxVueTable } from '../../../lib/table/useVrcxVueTable';
+
+    import * as workerTimers from 'worker-timers';
+    import { showUserDialog } from '../../../coordinators/userCoordinator';
+
+    const { userImage, userImageFull } = useUserDisplay();
     const { t } = useI18n();
 
     const { friends } = storeToRefs(useFriendStore());
-    const { showUserDialog } = useUserStore();
+
     const { showFullscreenImageDialog } = useGalleryStore();
 
     const props = defineProps({
@@ -110,11 +84,32 @@
 
     const noteExportTable = ref({
         data: [],
-        tableProps: {
-            stripe: true,
-            size: 'mini'
-        },
         layout: 'table'
+    });
+
+    const tableStyle = { maxHeight: '500px' };
+
+    const rows = computed(() => (Array.isArray(noteExportTable.value?.data) ? noteExportTable.value.data.slice() : []));
+
+    const columns = computed(() =>
+        createColumns({
+            userImage,
+            userImageFull,
+            onShowFullscreenImage: showFullscreenImageDialog,
+            onShowUser: showUserDialog,
+            onRemove: removeFromNoteExportTable
+        })
+    );
+
+    const { table } = useVrcxVueTable({
+        persistKey: 'noteExportDialog',
+        get data() {
+            return rows.value;
+        },
+        columns: columns.value,
+        getRowId: (row) => String(row?.id ?? ''),
+        enablePagination: false,
+        enableSorting: false
     });
 
     const progress = ref(0);

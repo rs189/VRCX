@@ -1,9 +1,3 @@
-// Copyright(c) 2019-2025 pypy, Natsumi and individual contributors.
-// All rights reserved.
-//
-// This work is licensed under the terms of the MIT license.
-// For a copy, see <https://opensource.org/licenses/MIT>.
-
 using System;
 using System.Globalization;
 using System.IO;
@@ -60,7 +54,7 @@ namespace VRCX
             }
             catch
             {
-                IPCServer.Clients.Remove(this);
+                IPCServer.Clients.TryRemove(this, out _);
             }
         }
 
@@ -72,7 +66,7 @@ namespace VRCX
 
                 if (bytesRead <= 0)
                 {
-                    IPCServer.Clients.Remove(this);
+                    IPCServer.Clients.TryRemove(this, out _);
                     _ipcServer.Close();
                     return;
                 }
@@ -90,7 +84,7 @@ namespace VRCX
 
 #if !LINUX
                         if (MainForm.Instance?.Browser != null && !MainForm.Instance.Browser.IsLoading && MainForm.Instance.Browser.CanExecuteJavascriptInMainFrame)
-                            MainForm.Instance.Browser.ExecuteScriptAsync("$app.store.vrcx.ipcEvent", packet);
+                            MainForm.Instance.Browser.ExecuteScriptAsync("window?.$pinia?.vrcx.ipcEvent", packet);
 #endif
                     }
 

@@ -1,77 +1,33 @@
+import { ref, shallowRef, watch } from 'vue';
 import { defineStore } from 'pinia';
-import { computed, reactive, watch } from 'vue';
-import configRepository from '../service/config';
-import { database } from '../service/database';
-import { watchState } from '../service/watchState';
+
+import { database } from '../services/database';
 import { useFriendStore } from './friend';
-import { useNotificationStore } from './notification';
-import { useSharedFeedStore } from './sharedFeed';
-import { useUiStore } from './ui';
 import { useVrcxStore } from './vrcx';
+import { watchState } from '../services/watchState';
+
+import configRepository from '../services/config';
 
 export const useFeedStore = defineStore('Feed', () => {
     const friendStore = useFriendStore();
-    const notificationStore = useNotificationStore();
-    const UiStore = useUiStore();
     const vrcxStore = useVrcxStore();
-    const sharedFeedStore = useSharedFeedStore();
 
-    const state = reactive({
-        feedTable: {
-            data: [],
-            search: '',
-            vip: false,
-            loading: false,
-            filter: [],
-            tableProps: {
-                stripe: true,
-                size: 'mini',
-                defaultSort: {
-                    prop: 'created_at',
-                    order: 'descending'
-                }
-            },
-            pageSize: 15,
-            paginationProps: {
-                small: true,
-                layout: 'sizes,prev,pager,next,total',
-                pageSizes: [10, 15, 20, 25, 50, 100]
-            }
-        },
-        feedSessionTable: []
-    });
-
-    async function init() {
-        state.feedTable.filter = JSON.parse(
-            await configRepository.getString('VRCX_feedTableFilters', '[]')
-        );
-        state.feedTable.vip = await configRepository.getBool(
-            'VRCX_feedTableVIPFilter',
-            false
-        );
-    }
-
-    init();
-
-    const feedTable = computed({
-        get: () => state.feedTable,
-        set: (value) => {
-            state.feedTable = value;
-        }
-    });
-
-    const feedSessionTable = computed({
-        get: () => state.feedSessionTable,
-        set: (value) => {
-            state.feedSessionTable = value;
-        }
+    const feedTableData = shallowRef([]);
+    const feedTable = ref({
+        search: '',
+        dateFrom: '',
+        dateTo: '',
+        vip: false,
+        loading: false,
+        filter: [],
+        pageSize: 20,
+        pageSizeLinked: true
     });
 
     watch(
         () => watchState.isLoggedIn,
         (isLoggedIn) => {
-            state.feedTable.data = [];
-            state.feedSessionTable = [];
+            feedTableData.value = [];
             if (isLoggedIn) {
                 initFeedTable();
             }
@@ -79,8 +35,29 @@ export const useFeedStore = defineStore('Feed', () => {
         { flush: 'sync' }
     );
 
+    watch(
+        () => watchState.isFavoritesLoaded,
+        (isFavoritesLoaded) => {
+            if (isFavoritesLoaded && feedTable.value.vip) {
+                feedTableLookup(); // re-apply VIP filter after friends are loaded
+            }
+        }
+    );
+
+    async function init() {
+        feedTable.value.filter = JSON.parse(
+            await configRepository.getString('VRCX_feedTableFilters', '[]')
+        );
+        feedTable.value.vip = await configRepository.getBool(
+            'VRCX_feedTableVIPFilter',
+            false
+        );
+    }
+
+    init();
+
     function feedSearch(row) {
-        const value = state.feedTable.search.toUpperCase();
+        const value = feedTable.value.search.trim().toUpperCase();
         if (!value) {
             return true;
         }
@@ -154,37 +131,55 @@ export const useFeedStore = defineStore('Feed', () => {
     async function feedTableLookup() {
         await configRepository.setString(
             'VRCX_feedTableFilters',
-            JSON.stringify(state.feedTable.filter)
+            JSON.stringify(feedTable.value.filter)
         );
         await configRepository.setBool(
             'VRCX_feedTableVIPFilter',
-            state.feedTable.vip
+            feedTable.value.vip
         );
-        state.feedTable.loading = true;
-        let vipList = [];
-        if (state.feedTable.vip) {
-            vipList = Array.from(friendStore.localFavoriteFriends.values());
+        feedTable.value.loading = true;
+        try {
+            let vipList = [];
+            if (feedTable.value.vip) {
+                vipList = Array.from(friendStore.localFavoriteFriends.values());
+            }
+            const search = feedTable.value.search.trim();
+            const { dateFrom, dateTo } = feedTable.value;
+            const rows =
+                search || dateFrom || dateTo
+                    ? await database.searchFeedDatabase(
+                          search,
+                          feedTable.value.filter,
+                          vipList,
+                          vrcxStore.searchLimit,
+                          dateFrom,
+                          dateTo
+                      )
+                    : await database.lookupFeedDatabase(
+                          feedTable.value.filter,
+                          vipList
+                      );
+            feedTableData.value = [];
+            feedTableData.value = [...feedTableData.value, ...rows];
+        } finally {
+            feedTable.value.loading = false;
         }
-        state.feedTable.data = await database.lookupFeedDatabase(
-            state.feedTable.search,
-            state.feedTable.filter,
-            vipList
-        );
-        state.feedTable.loading = false;
     }
 
-    function addFeed(feed) {
-        notificationStore.queueFeedNoty(feed);
-        state.feedSessionTable.push(feed);
-        sharedFeedStore.updateSharedFeed(false);
+    /**
+     * Appends a feed entry to the local table if it passes filters.
+     * Does NOT trigger notifications or shared feed — that is the caller's responsibility.
+     * @param {object} feed The feed entry to add.
+     */
+    function addFeedEntry(feed) {
         if (
-            state.feedTable.filter.length > 0 &&
-            !state.feedTable.filter.includes(feed.type)
+            feedTable.value.filter.length > 0 &&
+            !feedTable.value.filter.includes(feed.type)
         ) {
             return;
         }
         if (
-            state.feedTable.vip &&
+            feedTable.value.vip &&
             !friendStore.localFavoriteFriends.has(feed.userId)
         ) {
             return;
@@ -192,47 +187,40 @@ export const useFeedStore = defineStore('Feed', () => {
         if (!feedSearch(feed)) {
             return;
         }
-        state.feedTable.data.push(feed);
+        if (
+            feedTable.value.dateFrom &&
+            feed.created_at < feedTable.value.dateFrom
+        ) {
+            return;
+        }
+        if (
+            feedTable.value.dateTo &&
+            feed.created_at > feedTable.value.dateTo
+        ) {
+            return;
+        }
+        feedTableData.value = [feed, ...feedTableData.value];
         sweepFeed();
-        UiStore.notifyMenu('feed');
     }
 
     function sweepFeed() {
-        let limit;
-        const { data } = state.feedTable;
-        const j = data.length;
-        if (j > vrcxStore.maxTableSize) {
-            data.splice(0, j - vrcxStore.maxTableSize);
-        }
-
-        const date = new Date();
-        date.setDate(date.getDate() - 1); // 24 hour limit
-        limit = date.toJSON();
-        let i = 0;
-        const k = state.feedSessionTable.length;
-        while (i < k && state.feedSessionTable[i].created_at < limit) {
-            ++i;
-        }
-        if (i === k) {
-            state.feedSessionTable = [];
-        } else if (i) {
-            state.feedSessionTable.splice(0, i);
+        const j = feedTableData.value.length;
+        if (j > vrcxStore.maxTableSize + 50) {
+            feedTableData.value = feedTableData.value.slice(0, -50);
         }
     }
 
     async function initFeedTable() {
-        state.feedTable.loading = true;
-
-        feedTableLookup();
-        state.feedSessionTable = await database.getFeedDatabase();
+        feedTable.value.loading = true;
+        await feedTableLookup();
+        feedTable.value.loading = false;
     }
 
     return {
-        state,
         feedTable,
-        feedSessionTable,
+        feedTableData,
         initFeedTable,
         feedTableLookup,
-        addFeed
+        addFeedEntry
     };
 });

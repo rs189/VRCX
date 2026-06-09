@@ -2,7 +2,7 @@ cd ..
 
 $ErrorActionPreference = "Stop"
 
-$installPath = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -version 16.0 -property installationpath
+$installPath = (&"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -version 16.0 -property installationpath) | Select-Object -Last 1
 Import-Module (Join-Path $installPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
 Enter-VsDevShell -VsInstallPath $installPath -SkipAutomaticLocation
 
@@ -11,7 +11,7 @@ $ZipName = "VRCX_" + $Date + ".zip"
 $SetupName = "VRCX_" + $Date + "_Setup.exe"
 
 Write-Host "Building .Net..." -ForegroundColor Green
-dotnet build Dotnet\VRCX-Cef.csproj -p:Configuration=Release -p:Platform=x64 -p:RestorePackagesConfig=true -t:"Restore;Clean;Build" -m --self-contained
+dotnet build Dotnet\VRCX-Cef.csproj -p:Configuration=Release -p:WarningLevel=0 -p:Platform=x64 -p:RestorePackagesConfig=true -t:"Restore;Clean;Build" -m --self-contained
 
 Write-Host "Building Node.js..." -ForegroundColor Green
 Remove-Item -Path "node_modules" -Force -Recurse -ErrorAction SilentlyContinue

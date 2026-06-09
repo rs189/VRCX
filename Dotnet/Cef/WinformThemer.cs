@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -24,15 +24,19 @@ namespace VRCX
         /// <summary>
         ///     Private holder of current theme
         /// </summary>
-        private static int currentTheme;
+        private static int currentTheme = -1;
 
         /// <summary>
         ///     Sets the global theme of the app
         ///     Light = 0
         ///     Dark = 1
+        ///     Midnight = 2
         /// </summary>
         public static void SetGlobalTheme(int theme)
         {
+            if (currentTheme == theme)
+                return;
+
             currentTheme = theme;
 
             //Make a seperate list for all current forms (causes issues otherwise)
@@ -78,20 +82,33 @@ namespace VRCX
                     //Set the theme of the window
                     SetThemeToGlobal(form.Handle);
 
-                    //Change opacity to foce full redraw
+                    //Change opacity to force full redraw
                     form.Opacity = 0.99999;
                     form.Opacity = 1;
                 }
             }));
         }
 
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+        private const int DWMWA_CAPTION_COLOR = 35;
+
         private static void SetThemeToGlobal(IntPtr handle)
         {
-            if (GetTheme(handle) != currentTheme)
-            {
-                if (PInvoke.DwmSetWindowAttribute(handle, 19, new[] { currentTheme }, 4) != 0)
-                    PInvoke.DwmSetWindowAttribute(handle, 20, new[] { currentTheme }, 4);
-            }
+            var whiteColor = 0xFFFFFF;
+            var blackColor = 0x000000;
+            var greyColor = 0x2B2B2B;
+
+            var isDark = currentTheme > 0 ? 1 : 0;
+            if (PInvoke.DwmSetWindowAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, ref isDark, sizeof(int)) != 0)
+                PInvoke.DwmSetWindowAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref isDark, sizeof(int));
+
+            if (currentTheme == 2)
+                PInvoke.DwmSetWindowAttribute(handle, DWMWA_CAPTION_COLOR, ref blackColor, sizeof(int));
+            else if (currentTheme == 1)
+                PInvoke.DwmSetWindowAttribute(handle, DWMWA_CAPTION_COLOR, ref greyColor, sizeof(int));
+            else
+                PInvoke.DwmSetWindowAttribute(handle, DWMWA_CAPTION_COLOR, ref whiteColor, sizeof(int));
         }
 
         private static int GetTheme(IntPtr handle)
@@ -146,7 +163,7 @@ namespace VRCX
         internal static class PInvoke
         {
             [DllImport("DwmApi")]
-            internal static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, int[] pvAttribute, int cbAttribute);
+            internal static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 
             [DllImport("DwmApi")]
             internal static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, IntPtr pvAttribute, int cbAttribute);

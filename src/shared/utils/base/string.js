@@ -34,7 +34,7 @@ function textToHex(text) {
     const s = String(text);
     return s
         .split('')
-        .map((c) => c.charCodeAt(0).toString(16))
+        .map((c) => c.charCodeAt(0).toString(16).toUpperCase())
         .join(' ');
 }
 
@@ -99,11 +99,76 @@ function changeLogRemoveLinks(text) {
     return text.replace(/([^!])\[[^\]]+\]\([^)]+\)/g, '$1');
 }
 
+/**
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function replaceBioSymbols(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    const symbolList = {
+        '@': '＠',
+        '#': '＃',
+        $: '＄',
+        '%': '％',
+        '&': '＆',
+        '=': '＝',
+        '+': '＋',
+        '/': '⁄',
+        '\\': '＼',
+        ';': ';',
+        ':': '˸',
+        ',': '‚',
+        '?': '？',
+        '!': 'ǃ',
+        '"': '＂',
+        '<': '≺',
+        '>': '≻',
+        '.': '․',
+        '^': '＾',
+        '{': '｛',
+        '}': '｝',
+        '[': '［',
+        ']': '］',
+        '(': '（',
+        ')': '）',
+        '|': '｜',
+        '*': '∗'
+    };
+    let newText = text;
+    for (const key in symbolList) {
+        const regex = new RegExp(symbolList[key], 'g');
+        newText = newText.replace(regex, key);
+    }
+    return newText.replace(/ {1,}/g, ' ').trimRight();
+}
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function removeEmojis(text) {
+    if (!text) {
+        return '';
+    }
+    return text
+        .replace(
+            /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g,
+            ''
+        )
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 export {
     escapeTag,
     escapeTagRecursive,
     textToHex,
     commaNumber,
     localeIncludes,
-    changeLogRemoveLinks
+    changeLogRemoveLinks,
+    replaceBioSymbols,
+    removeEmojis
 };

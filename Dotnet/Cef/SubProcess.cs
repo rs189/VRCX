@@ -1,6 +1,7 @@
-using CefSharp.Internals;
 using System;
 using System.IO;
+using System.Threading;
+using CefSharp.Internals;
 
 namespace VRCX;
 
@@ -26,11 +27,11 @@ public class BrowserSubprocess
 
         if (string.IsNullOrEmpty(type))
         {
-            // If --type param missing from command line CEF/Chromium assums
+            // If --type param missing from command line CEF/Chromium assumes
             // this is the main process (as all subprocesses must have a type param).
             return;
         }
-        
+
         var browserSubprocessDllPath = Path.Join(AppDomain.CurrentDomain.BaseDirectory, "CefSharp.BrowserSubprocess.Core.dll");
         if (!File.Exists(browserSubprocessDllPath))
         {
@@ -46,9 +47,22 @@ public class BrowserSubprocess
 
         var methodArgs = new object[] { args };
 
-        var exitCode = mainMethod.Invoke(null, methodArgs);
-
-        Environment.Exit((int)exitCode);
+        int exitCode = -1;
+        while (true)
+        {
+            try
+            {
+                exitCode = (int)mainMethod.Invoke(null, methodArgs);
+            }
+            catch (Exception ex)
+            {
+                // TODO: Log this exception somewhere more useful
+                Console.WriteLine("Exception in BrowserSubprocess: " + ex);
+                Thread.Sleep(1000);
+                continue;
+            }
+            Environment.Exit(exitCode);
+        }
     }
 }
 

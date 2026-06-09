@@ -1,78 +1,122 @@
 <template>
-    <safe-dialog ref="favoriteDialogRef" :visible.sync="isVisible" :title="t('dialog.favorite.header')" width="300px">
-        <div v-loading="loading">
-            <span style="display: block; text-align: center">{{ t('dialog.favorite.vrchat_favorites') }}</span>
-            <template v-if="favoriteDialog.currentGroup && favoriteDialog.currentGroup.key">
-                <el-button
-                    style="display: block; width: 100%; margin: 10px 0"
-                    @click="deleteFavoriteNoConfirm(favoriteDialog.objectId)">
-                    <i class="el-icon-check"></i>
-                    {{ favoriteDialog.currentGroup.displayName }} ({{ favoriteDialog.currentGroup.count }} /
-                    {{ favoriteDialog.currentGroup.capacity }})
-                </el-button>
-            </template>
-            <template v-else>
-                <el-button
-                    v-for="group in groups"
-                    :key="group.key"
-                    style="display: block; width: 100%; margin: 10px 0"
-                    @click="addFavorite(group)">
-                    {{ group.displayName }} ({{ group.count }} / {{ group.capacity }})
-                </el-button>
-            </template>
-        </div>
-        <div v-if="favoriteDialog.type === 'world'" style="margin-top: 20px">
-            <span style="display: block; text-align: center">{{ t('dialog.favorite.local_favorites') }}</span>
-            <template v-for="group in localWorldFavoriteGroups">
-                <el-button
-                    v-if="hasLocalWorldFavorite(favoriteDialog.objectId, group)"
-                    :key="group"
-                    style="display: block; width: 100%; margin: 10px 0"
-                    @click="removeLocalWorldFavorite(favoriteDialog.objectId, group)">
-                    <i class="el-icon-check"></i>
-                    {{ group }} ({{ getLocalWorldFavoriteGroupLength(group) }})
-                </el-button>
-                <el-button
-                    v-else
-                    :key="group"
-                    style="display: block; width: 100%; margin: 10px 0"
-                    @click="addLocalWorldFavorite(favoriteDialog.objectId, group)">
-                    {{ group }} ({{ getLocalWorldFavoriteGroupLength(group) }})
-                </el-button>
-            </template>
-        </div>
-        <div v-if="favoriteDialog.type === 'avatar'" style="margin-top: 20px">
-            <span style="display: block; text-align: center">{{ t('dialog.favorite.local_avatar_favorites') }}</span>
-            <template v-for="group in localAvatarFavoriteGroups">
-                <el-button
-                    v-if="hasLocalAvatarFavorite(favoriteDialog.objectId, group)"
-                    :key="group"
-                    style="display: block; width: 100%; margin: 10px 0"
-                    @click="removeLocalAvatarFavorite(favoriteDialog.objectId, group)">
-                    <i class="el-icon-check"></i>
-                    {{ group }} ({{ getLocalAvatarFavoriteGroupLength(group) }})
-                </el-button>
-                <el-button
-                    v-else
-                    :key="group"
-                    style="display: block; width: 100%; margin: 10px 0"
-                    :disabled="!isLocalUserVrcplusSupporter"
-                    @click="addLocalAvatarFavorite(favoriteDialog.objectId, group)">
-                    {{ group }} ({{ getLocalAvatarFavoriteGroupLength(group) }})
-                </el-button>
-            </template>
-        </div>
-    </safe-dialog>
+    <Dialog v-model:open="isVisible">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.favorite.header') }}</DialogTitle>
+            </DialogHeader>
+            <div>
+                <span style="display: block; text-align: center">{{ t('dialog.favorite.vrchat_favorites') }}</span>
+                <template v-if="favoriteDialog.currentGroup && favoriteDialog.currentGroup.key">
+                    <Button
+                        variant="outline"
+                        style="width: 100%; white-space: initial"
+                        class="my-1"
+                        @click="deleteFavoriteNoConfirm(favoriteDialog.objectId)">
+                        <Check />{{ favoriteDialog.currentGroup.displayName }} ({{
+                            favoriteDialog.currentGroup.count
+                        }}
+                        / {{ favoriteDialog.currentGroup.capacity }})
+                    </Button>
+                </template>
+                <template v-else>
+                    <Button
+                        variant="outline"
+                        v-for="group in groups"
+                        :key="group.key"
+                        style="width: 100%; white-space: initial"
+                        class="my-1"
+                        @click="addFavorite(group)">
+                        {{ group.displayName }} ({{ group.count }} / {{ group.capacity }})
+                    </Button>
+                </template>
+            </div>
+            <div v-if="favoriteDialog.type === 'friend'" style="margin-top: 20px">
+                <span style="display: block; text-align: center">{{ t('dialog.favorite.local_favorites') }}</span>
+                <template v-for="group in localFriendFavoriteGroups" :key="group">
+                    <Button
+                        variant="outline"
+                        v-if="hasLocalFriendFavorite(favoriteDialog.objectId, group)"
+                        style="width: 100%; white-space: initial"
+                        class="my-1"
+                        @click="removeLocalFriendFavorite(favoriteDialog.objectId, group)">
+                        <Check />{{ group }} ({{ localFriendFavGroupLength(group) }})
+                    </Button>
+                    <Button
+                        variant="outline"
+                        v-else
+                        style="width: 100%; white-space: initial"
+                        class="my-1"
+                        @click="addLocalFriendFavorite(favoriteDialog.objectId, group)">
+                        {{ group }} ({{ localFriendFavGroupLength(group) }})
+                    </Button>
+                </template>
+            </div>
+            <div v-if="favoriteDialog.type === 'world'" style="margin-top: 20px">
+                <span style="display: block; text-align: center">{{ t('dialog.favorite.local_favorites') }}</span>
+                <template v-for="group in localWorldFavoriteGroups" :key="group">
+                    <Button
+                        variant="outline"
+                        v-if="hasLocalWorldFavorite(favoriteDialog.objectId, group)"
+                        style="width: 100%; white-space: initial"
+                        class="my-1"
+                        @click="removeLocalWorldFavorite(favoriteDialog.objectId, group)">
+                        <Check />{{ group }} ({{ localWorldFavGroupLength(group) }})
+                    </Button>
+                    <Button
+                        variant="outline"
+                        v-else
+                        style="width: 100%; white-space: initial"
+                        class="my-1"
+                        @click="addLocalWorldFavorite(favoriteDialog.objectId, group)">
+                        {{ group }} ({{ localWorldFavGroupLength(group) }})
+                    </Button>
+                </template>
+            </div>
+            <div v-if="favoriteDialog.type === 'avatar'" style="margin-top: 20px">
+                <span style="text-align: center">{{ t('dialog.favorite.local_avatar_favorites') }}</span>
+                <template v-for="group in localAvatarFavoriteGroups" :key="group">
+                    <Button
+                        variant="outline"
+                        v-if="hasLocalAvatarFavorite(favoriteDialog.objectId, group)"
+                        style="width: 100%; white-space: initial"
+                        class="my-1"
+                        @click="removeLocalAvatarFavorite(favoriteDialog.objectId, group)">
+                        <Check />{{ group }} ({{ localAvatarFavGroupLength(group) }})
+                    </Button>
+                    <Button
+                        variant="outline"
+                        v-else
+                        style="width: 100%; white-space: initial"
+                        class="my-1"
+                        :disabled="!isLocalUserVrcPlusSupporter"
+                        @click="addLocalAvatarFavorite(favoriteDialog.objectId, group)">
+                        {{ group }} ({{ localAvatarFavGroupLength(group) }})
+                    </Button>
+                </template>
+            </div>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import Noty from 'noty';
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, ref, watch } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { Check } from 'lucide-vue-next';
     import { storeToRefs } from 'pinia';
-    import { computed, nextTick, ref, watch } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { favoriteRequest } from '../../api';
-    import { adjustDialogZ } from '../../shared/utils';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
     import { useFavoriteStore, useUserStore } from '../../stores';
+    import {
+        addLocalWorldFavorite,
+        removeLocalWorldFavorite,
+        addLocalAvatarFavorite,
+        removeLocalAvatarFavorite,
+        addLocalFriendFavorite,
+        removeLocalFriendFavorite
+    } from '../../coordinators/favoriteCoordinator';
+    import { favoriteRequest } from '../../api';
 
     const { t } = useI18n();
 
@@ -81,24 +125,22 @@
         favoriteFriendGroups,
         favoriteAvatarGroups,
         favoriteWorldGroups,
-        localAvatarFavoriteGroups,
         favoriteDialog,
-        localWorldFavoriteGroups
+        localWorldFavoriteGroups,
+        localAvatarFavoriteGroups,
+        localFriendFavoriteGroups
     } = storeToRefs(favoriteStore);
     const {
-        getLocalWorldFavoriteGroupLength,
-        addLocalWorldFavorite,
+        localWorldFavGroupLength,
         hasLocalWorldFavorite,
         hasLocalAvatarFavorite,
-        addLocalAvatarFavorite,
-        getLocalAvatarFavoriteGroupLength,
-        removeLocalAvatarFavorite,
-        removeLocalWorldFavorite,
-        deleteFavoriteNoConfirm
+        localAvatarFavGroupLength,
+        deleteFavoriteNoConfirm,
+        localFriendFavGroupLength,
+        hasLocalFriendFavorite
     } = favoriteStore;
-    const { currentUser } = storeToRefs(useUserStore());
+    const { isLocalUserVrcPlusSupporter } = storeToRefs(useUserStore());
 
-    const favoriteDialogRef = ref(null);
     const groups = ref([]);
     const loading = ref(false);
 
@@ -109,19 +151,18 @@
         }
     });
 
-    const isLocalUserVrcplusSupporter = computed(() => currentUser.value.$isVRCPlus);
-
     watch(
         () => favoriteDialog.value.visible,
-        async (value) => {
+        (value) => {
             if (value) {
                 initFavoriteDialog();
-                await nextTick();
-                adjustDialogZ(favoriteDialogRef.value.$el);
             }
         }
     );
 
+    /**
+     * @returns {void}
+     */
     function initFavoriteDialog() {
         if (favoriteDialog.value.type === 'friend') {
             groups.value = favoriteFriendGroups.value;
@@ -132,18 +173,23 @@
         }
     }
 
+    /**
+     *
+     * @param {object} group
+     * @returns {void}
+     */
     function addFavorite(group) {
         const D = favoriteDialog.value;
         loading.value = true;
         favoriteRequest
             .addFavorite({
-                type: D.type,
+                type: group.type,
                 favoriteId: D.objectId,
                 tags: group.name
             })
             .then(() => {
                 isVisible.value = false;
-                new Noty({ type: 'success', text: 'favorite added!' }).show();
+                toast.success('Favorite added!');
             })
             .finally(() => {
                 loading.value = false;

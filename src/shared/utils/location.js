@@ -1,144 +1,75 @@
+import { isRealInstance } from './instance.js';
+
+export {
+    parseLocation,
+    displayLocation,
+    resolveRegion,
+    translateAccessType
+} from './locationParser.js';
+
 /**
  *
- * @param {string} location
- * @param {string} worldName
- * @param {string?} groupName
- * @returns {string}
+ * @param {Array} friendsArr
+ * @param {object} lastLocation - last location from location store
+ * @param {Set} lastLocation.friendList
+ * @param {string} lastLocation.location
  */
-function displayLocation(location, worldName, groupName = '') {
-    let text = worldName;
-    const L = parseLocation(location);
+function getFriendsLocations(friendsArr, lastLocation) {
+    // prevent the instance title display as "Traveling".
+    if (!friendsArr?.length) {
+        return '';
+    }
+    for (const friend of friendsArr) {
+        if (isRealInstance(friend.ref?.location)) {
+            return friend.ref.location;
+        }
+    }
+    for (const friend of friendsArr) {
+        if (isRealInstance(friend.ref?.travelingToLocation)) {
+            return friend.ref.travelingToLocation;
+        }
+    }
+    if (lastLocation) {
+        for (const friend of friendsArr) {
+            if (lastLocation.friendList.has(friend.id)) {
+                return lastLocation.location;
+            }
+        }
+    }
+    return friendsArr[0].ref?.location;
+}
+
+export { getFriendsLocations };
+
+/**
+ * Get the display text for a location — synchronous, pure function.
+ * Does NOT handle async world name lookups (those stay in the component).
+ * @param {object} L - Parsed location object from parseLocation()
+ * @param {object} options
+ * @param {string} [options.hint] - Hint string (e.g. from props)
+ * @param {string|undefined} [options.worldName] - Cached world name, if available
+ * @param {string} options.accessTypeLabel - Translated access type label
+ * @param {Function} options.t - i18n translate function
+ * @returns {string} Display text for the location
+ */
+function getLocationText(L, { hint, worldName, accessTypeLabel, t }) {
     if (L.isOffline) {
-        text = 'Offline';
-    } else if (L.isPrivate) {
-        text = 'Private';
-    } else if (L.isTraveling) {
-        text = 'Traveling';
-    } else if (L.worldId) {
-        if (groupName) {
-            text = `${worldName} ${L.accessTypeName}(${groupName})`;
-        } else if (L.instanceId) {
-            text = `${worldName} ${L.accessTypeName}`;
-        }
+        return t('location.offline');
     }
-    return text;
+    if (L.isPrivate) {
+        return t('location.private');
+    }
+    if (L.isTraveling) {
+        return t('location.traveling');
+    }
+    if (typeof hint === 'string' && hint !== '') {
+        return L.instanceId ? `${hint} · ${accessTypeLabel}` : hint;
+    }
+    if (L.worldId) {
+        const name = worldName || L.worldId;
+        return L.instanceId ? `${name} · ${accessTypeLabel}` : name;
+    }
+    return '';
 }
 
-/**
- *
- * @param {string} tag
- * @returns
- */
-function parseLocation(tag) {
-    let _tag = String(tag || '');
-    const ctx = {
-        tag: _tag,
-        isOffline: false,
-        isPrivate: false,
-        isTraveling: false,
-        isRealInstance: false,
-        worldId: '',
-        instanceId: '',
-        instanceName: '',
-        accessType: '',
-        accessTypeName: '',
-        region: '',
-        shortName: '',
-        userId: null,
-        hiddenId: null,
-        privateId: null,
-        friendsId: null,
-        groupId: null,
-        groupAccessType: null,
-        canRequestInvite: false,
-        strict: false,
-        ageGate: false
-    };
-    if (_tag === 'offline' || _tag === 'offline:offline') {
-        ctx.isOffline = true;
-    } else if (_tag === 'private' || _tag === 'private:private') {
-        ctx.isPrivate = true;
-    } else if (_tag === 'traveling' || _tag === 'traveling:traveling') {
-        ctx.isTraveling = true;
-    } else if (tag && !_tag.startsWith('local')) {
-        ctx.isRealInstance = true;
-        const sep = _tag.indexOf(':');
-        // technically not part of instance id, but might be there when coping id from url so why not support it
-        const shortNameQualifier = '&shortName=';
-        const shortNameIndex = _tag.indexOf(shortNameQualifier);
-        if (shortNameIndex >= 0) {
-            ctx.shortName = _tag.substr(
-                shortNameIndex + shortNameQualifier.length
-            );
-            _tag = _tag.substr(0, shortNameIndex);
-        }
-        if (sep >= 0) {
-            ctx.worldId = _tag.substr(0, sep);
-            ctx.instanceId = _tag.substr(sep + 1);
-            ctx.instanceId.split('~').forEach((s, i) => {
-                if (i) {
-                    const A = s.indexOf('(');
-                    const Z = A >= 0 ? s.lastIndexOf(')') : -1;
-                    const key = Z >= 0 ? s.substr(0, A) : s;
-                    const value = A < Z ? s.substr(A + 1, Z - A - 1) : '';
-                    if (key === 'hidden') {
-                        ctx.hiddenId = value;
-                    } else if (key === 'private') {
-                        ctx.privateId = value;
-                    } else if (key === 'friends') {
-                        ctx.friendsId = value;
-                    } else if (key === 'canRequestInvite') {
-                        ctx.canRequestInvite = true;
-                    } else if (key === 'region') {
-                        ctx.region = value;
-                    } else if (key === 'group') {
-                        ctx.groupId = value;
-                    } else if (key === 'groupAccessType') {
-                        ctx.groupAccessType = value;
-                    } else if (key === 'strict') {
-                        ctx.strict = true;
-                    } else if (key === 'ageGate') {
-                        ctx.ageGate = true;
-                    }
-                } else {
-                    ctx.instanceName = s;
-                }
-            });
-            ctx.accessType = 'public';
-            if (ctx.privateId !== null) {
-                if (ctx.canRequestInvite) {
-                    // InvitePlus
-                    ctx.accessType = 'invite+';
-                } else {
-                    // InviteOnly
-                    ctx.accessType = 'invite';
-                }
-                ctx.userId = ctx.privateId;
-            } else if (ctx.friendsId !== null) {
-                // FriendsOnly
-                ctx.accessType = 'friends';
-                ctx.userId = ctx.friendsId;
-            } else if (ctx.hiddenId !== null) {
-                // FriendsOfGuests
-                ctx.accessType = 'friends+';
-                ctx.userId = ctx.hiddenId;
-            } else if (ctx.groupId !== null) {
-                // Group
-                ctx.accessType = 'group';
-            }
-            ctx.accessTypeName = ctx.accessType;
-            if (ctx.groupAccessType !== null) {
-                if (ctx.groupAccessType === 'public') {
-                    ctx.accessTypeName = 'groupPublic';
-                } else if (ctx.groupAccessType === 'plus') {
-                    ctx.accessTypeName = 'groupPlus';
-                }
-            }
-        } else {
-            ctx.worldId = _tag;
-        }
-    }
-    return ctx;
-}
-
-export { parseLocation, displayLocation };
+export { getLocationText };

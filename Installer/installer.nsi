@@ -32,6 +32,8 @@
 ;--------------------------------
 ;General
 
+    SetCompressor /SOLID lzma
+    SetCompressorDictSize 16
     Unicode True
     Name "VRCX"
     OutFile "VRCX_Setup.exe"
@@ -53,8 +55,8 @@
 ;--------------------------------
 ;Icons
 
-    !define MUI_ICON "../VRCX.ico"
-    !define MUI_UNICON "../VRCX.ico"
+    !define MUI_ICON "../images/VRCX.ico"
+    !define MUI_UNICON "../images/VRCX.ico"
 
 ;--------------------------------
 ;Pages

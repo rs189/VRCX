@@ -1,31 +1,40 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="isAvatarProviderDialogVisible"
-        :title="t('dialog.avatar_database_provider.header')"
-        width="600px"
-        @close="closeDialog">
-        <div>
-            <el-input
-                v-for="(provider, index) in avatarRemoteDatabaseProviderList"
-                :key="index"
-                v-model="avatarRemoteDatabaseProviderList[index]"
-                size="small"
-                style="margin-top: 5px"
-                @change="saveAvatarProviderList">
-                <el-button slot="append" icon="el-icon-delete" @click="removeAvatarProvider(provider)"></el-button>
-            </el-input>
+    <Dialog :open="isAvatarProviderDialogVisible" @update:open="(open) => (open ? null : closeDialog())">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.avatar_database_provider.header') }}</DialogTitle>
+            </DialogHeader>
+            <div>
+                <InputGroupAction
+                    class="mt-1.5"
+                    v-for="(provider, index) in avatarRemoteDatabaseProviderList"
+                    :key="index"
+                    v-model="avatarRemoteDatabaseProviderList[index]"
+                    size="sm"
+                    @change="saveAvatarProviderList">
+                    <template #actions>
+                        <Trash2
+                            class="cursor-pointer opacity-80 hover:opacity-100"
+                            @click="removeAvatarProvider(provider)" />
+                    </template>
+                </InputGroupAction>
 
-            <el-button size="mini" style="margin-top: 5px" @click="avatarRemoteDatabaseProviderList.push('')">
-                {{ t('dialog.avatar_database_provider.add_provider') }}
-            </el-button>
-        </div>
-    </safe-dialog>
+                <Button size="sm" style="margin-top: 6px" @click="addProvider">
+                    {{ t('dialog.avatar_database_provider.add_provider') }}
+                </Button>
+            </div>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { InputGroupAction } from '@/components/ui/input-group';
+    import { Trash2 } from 'lucide-vue-next';
     import { storeToRefs } from 'pinia';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { useI18n } from 'vue-i18n';
+
     import { useAvatarProviderStore } from '../../../stores';
 
     const { t } = useI18n();
@@ -44,7 +53,17 @@
 
     const emit = defineEmits(['update:isAvatarProviderDialogVisible']);
 
+    /**
+     *
+     */
     function closeDialog() {
         emit('update:isAvatarProviderDialogVisible', false);
+    }
+
+    /**
+     *
+     */
+    function addProvider() {
+        avatarRemoteDatabaseProviderList.value.push('');
     }
 </script>

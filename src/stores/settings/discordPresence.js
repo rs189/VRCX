@@ -1,7 +1,7 @@
+import { reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
-import { computed, reactive } from 'vue';
-import { worldRequest } from '../../api';
-import configRepository from '../../service/config';
+import { useI18n } from 'vue-i18n';
+
 import {
     getGroupName,
     getLaunchURL,
@@ -9,16 +9,24 @@ import {
     isRpcWorld,
     parseLocation
 } from '../../shared/utils';
-import { useGameStore } from '../game';
-import { useGameLogStore } from '../gameLog';
-import { useLocationStore } from '../location';
-import { useUpdateLoopStore } from '../updateLoop';
-import { useUserStore } from '../user';
+import {
+    getPlatformLabel,
+    getRpcWorldConfig,
+    getStatusInfo,
+    isPopcornPalaceWorld
+} from '../../shared/utils/discordPresence';
 import {
     ActivityType,
     StatusDisplayType
 } from '../../shared/constants/discord';
-import { useI18n } from 'vue-i18n-bridge';
+import { queryRequest } from '../../api';
+import { useGameLogStore } from '../gameLog';
+import { useGameStore } from '../game';
+import { useLocationStore } from '../location';
+import { useUpdateLoopStore } from '../updateLoop';
+import { useUserStore } from '../user';
+
+import configRepository from '../../services/config';
 
 export const useDiscordPresenceSettingsStore = defineStore(
     'DiscordPresenceSettings',
@@ -31,14 +39,6 @@ export const useDiscordPresenceSettingsStore = defineStore(
         const { t } = useI18n();
 
         const state = reactive({
-            discordActive: false,
-            discordInstance: true,
-            discordHideInvite: true,
-            discordJoinButton: false,
-            discordHideImage: false,
-            discordShowPlatform: true,
-            discordWorldIntegration: true,
-            discordWorldNameAsDiscordStatus: false,
             isDiscordActive: false,
             lastLocationDetails: {
                 tag: '',
@@ -51,20 +51,109 @@ export const useDiscordPresenceSettingsStore = defineStore(
                 joinUrl: '',
                 worldLink: '',
                 accessName: '',
-                groupAccessType: ''
+                groupAccessType: '',
+                groupAccessName: ''
             }
         });
 
+        const discordActive = ref(false);
+        const discordInstance = ref(true);
+        const discordHideInvite = ref(true);
+        const discordJoinButton = ref(false);
+        const discordHideImage = ref(false);
+        const discordShowPlatform = ref(true);
+        const discordWorldIntegration = ref(true);
+        const discordWorldNameAsDiscordStatus = ref(false);
+
+        /**
+         *
+         */
+        function setDiscordActive() {
+            discordActive.value = !discordActive.value;
+            configRepository.setBool('discordActive', discordActive.value);
+        }
+        /**
+         *
+         */
+        function setDiscordInstance() {
+            discordInstance.value = !discordInstance.value;
+            configRepository.setBool('discordInstance', discordInstance.value);
+        }
+        /**
+         *
+         */
+        function setDiscordHideInvite() {
+            discordHideInvite.value = !discordHideInvite.value;
+            configRepository.setBool(
+                'discordHideInvite',
+                discordHideInvite.value
+            );
+        }
+        /**
+         *
+         */
+        function setDiscordJoinButton() {
+            discordJoinButton.value = !discordJoinButton.value;
+            configRepository.setBool(
+                'discordJoinButton',
+                discordJoinButton.value
+            );
+        }
+        /**
+         *
+         */
+        function setDiscordHideImage() {
+            discordHideImage.value = !discordHideImage.value;
+            configRepository.setBool(
+                'discordHideImage',
+                discordHideImage.value
+            );
+        }
+        /**
+         *
+         */
+        function setDiscordShowPlatform() {
+            discordShowPlatform.value = !discordShowPlatform.value;
+            configRepository.setBool(
+                'discordShowPlatform',
+                discordShowPlatform.value
+            );
+        }
+        /**
+         *
+         */
+        function setDiscordWorldIntegration() {
+            discordWorldIntegration.value = !discordWorldIntegration.value;
+            configRepository.setBool(
+                'discordWorldIntegration',
+                discordWorldIntegration.value
+            );
+        }
+        /**
+         *
+         */
+        function setDiscordWorldNameAsDiscordStatus() {
+            discordWorldNameAsDiscordStatus.value =
+                !discordWorldNameAsDiscordStatus.value;
+            configRepository.setBool(
+                'discordWorldNameAsDiscordStatus',
+                discordWorldNameAsDiscordStatus.value
+            );
+        }
+
+        /**
+         *
+         */
         async function initDiscordPresenceSettings() {
             const [
-                discordActive,
-                discordInstance,
-                discordHideInvite,
-                discordJoinButton,
-                discordHideImage,
-                discordShowPlatform,
-                discordWorldIntegration,
-                discordWorldNameAsDiscordStatus
+                discordActiveConfig,
+                discordInstanceConfig,
+                discordHideInviteConfig,
+                discordJoinButtonConfig,
+                discordHideImageConfig,
+                discordShowPlatformConfig,
+                discordWorldIntegrationConfig,
+                discordWorldNameAsDiscordStatusConfig
             ] = await Promise.all([
                 configRepository.getBool('discordActive', false),
                 configRepository.getBool('discordInstance', true),
@@ -79,84 +168,22 @@ export const useDiscordPresenceSettingsStore = defineStore(
                 )
             ]);
 
-            state.discordActive = discordActive;
-            state.discordInstance = discordInstance;
-            state.discordHideInvite = discordHideInvite;
-            state.discordJoinButton = discordJoinButton;
-            state.discordHideImage = discordHideImage;
-            state.discordShowPlatform = discordShowPlatform;
-            state.discordWorldIntegration = discordWorldIntegration;
-            state.discordWorldNameAsDiscordStatus =
-                discordWorldNameAsDiscordStatus;
-        }
-
-        const discordActive = computed(() => state.discordActive);
-        const discordInstance = computed(() => state.discordInstance);
-        const discordHideInvite = computed(() => state.discordHideInvite);
-        const discordJoinButton = computed(() => state.discordJoinButton);
-        const discordHideImage = computed(() => state.discordHideImage);
-        const discordShowPlatform = computed(() => state.discordShowPlatform);
-        const discordWorldIntegration = computed(
-            () => state.discordWorldIntegration
-        );
-        const discordWorldNameAsDiscordStatus = computed(
-            () => state.discordWorldNameAsDiscordStatus
-        );
-
-        function setDiscordActive() {
-            state.discordActive = !state.discordActive;
-            configRepository.setBool('discordActive', state.discordActive);
-        }
-        function setDiscordInstance() {
-            state.discordInstance = !state.discordInstance;
-            configRepository.setBool('discordInstance', state.discordInstance);
-        }
-        function setDiscordHideInvite() {
-            state.discordHideInvite = !state.discordHideInvite;
-            configRepository.setBool(
-                'discordHideInvite',
-                state.discordHideInvite
-            );
-        }
-        function setDiscordJoinButton() {
-            state.discordJoinButton = !state.discordJoinButton;
-            configRepository.setBool(
-                'discordJoinButton',
-                state.discordJoinButton
-            );
-        }
-        function setDiscordHideImage() {
-            state.discordHideImage = !state.discordHideImage;
-            configRepository.setBool(
-                'discordHideImage',
-                state.discordHideImage
-            );
-        }
-        function setDiscordShowPlatform() {
-            state.discordShowPlatform = !state.discordShowPlatform;
-            configRepository.setBool(
-                'discordShowPlatform',
-                state.discordShowPlatform
-            );
-        }
-        function setDiscordWorldIntegration() {
-            state.discordWorldIntegration = !state.discordWorldIntegration;
-            configRepository.setBool(
-                'discordWorldIntegration',
-                state.discordWorldIntegration
-            );
-        }
-        function setDiscordWorldNameAsDiscordStatus() {
-            state.discordWorldNameAsDiscordStatus =
-                !state.discordWorldNameAsDiscordStatus;
-            configRepository.setBool(
-                'discordWorldNameAsDiscordStatus',
-                state.discordWorldNameAsDiscordStatus
-            );
+            discordActive.value = discordActiveConfig;
+            discordInstance.value = discordInstanceConfig;
+            discordHideInvite.value = discordHideInviteConfig;
+            discordJoinButton.value = discordJoinButtonConfig;
+            discordHideImage.value = discordHideImageConfig;
+            discordShowPlatform.value = discordShowPlatformConfig;
+            discordWorldIntegration.value = discordWorldIntegrationConfig;
+            discordWorldNameAsDiscordStatus.value =
+                discordWorldNameAsDiscordStatusConfig;
         }
 
         initDiscordPresenceSettings();
 
+        /**
+         *
+         */
         async function updateDiscord() {
             let currentLocation = locationStore.lastLocation.location;
             let startTime = locationStore.lastLocation.date;
@@ -173,7 +200,7 @@ export const useDiscordPresenceSettingsStore = defineStore(
                         userStore.currentUser.$travelingToLocation;
                 }
             }
-            if (!state.discordActive || !isRealInstance(currentLocation)) {
+            if (!discordActive.value || !isRealInstance(currentLocation)) {
                 setIsDiscordActive(false);
                 return;
             }
@@ -190,10 +217,11 @@ export const useDiscordPresenceSettingsStore = defineStore(
                     joinUrl: '',
                     worldLink: '',
                     accessName: '',
-                    groupAccessType: ''
+                    groupAccessType: '',
+                    groupAccessName: ''
                 };
                 try {
-                    const args = await worldRequest.getCachedWorld({
+                    const args = await queryRequest.fetch('world.location', {
                         worldId: L.worldId
                     });
                     state.lastLocationDetails.worldName = args.ref.name;
@@ -211,36 +239,22 @@ export const useDiscordPresenceSettingsStore = defineStore(
                 }
 
                 let platform = '';
-                if (state.discordShowPlatform) {
-                    if (gameStore.isGameRunning) {
-                        platform = gameStore.isGameNoVR
-                            ? ` (${t('view.settings.discord_presence.rpc.desktop')})`
-                            : ` (${t('view.settings.discord_presence.rpc.vr')})`;
-                    } else {
-                        switch (userStore.currentUser.presence.platform) {
-                            case 'web':
-                                break;
-                            case 'standalonewindows':
-                                platform = ` (PC)`;
-                                break;
-                            case 'android':
-                                platform = ` (Android)`;
-                                break;
-                            case 'ios':
-                                platform = ` (iOS)`;
-                                break;
-                            default:
-                                platform = ` (${userStore.currentUser.presence.platform})`;
-                        }
-                    }
+                if (discordShowPlatform.value) {
+                    platform = getPlatformLabel(
+                        userStore.currentUser.presence.platform,
+                        gameStore.isGameRunning,
+                        gameStore.isGameNoVR,
+                        t
+                    );
                 }
+                state.lastLocationDetails.groupAccessType = L.groupAccessType;
                 if (L.groupAccessType) {
                     if (L.groupAccessType === 'public') {
-                        state.lastLocationDetails.groupAccessType = t(
+                        state.lastLocationDetails.groupAccessName = t(
                             'dialog.new_instance.group_access_type_public'
                         );
                     } else if (L.groupAccessType === 'plus') {
-                        state.lastLocationDetails.groupAccessType = t(
+                        state.lastLocationDetails.groupAccessName = t(
                             'dialog.new_instance.group_access_type_plus'
                         );
                     }
@@ -267,7 +281,7 @@ export const useDiscordPresenceSettingsStore = defineStore(
                         try {
                             const groupName = await getGroupName(L.groupId);
                             if (groupName) {
-                                state.lastLocationDetails.accessName = `${t('dialog.new_instance.access_type_group')}${state.lastLocationDetails.groupAccessType}(${groupName}) #${L.instanceName}${platform}`;
+                                state.lastLocationDetails.accessName = `${t('dialog.new_instance.access_type_group')}${state.lastLocationDetails.groupAccessName}(${groupName}) #${L.instanceName}${platform}`;
                             }
                         } catch (e) {
                             console.error(
@@ -281,47 +295,27 @@ export const useDiscordPresenceSettingsStore = defineStore(
             setIsDiscordActive(true);
             let hidePrivate = false;
             if (
-                state.discordHideInvite &&
+                discordHideInvite.value &&
                 (state.lastLocationDetails.accessType === 'invite' ||
                     state.lastLocationDetails.accessType === 'invite+' ||
                     state.lastLocationDetails.groupAccessType === 'members')
             ) {
                 hidePrivate = true;
             }
-            let statusName = '';
-            let statusImage = '';
-            switch (userStore.currentUser.status) {
-                case 'active':
-                    statusName = t('dialog.user.status.active');
-                    statusImage = 'active';
-                    break;
-                case 'join me':
-                    statusName = t('dialog.user.status.join_me');
-                    statusImage = 'joinme';
-                    break;
-                case 'ask me':
-                    statusName = t('dialog.user.status.ask_me');
-                    statusImage = 'askme';
-                    if (state.discordHideInvite) {
-                        hidePrivate = true;
-                    }
-                    break;
-                case 'busy':
-                    statusName = t('dialog.user.status.busy');
-                    statusImage = 'busy';
-                    hidePrivate = true;
-                    break;
-                default:
-                    statusName = t('dialog.user.status.offline');
-                    statusImage = 'offline';
-                    hidePrivate = true;
-                    break;
+            const statusInfo = getStatusInfo(
+                userStore.currentUser.status,
+                discordHideInvite.value,
+                t
+            );
+            const { statusName, statusImage } = statusInfo;
+            if (statusInfo.hidePrivate) {
+                hidePrivate = true;
             }
             let details = state.lastLocationDetails.worldName;
             let stateText = state.lastLocationDetails.accessName;
             let endTime = 0;
             let activityType = ActivityType.Playing;
-            let statusDisplayType = state.discordWorldNameAsDiscordStatus
+            let statusDisplayType = discordWorldNameAsDiscordStatus.value
                 ? StatusDisplayType.Details
                 : StatusDisplayType.Name;
             let appId = '883308884863901717';
@@ -340,88 +334,35 @@ export const useDiscordPresenceSettingsStore = defineStore(
             if (partySize === 0) {
                 partyMaxSize = 0;
             }
-            if (!state.discordInstance) {
+            if (!discordInstance.value) {
                 partySize = 0;
                 partyMaxSize = 0;
                 stateText = '';
             }
-            let buttonText = t(
-                'view.settings.discord_presence.rpc.join_button'
-            );
+            let buttonText = 'Join';
             let buttonUrl = state.lastLocationDetails.joinUrl;
-            if (!state.discordJoinButton) {
+            if (!discordJoinButton.value) {
                 buttonText = '';
                 buttonUrl = '';
             }
 
-            if (
+            const rpcConfig =
                 isRpcWorld(state.lastLocationDetails.tag) &&
-                state.discordWorldIntegration
-            ) {
-                // custom world rpc
+                discordWorldIntegration.value
+                    ? getRpcWorldConfig(state.lastLocationDetails.worldId)
+                    : null;
+
+            if (rpcConfig) {
+                activityType = rpcConfig.activityType;
+                statusDisplayType = rpcConfig.statusDisplayType;
+                appId = rpcConfig.appId;
+                bigIcon = rpcConfig.bigIcon;
                 if (
-                    state.lastLocationDetails.worldId ===
-                        'wrld_f20326da-f1ac-45fc-a062-609723b097b1' ||
-                    state.lastLocationDetails.worldId ===
-                        'wrld_10e5e467-fc65-42ed-8957-f02cace1398c' ||
-                    state.lastLocationDetails.worldId ===
-                        'wrld_04899f23-e182-4a8d-b2c7-2c74c7c15534'
+                    isPopcornPalaceWorld(state.lastLocationDetails.worldId) &&
+                    !discordHideImage.value &&
+                    gameLogStore.nowPlaying.thumbnailUrl
                 ) {
-                    activityType = ActivityType.Listening;
-                    statusDisplayType = StatusDisplayType.Details;
-                    appId = '784094509008551956';
-                    bigIcon = 'pypy';
-                } else if (
-                    state.lastLocationDetails.worldId ===
-                        'wrld_42377cf1-c54f-45ed-8996-5875b0573a83' ||
-                    state.lastLocationDetails.worldId ===
-                        'wrld_dd6d2888-dbdc-47c2-bc98-3d631b2acd7c'
-                ) {
-                    activityType = ActivityType.Listening;
-                    statusDisplayType = StatusDisplayType.Details;
-                    appId = '846232616054030376';
-                    bigIcon = 'vr_dancing';
-                } else if (
-                    state.lastLocationDetails.worldId ===
-                        'wrld_52bdcdab-11cd-4325-9655-0fb120846945' ||
-                    state.lastLocationDetails.worldId ===
-                        'wrld_2d40da63-8f1f-4011-8a9e-414eb8530acd'
-                ) {
-                    activityType = ActivityType.Listening;
-                    statusDisplayType = StatusDisplayType.Details;
-                    appId = '939473404808007731';
-                    bigIcon = 'zuwa_zuwa_dance';
-                } else if (
-                    state.lastLocationDetails.worldId ===
-                        'wrld_74970324-58e8-4239-a17b-2c59dfdf00db' ||
-                    state.lastLocationDetails.worldId ===
-                        'wrld_db9d878f-6e76-4776-8bf2-15bcdd7fc445' ||
-                    state.lastLocationDetails.worldId ===
-                        'wrld_435bbf25-f34f-4b8b-82c6-cd809057eb8e' ||
-                    state.lastLocationDetails.worldId ===
-                        'wrld_f767d1c8-b249-4ecc-a56f-614e433682c8'
-                ) {
-                    activityType = ActivityType.Watching;
-                    statusDisplayType = StatusDisplayType.Details;
-                    appId = '968292722391785512';
-                    bigIcon = 'ls_media';
-                } else if (
-                    state.lastLocationDetails.worldId ===
-                        'wrld_266523e8-9161-40da-acd0-6bd82e075833' ||
-                    state.lastLocationDetails.worldId ===
-                        'wrld_27c7e6b2-d938-447e-a270-3d1a873e2cf3'
-                ) {
-                    activityType = ActivityType.Watching;
-                    statusDisplayType = StatusDisplayType.Details;
-                    appId = '1095440531821170820';
-                    if (
-                        !state.discordHideImage &&
-                        gameLogStore.nowPlaying.thumbnailUrl
-                    ) {
-                        bigIcon = gameLogStore.nowPlaying.thumbnailUrl;
-                    } else {
-                        bigIcon = 'popcorn_palace';
-                    }
+                    bigIcon = gameLogStore.nowPlaying.thumbnailUrl;
                 }
                 if (gameLogStore.nowPlaying.name) {
                     details = gameLogStore.nowPlaying.name;
@@ -434,7 +375,7 @@ export const useDiscordPresenceSettingsStore = defineStore(
                         1000;
                 }
             } else if (
-                !state.discordHideImage &&
+                !discordHideImage.value &&
                 state.lastLocationDetails.thumbnailImageUrl
             ) {
                 bigIcon = state.lastLocationDetails.thumbnailImageUrl;
@@ -485,15 +426,23 @@ export const useDiscordPresenceSettingsStore = defineStore(
             );
         }
 
+        /**
+         *
+         * @param active
+         */
         async function setIsDiscordActive(active) {
             if (active !== state.isDiscordActive) {
                 state.isDiscordActive = await Discord.SetActive(active);
             }
         }
 
+        /**
+         *
+         * @param configLabel
+         */
         async function saveDiscordOption(configLabel = '') {
             state.lastLocationDetails.tag = '';
-            updateLoopStore.nextDiscordUpdate = 3;
+            updateLoopStore.setNextDiscordUpdate(3);
             updateDiscord();
         }
 

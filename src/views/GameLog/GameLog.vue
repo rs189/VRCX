@@ -1,246 +1,269 @@
 <template>
-    <div v-show="menuActiveIndex === 'gameLog'" class="x-container">
-        <data-tables v-loading="gameLogTable.loading" v-bind="gameLogTable" lazy>
-            <template #tool>
-                <div style="margin: 0 0 10px; display: flex; align-items: center">
-                    <div style="flex: none; margin-right: 10px; display: flex; align-items: center">
-                        <el-tooltip
-                            placement="bottom"
-                            :content="t('view.feed.favorites_only_tooltip')"
-                            :disabled="hideTooltips">
-                            <el-switch
-                                v-model="gameLogTable.vip"
-                                active-color="#13ce66"
-                                @change="gameLogTableLookup"></el-switch>
-                        </el-tooltip>
+    <div class="x-container x-container--auto-height" ref="gameLogRef">
+        <template v-if="sessionsViewMode === 'sessions'">
+            <GameLogSessions>
+                <template #leading>
+                    <ToggleGroup
+                        type="single"
+                        variant="outline"
+                        size="sm"
+                        :model-value="sessionsViewMode"
+                        @update:model-value="handleViewModeChange"
+                        class="shrink-0">
+                        <TooltipWrapper side="bottom" :content="t('view.game_log.sessions.switch_to_sessions')">
+                            <ToggleGroupItem
+                                value="sessions"
+                                class="px-2"
+                                :class="sessionsViewMode === 'sessions' && 'bg-accent text-accent-foreground'">
+                                <Logs class="size-4" />
+                            </ToggleGroupItem>
+                        </TooltipWrapper>
+                        <TooltipWrapper side="bottom" :content="t('view.game_log.sessions.switch_to_table')">
+                            <ToggleGroupItem
+                                value="table"
+                                class="px-2"
+                                :class="sessionsViewMode === 'table' && 'bg-accent text-accent-foreground'">
+                                <Table2 class="size-4" />
+                            </ToggleGroupItem>
+                        </TooltipWrapper>
+                    </ToggleGroup>
+                </template>
+            </GameLogSessions>
+        </template>
+
+        <template v-else>
+            <DataTableLayout
+                :table="table"
+                :loading="gameLogTable.loading"
+                auto-height
+                :page-sizes="pageSizes"
+                :total-items="totalItems"
+                :on-page-size-change="handlePageSizeChange">
+                <template #toolbar>
+                    <div class="mt-0 mx-0 mb-2" style="display: flex; align-items: center">
+                        <div class="mr-2" style="flex: none; display: flex; align-items: center">
+                            <ToggleGroup
+                                type="single"
+                                variant="outline"
+                                size="sm"
+                                :model-value="sessionsViewMode"
+                                @update:model-value="handleViewModeChange"
+                                class="mr-2">
+                                <TooltipWrapper side="bottom" :content="t('view.game_log.sessions.switch_to_sessions')">
+                                    <ToggleGroupItem
+                                        value="sessions"
+                                        class="px-2"
+                                        :class="sessionsViewMode === 'sessions' && 'bg-accent text-accent-foreground'">
+                                        <Logs class="size-4" />
+                                    </ToggleGroupItem>
+                                </TooltipWrapper>
+                                <TooltipWrapper side="bottom" :content="t('view.game_log.sessions.switch_to_table')">
+                                    <ToggleGroupItem
+                                        value="table"
+                                        class="px-2"
+                                        :class="sessionsViewMode === 'table' && 'bg-accent text-accent-foreground'">
+                                        <Table2 class="size-4" />
+                                    </ToggleGroupItem>
+                                </TooltipWrapper>
+                            </ToggleGroup>
+                            <TooltipWrapper side="bottom" :content="t('view.feed.favorites_only_tooltip')">
+                                <div>
+                                    <Toggle
+                                        variant="outline"
+                                        size="sm"
+                                        :model-value="gameLogTable.vip"
+                                        @update:modelValue="
+                                            (v) => {
+                                                gameLogTable.vip = v;
+                                                gameLogTableLookup();
+                                            }
+                                        ">
+                                        <Star />
+                                    </Toggle>
+                                </div>
+                            </TooltipWrapper>
+                        </div>
+                        <Select
+                            multiple
+                            :model-value="Array.isArray(gameLogTable.filter) ? gameLogTable.filter : []"
+                            @update:modelValue="handleGameLogFilterChange">
+                            <SelectTrigger class="w-full" style="flex: 1">
+                                <SelectValue :placeholder="t('view.game_log.filter_placeholder')" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectItem
+                                        v-for="type in [
+                                            'Location',
+                                            'OnPlayerJoined',
+                                            'OnPlayerLeft',
+                                            'VideoPlay',
+                                            'Event',
+                                            'External',
+                                            'StringLoad',
+                                            'ImageLoad'
+                                        ]"
+                                        :key="type"
+                                        :value="type">
+                                        {{ t('view.game_log.filters.' + type) }}
+                                    </SelectItem>
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                        <InputGroupField
+                            class="ml-2"
+                            v-model="gameLogTable.search"
+                            :placeholder="t('view.game_log.search_placeholder')"
+                            clearable
+                            style="flex: 0.4"
+                            @keyup.enter="gameLogTableLookup"
+                            @change="gameLogTableLookup" />
                     </div>
-                    <el-select
-                        v-model="gameLogTable.filter"
-                        multiple
-                        clearable
-                        style="flex: 1"
-                        :placeholder="t('view.game_log.filter_placeholder')"
-                        @change="gameLogTableLookup">
-                        <el-option
-                            v-for="type in [
-                                'Location',
-                                'OnPlayerJoined',
-                                'OnPlayerLeft',
-                                'VideoPlay',
-                                'Event',
-                                'External',
-                                'StringLoad',
-                                'ImageLoad'
-                            ]"
-                            :key="type"
-                            :label="t('view.game_log.filters.' + type)"
-                            :value="type"></el-option>
-                    </el-select>
-                    <el-input
-                        v-model="gameLogTable.search"
-                        :placeholder="t('view.game_log.search_placeholder')"
-                        clearable
-                        style="flex: none; width: 150px; margin-left: 10px"
-                        @keyup.native.enter="gameLogTableLookup"
-                        @change="gameLogTableLookup"></el-input>
-                </div>
-            </template>
-
-            <el-table-column :label="t('table.gameLog.date')" prop="created_at" sortable="custom" width="120">
-                <template #default="scope">
-                    <el-tooltip placement="right">
-                        <template #content>
-                            <span>{{ formatDateFilter(scope.row.created_at, 'long') }}</span>
-                        </template>
-                        <span>{{ formatDateFilter(scope.row.created_at, 'short') }}</span>
-                    </el-tooltip>
                 </template>
-            </el-table-column>
-
-            <el-table-column :label="t('table.gameLog.type')" prop="type" width="120">
-                <template #default="scope">
-                    <el-tooltip placement="right" :open-delay="500" :disabled="hideTooltips">
-                        <template #content>
-                            <span>{{ t('view.game_log.filters.' + scope.row.type) }}</span>
-                        </template>
-                        <span
-                            v-if="scope.row.location && scope.row.type !== 'Location'"
-                            class="x-link"
-                            @click="showWorldDialog(scope.row.location)"
-                            v-text="t('view.game_log.filters.' + scope.row.type)"></span>
-                        <span v-else v-text="t('view.game_log.filters.' + scope.row.type)"></span>
-                    </el-tooltip>
-                </template>
-            </el-table-column>
-
-            <el-table-column :label="t('table.gameLog.icon')" prop="isFriend" width="70" align="center">
-                <template #default="scope">
-                    <template v-if="gameLogIsFriend(scope.row)">
-                        <el-tooltip v-if="gameLogIsFavorite(scope.row)" placement="top" content="Favorite">
-                            <span>⭐</span>
-                        </el-tooltip>
-                        <el-tooltip v-else placement="top" content="Friend">
-                            <span>💚</span>
-                        </el-tooltip>
-                    </template>
-                </template>
-            </el-table-column>
-
-            <el-table-column :label="t('table.gameLog.user')" prop="displayName" width="180">
-                <template #default="scope">
-                    <span
-                        v-if="scope.row.displayName"
-                        class="x-link"
-                        style="padding-right: 10px"
-                        @click="lookupUser(scope.row)"
-                        v-text="scope.row.displayName"></span>
-                </template>
-            </el-table-column>
-
-            <el-table-column :label="t('table.gameLog.detail')" prop="data">
-                <template #default="scope">
-                    <Location
-                        v-if="scope.row.type === 'Location'"
-                        :location="scope.row.location"
-                        :hint="scope.row.worldName"
-                        :grouphint="scope.row.groupName" />
-                    <Location
-                        v-else-if="scope.row.type === 'PortalSpawn'"
-                        :location="scope.row.instanceId"
-                        :hint="scope.row.worldName"
-                        :grouphint="scope.row.groupName" />
-                    <template v-else-if="scope.row.type === 'Event'">
-                        <span v-text="scope.row.data"></span>
-                    </template>
-                    <template v-else-if="scope.row.type === 'External'">
-                        <span v-text="scope.row.message"></span>
-                    </template>
-                    <template v-else-if="scope.row.type === 'VideoPlay'">
-                        <span v-if="scope.row.videoId" style="margin-right: 5px">{{ scope.row.videoId }}:</span>
-                        <span
-                            v-if="scope.row.videoId === 'LSMedia' || scope.row.videoId === 'PopcornPalace'"
-                            v-text="scope.row.videoName"></span>
-                        <span
-                            v-else-if="scope.row.videoName"
-                            class="x-link"
-                            @click="openExternalLink(scope.row.videoUrl)"
-                            v-text="scope.row.videoName"></span>
-                        <span
-                            v-else
-                            class="x-link"
-                            @click="openExternalLink(scope.row.videoUrl)"
-                            v-text="scope.row.videoUrl"></span>
-                    </template>
-                    <template v-else-if="scope.row.type === 'ImageLoad'">
-                        <span
-                            class="x-link"
-                            @click="openExternalLink(scope.row.resourceUrl)"
-                            v-text="scope.row.resourceUrl"></span>
-                    </template>
-                    <template v-else-if="scope.row.type === 'StringLoad'">
-                        <span
-                            class="x-link"
-                            @click="openExternalLink(scope.row.resourceUrl)"
-                            v-text="scope.row.resourceUrl"></span>
-                    </template>
-                    <template
-                        v-else-if="
-                            scope.row.type === 'Notification' ||
-                            scope.row.type === 'OnPlayerJoined' ||
-                            scope.row.type === 'OnPlayerLeft'
-                        ">
-                    </template>
-                    <span v-else class="x-link" v-text="scope.row.data"></span>
-                </template>
-            </el-table-column>
-
-            <el-table-column :label="t('table.gameLog.action')" width="80" align="right">
-                <template #default="scope">
-                    <template
-                        v-if="
-                            scope.row.type !== 'OnPlayerJoined' &&
-                            scope.row.type !== 'OnPlayerLeft' &&
-                            scope.row.type !== 'Location' &&
-                            scope.row.type !== 'PortalSpawn'
-                        ">
-                        <el-button
-                            v-if="shiftHeld"
-                            style="color: #f56c6c"
-                            type="text"
-                            icon="el-icon-close"
-                            size="mini"
-                            @click="deleteGameLogEntry(scope.row)"></el-button>
-                        <el-button
-                            v-else
-                            type="text"
-                            icon="el-icon-delete"
-                            size="mini"
-                            @click="deleteGameLogEntryPrompt(scope.row)"></el-button>
-                    </template>
-                    <el-tooltip placement="top" :content="t('dialog.previous_instances.info')" :disabled="hideTooltips">
-                        <el-button
-                            v-if="scope.row.type === 'Location'"
-                            type="text"
-                            icon="el-icon-s-data"
-                            size="mini"
-                            @click="showPreviousInstancesInfoDialog(scope.row.location)"></el-button>
-                    </el-tooltip>
-                </template>
-            </el-table-column>
-        </data-tables>
+            </DataTableLayout>
+        </template>
     </div>
 </template>
 
 <script setup>
+    import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    import { computed, ref } from 'vue';
+    import { Logs, Star, Table2 } from 'lucide-vue-next';
+    import { Toggle } from '@/components/ui/toggle';
+    import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
     import { storeToRefs } from 'pinia';
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { database } from '../../service/database';
-    import { removeFromArray, openExternalLink, formatDateFilter } from '../../shared/utils';
-    import {
-        useUserStore,
-        useUiStore,
-        useWorldStore,
-        useAppearanceSettingsStore,
-        useInstanceStore,
-        useGameLogStore
-    } from '../../stores';
-    import { useSharedFeedStore } from '../../stores';
+    import { useI18n } from 'vue-i18n';
 
-    const { hideTooltips } = storeToRefs(useAppearanceSettingsStore());
-    const { showWorldDialog } = useWorldStore();
-    const { lookupUser } = useUserStore();
-    const { showPreviousInstancesInfoDialog } = useInstanceStore();
-    const { menuActiveIndex, shiftHeld } = storeToRefs(useUiStore());
-    const { gameLogIsFriend, gameLogIsFavorite, gameLogTableLookup } = useGameLogStore();
-    const { gameLogTable } = storeToRefs(useGameLogStore());
-    const { updateSharedFeed } = useSharedFeedStore();
+    import { useAppearanceSettingsStore, useGameLogStore, useModalStore, useVrcxStore } from '../../stores';
+    import { DataTableLayout } from '../../components/ui/data-table';
+    import { InputGroupField } from '../../components/ui/input-group';
+    import { TooltipWrapper } from '../../components/ui/tooltip';
+    import { createColumns } from './columns.jsx';
+    import { database } from '../../services/database';
+    import { removeFromArray } from '../../shared/utils';
+    import { useVrcxVueTable } from '../../lib/table/useVrcxVueTable';
+    import GameLogSessions from './components/GameLogSessions.vue';
 
-    const { t } = useI18n();
-    const { proxy } = getCurrentInstance();
+    const { gameLogTableLookup, setSessionsViewMode } = useGameLogStore();
+    const { gameLogTable, gameLogTableData, sessionsViewMode } = storeToRefs(useGameLogStore());
+    const appearanceSettingsStore = useAppearanceSettingsStore();
+    const vrcxStore = useVrcxStore();
+    const modalStore = useModalStore();
 
-    const emit = defineEmits(['updateGameLogSessionTable']);
-
-    function deleteGameLogEntry(row) {
-        removeFromArray(gameLogTable.value.data, row);
-        database.deleteGameLogEntry(row);
-        console.log('deleteGameLogEntry', row);
-        database.getGamelogDatabase().then((data) => {
-            emit('updateGameLogSessionTable', data);
-            updateSharedFeed(true);
-        });
+    /**
+     *
+     * @param row
+     */
+    function getGameLogCreatedAt(row) {
+        if (typeof row?.created_at === 'string' && row.created_at.length > 0) {
+            return row.created_at;
+        }
+        if (typeof row?.createdAt === 'string' && row.createdAt.length > 0) {
+            return row.createdAt;
+        }
+        if (typeof row?.dt === 'string' && row.dt.length > 0) {
+            return row.dt;
+        }
+        return '';
     }
 
+    const { t } = useI18n();
+
+    const gameLogRef = ref(null);
+
+    /**
+     *
+     * @param row
+     */
     function deleteGameLogEntryPrompt(row) {
-        proxy.$confirm('Continue? Delete Log', 'Confirm', {
-            confirmButtonText: 'Confirm',
-            cancelButtonText: 'Cancel',
-            type: 'info',
-            callback: (action) => {
-                if (action === 'confirm') {
-                    deleteGameLogEntry(row);
-                }
-            }
-        });
+        modalStore
+            .confirm({
+                description: t('confirm.delete_log'),
+                title: t('common.actions.confirm')
+            })
+            .then(({ ok }) => ok && deleteGameLogEntry(row))
+            .catch(() => {});
+    }
+
+    /**
+     *
+     * @param row
+     */
+    function deleteGameLogEntry(row) {
+        removeFromArray(gameLogTableData.value, row);
+        database.deleteGameLogEntry(row);
+    }
+
+    const columns = createColumns({
+        getCreatedAt: getGameLogCreatedAt,
+        onDelete: deleteGameLogEntry,
+        onDeletePrompt: deleteGameLogEntryPrompt
+    });
+
+    /**
+     *
+     * @param value
+     */
+    function handleGameLogFilterChange(value) {
+        gameLogTable.value.filter = Array.isArray(value) ? value : [];
+        gameLogTableLookup();
+    }
+
+    const pageSizes = computed(() => appearanceSettingsStore.tablePageSizes);
+
+    /**
+     *
+     * @param row
+     */
+    function getGameLogRowId(row) {
+        if (row?.rowId != null) return `row:${row.rowId}`;
+
+        const type = row?.type ?? '';
+        const createdAt = row?.created_at ?? row?.createdAt ?? row?.dt ?? '';
+        const userId = row?.userId ?? '';
+        const displayName = row?.displayName ?? '';
+        const location = row?.location ?? '';
+
+        return `${type}:${createdAt}:${userId}:${displayName}:${location}`;
+    }
+
+    const { table, pagination } = useVrcxVueTable({
+        persistKey: 'gameLog',
+        get data() {
+            return gameLogTableData.value;
+        },
+        columns,
+        getRowId: getGameLogRowId,
+        initialSorting: [],
+        initialPagination: {
+            pageIndex: 0,
+            pageSize: appearanceSettingsStore.tablePageSize
+        },
+        tableOptions: {
+            autoResetPageIndex: false
+        }
+    });
+
+    const totalItems = computed(() => {
+        const length = table.getFilteredRowModel().rows.length;
+        const max = vrcxStore.maxTableSize;
+        return length > max && length < max + 51 ? max : length;
+    });
+
+    const handlePageSizeChange = (size) => {
+        pagination.value = {
+            ...pagination.value,
+            pageIndex: 0,
+            pageSize: size
+        };
+    };
+
+    /**
+     * @param {'sessions'|'table'|undefined} mode
+     */
+    function handleViewModeChange(mode) {
+        if (mode === 'sessions' || mode === 'table') {
+            setSessionsViewMode(mode);
+        }
     }
 </script>

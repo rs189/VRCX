@@ -2,11 +2,16 @@
 /// <reference types="jest" />
 
 declare global {
+    const VERSION: string;
+    const NIGHTLY: boolean;
+
     const WINDOWS: boolean;
     const LINUX: boolean;
 
     interface Window {
-        $app: any;
+        $pinia: any;
+        $vr: any;
+        $debug: AppDebug;
         AppApi: AppApi;
         AppApiVr: AppApiVr;
         WebApi: WebApi;
@@ -17,8 +22,10 @@ declare global {
         AssetBundleManager: AssetBundleManager;
         webApiService: webApiService;
         request: any;
+        utils: any;
+        dayjs: any;
         configRepository: any;
-        datebase: any;
+        database: any;
         gameLogService: any;
         crypto: any;
         sqliteService: any;
@@ -30,6 +37,10 @@ declare global {
             ) => Promise<any>;
         };
         electron: {
+            getArch: () => Promise<string>;
+            getClipboardText: () => Promise<string>;
+            getNoUpdater: () => Promise<boolean>;
+            setTrayIconNotification: (notify: boolean) => Promise<void>;
             openFileDialog: () => Promise<string>;
             openDirectoryDialog: () => Promise<string>;
             desktopNotification: (
@@ -42,19 +53,19 @@ declare global {
                     event: any,
                     position: { x: number; y: number }
                 ) => void
-            ) => void;
+            ) => () => void;
             onWindowSizeChanged: (
                 Function: (
                     event: any,
                     size: { width: number; height: number }
                 ) => void
-            ) => void;
+            ) => () => void;
             onWindowStateChange: (
                 Function: (event: any, state: { windowState: any }) => void
-            ) => void;
+            ) => () => void;
+            onBrowserFocus: (Function: (event: any) => void) => () => void;
             restartApp: () => Promise<void>;
-            getWristOverlayWindow: () => Promise<boolean>;
-            getHmdOverlayWindow: () => Promise<boolean>;
+            getOverlayWindow: () => Promise<boolean>;
             updateVr: (
                 active: bool,
                 hmdOverlay: bool,
@@ -63,13 +74,15 @@ declare global {
                 overlayHand: int
             ) => Promise<void>;
             ipcRenderer: {
-                on(channel: String, func: (...args: unknown[]) => void) 
+                on(
+                    channel: String,
+                    func: (...args: unknown[]) => void
+                ): (() => void) | undefined;
             };
         };
-        __APP_GLOBALS__: AppGlobals;
     }
 
-    interface AppGlobals {
+    interface AppDebug {
         debug: boolean;
         debugWebSocket: boolean;
         debugUserDiff: boolean;
@@ -77,6 +90,9 @@ declare global {
         debugGameLog: boolean;
         debugWebRequests: boolean;
         debugFriendState: boolean;
+        debugRecompute: boolean;
+        debugIPC: boolean;
+        debugVrcPlus: boolean;
         errorNoty: any;
         dontLogMeOut: boolean;
         endpointDomain: string;
@@ -110,12 +126,9 @@ declare global {
     };
 
     const SQLite: {
-        Execute: (
-            sql: string,
-            args: string
-        ) => Promise<{ Item1: any; Item2: any[] }>;
+        Execute: (sql: string, args: string) => Promise<any[]>;
         ExecuteJson: (sql: string, args: string) => Promise<string>;
-        ExecuteNonQuery: (sql: string, args: string) => Promise<void>;
+        ExecuteNonQuery: (sql: string, args: string) => Promise<Number>;
     };
 
     const LogWatcher: {
@@ -158,8 +171,6 @@ declare global {
             menuButton: boolean,
             overlayHand: number
         ): Promise<void>;
-        RefreshVR(): Promise<void>;
-        RestartVR(): Promise<void>;
         SetZoom(zoomLevel: number): Promise<void>;
         GetZoom(): Promise<number>;
         DesktopNotification(
@@ -169,8 +180,6 @@ declare global {
         ): Promise<void>;
         RestartApplication(isUpgrade: boolean): Promise<void>;
         CheckForUpdateExe(): Promise<boolean>;
-        ExecuteAppFunction(key: string, json: string): Promise<void>;
-        ExecuteVrFeedFunction(key: string, json: string): Promise<void>;
         ExecuteVrOverlayFunction(key: string, json: string): Promise<void>;
         FocusWindow(): Promise<void>;
         ChangeTheme(value: number): Promise<void>;
@@ -180,14 +189,13 @@ declare global {
         CopyImageToClipboard(path: string): Promise<void>;
         FlashWindow(): Promise<void>;
         SetUserAgent(): Promise<void>;
-        IsRunningUnderWine(): Promise<boolean>;
+        SetTrayIconNotification(notify: boolean): Promise<void>;
+        OpenCalendarFile(icsContent: string): Promise<void>;
 
         // Common Functions
-        MD5File(blob: string): Promise<string>;
         GetColourFromUserID(userId: string): Promise<number>;
-        SignFile(blob: string): Promise<string>;
-        FileLength(blob: string): Promise<string>;
         OpenLink(url: string): Promise<void>;
+        OpenDiscordProfile(discordId: string): Promise<void>;
         GetLaunchCommand(): Promise<string>;
         IPCAnnounceStart(): Promise<void>;
         SendIpc(type: string, data: string): Promise<void>;
@@ -205,6 +213,11 @@ declare global {
         ): Promise<void>;
         GetFileBase64(path: string): Promise<string | null>;
         TryOpenInstanceInVrc(launchUrl: string): Promise<boolean>;
+
+        // Image Upload (Cef Only)
+        MD5File(blob: string): Promise<string>;
+        SignFile(blob: string): Promise<string>;
+        FileLength(blob: string): Promise<string>;
 
         // Folders
         GetVRChatAppDataLocation(): Promise<string>;
@@ -355,8 +368,6 @@ declare global {
         GetUptime(): Promise<number>;
         CurrentCulture(): Promise<string>;
         CustomVrScript(): Promise<string>;
-        IsRunningUnderWine(): Promise<boolean>;
-        GetExecuteVrFeedFunctionQueue(): Promise<Map<string, string>>;
         GetExecuteVrOverlayFunctionQueue(): Promise<Map<string, string>>;
     };
 
@@ -402,6 +413,7 @@ declare global {
             uploadFilePUT?: boolean;
             fileData?: string;
             fileMIME?: string;
+            fileMD5?: string;
             headers?: Record<string, string>;
             data?: any;
         }): Promise<{ status: number; data: string }>;

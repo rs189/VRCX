@@ -1,97 +1,89 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="sendInviteDialogVisible"
-        :title="t('dialog.invite_message.header')"
-        width="800px"
-        append-to-body
-        @close="cancelSendInvite">
-        <template v-if="currentUser.$isVRCPlus">
-            <!--            <template v-if="gallerySelectDialog.selectedFileId">-->
-            <!--                <div style="display: inline-block; flex: none; margin-right: 5px">-->
-            <!--                    <el-popover placement="right" width="500px" trigger="click">-->
-            <!--                        <template #reference>-->
-            <!--                            <img-->
-            <!--                                class="x-link"-->
-            <!--                                v-lazy="gallerySelectDialog.selectedImageUrl"-->
-            <!--                                style="flex: none; width: 60px; height: 60px; border-radius: 4px; object-fit: cover" />-->
-            <!--                        </template>-->
-            <!--                        <img-->
-            <!--                            class="x-link"-->
-            <!--                            v-lazy="gallerySelectDialog.selectedImageUrl"-->
-            <!--                            style="height: 500px"-->
-            <!--                            @click="showFullscreenImageDialog(gallerySelectDialog.selectedImageUrl)" />-->
-            <!--                    </el-popover>-->
-            <!--                </div>-->
-            <!--                <el-button size="mini" @click="clearImageGallerySelect" style="vertical-align: top">-->
-            <!--                    {{ t('dialog.invite_message.clear_selected_image') }}-->
-            <!--                </el-button>-->
-            <!--            </template>-->
-            <!--            <template v-else>-->
-            <!--                <el-button size="mini" @click="showGallerySelectDialog" style="margin-right: 5px">-->
-            <!--                    {{ t('dialog.invite_message.select_image') }}-->
-            <!--                </el-button>-->
-            <!--            </template>-->
-            <input class="inviteImageUploadButton" type="file" accept="image/*" @change="inviteImageUpload" />
-        </template>
+    <Dialog
+        :open="sendInviteDialogVisible"
+        @update:open="
+            (open) => {
+                if (!open) cancelSendInvite();
+            }
+        ">
+        <DialogContent class="x-dialog sm:max-w-200">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.invite_message.header') }}</DialogTitle>
+            </DialogHeader>
 
-        <data-tables
-            v-bind="inviteMessageTable"
-            style="margin-top: 10px; cursor: pointer"
-            @row-click="showSendInviteConfirmDialog">
-            <el-table-column
-                :label="t('table.profile.invite_messages.slot')"
-                prop="slot"
-                sortable="custom"
-                width="70"></el-table-column>
-            <el-table-column :label="t('table.profile.invite_messages.message')" prop="message"></el-table-column>
-            <el-table-column
-                :label="t('table.profile.invite_messages.cool_down')"
-                prop="updatedAt"
-                sortable="custom"
-                width="110"
-                align="right">
-                <template #default="scope">
-                    <countdown-timer :datetime="scope.row.updatedAt" :hours="1"></countdown-timer>
-                </template>
-            </el-table-column>
-            <el-table-column :label="t('table.profile.invite_messages.action')" width="70" align="right">
-                <template #default="scope">
-                    <el-button
-                        type="text"
-                        icon="el-icon-edit"
-                        size="mini"
-                        @click.stop="showEditAndSendInviteDialog(scope.row)"></el-button>
-                </template>
-            </el-table-column>
-        </data-tables>
+            <template v-if="isLocalUserVrcPlusSupporter">
+                <!--            <template v-if="gallerySelectDialog.selectedFileId">-->
+                <!--                <div class="mr-1.5" style="display: inline-block; flex: none">-->
+                <!--                    <el-popover placement="right" :width="500px" trigger="click">-->
+                <!--                        <template #reference>-->
+                <!--                            <img-->
+                <!--                                class="x-link"-->
+                <!--                                :src="gallerySelectDialog.selectedImageUrl"-->
+                <!--                                style="flex: none; width: 60px; height: 60px; border-radius: 4px; object-fit: cover" />-->
+                <!--                        </template>-->
+                <!--                        <img-->
+                <!--                            class="x-link"-->
+                <!--                            :src="gallerySelectDialog.selectedImageUrl"-->
+                <!--                            style="height: 500px"-->
+                <!--                            @click="showFullscreenImageDialog(gallerySelectDialog.selectedImageUrl)" />-->
+                <!--                    </el-popover>-->
+                <!--                </div>-->
+                <!--                <el-button size="small" @click="clearImageGallerySelect" style="vertical-align: top">-->
+                <!--                    {{ t('dialog.invite_message.clear_selected_image') }}-->
+                <!--                </el-button>-->
+                <!--            </template>-->
+                <!--            <template v-else>-->
+                <!--                <el-button size="small" @click="showGallerySelectDialog" style="margin-right: 6px">-->
+                <!--                    {{ t('dialog.invite_message.select_image') }}-->
+                <!--                </el-button>-->
+                <!--            </template>-->
+                <input class="inviteImageUploadButton" type="file" accept="image/*" @change="inviteImageUpload" />
+            </template>
 
-        <template #footer>
-            <el-button type="small" @click="cancelSendInvite">
-                {{ t('dialog.invite_message.cancel') }}
-            </el-button>
-            <el-button type="small" @click="refreshInviteMessageTableData('message')">
-                {{ t('dialog.invite_message.refresh') }}
-            </el-button>
-        </template>
+            <DataTableLayout
+                style="margin-top: 8px"
+                :table="inviteMessageTanstackTable"
+                :loading="false"
+                :show-pagination="false"
+                :on-row-click="handleInviteMessageRowClick" />
+
+            <DialogFooter>
+                <Button variant="secondary" @click="cancelSendInvite">
+                    {{ t('dialog.invite_message.cancel') }}
+                </Button>
+                <Button variant="outline" @click="refreshInviteMessageTableData('message')">
+                    {{ t('dialog.invite_message.refresh') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+
         <SendInviteConfirmDialog
-            :visible.sync="isSendInviteConfirmDialogVisible"
-            :send-invite-dialog="sendInviteDialog"
+            v-model:isSendInviteConfirmDialogVisible="isSendInviteConfirmDialogVisible"
+            :sendInviteDialog="sendInviteDialog"
+            @update:sendInviteDialog="emit('update:sendInviteDialog', $event)"
             :invite-dialog="inviteDialog"
             @closeInviteDialog="closeInviteDialog" />
         <EditAndSendInviteDialog
-            :edit-and-send-invite-dialog.sync="editAndSendInviteDialog"
-            :send-invite-dialog="sendInviteDialog"
+            v-model:edit-and-send-invite-dialog="editAndSendInviteDialog"
+            :sendInviteDialog="sendInviteDialog"
+            @update:sendInviteDialog="emit('update:sendInviteDialog', $event)"
             :invite-dialog="inviteDialog"
             @closeInviteDialog="closeInviteDialog" />
-    </safe-dialog>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, ref } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { DataTableLayout } from '@/components/ui/data-table';
     import { storeToRefs } from 'pinia';
-    import { ref } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { useI18n } from 'vue-i18n';
+    import { useVrcxVueTable } from '@/lib/table/useVrcxVueTable';
+
     import { useGalleryStore, useInviteStore, useUserStore } from '../../../stores';
+    import { createColumns } from './sendInviteColumns.jsx';
+
     import EditAndSendInviteDialog from './EditAndSendInviteDialog.vue';
     import SendInviteConfirmDialog from './SendInviteConfirmDialog.vue';
 
@@ -100,7 +92,7 @@
     const { refreshInviteMessageTableData } = useInviteStore();
     const { inviteMessageTable } = storeToRefs(useInviteStore());
     const { inviteImageUpload } = useGalleryStore();
-    const { currentUser } = storeToRefs(useUserStore());
+    const { isLocalUserVrcPlusSupporter } = storeToRefs(useUserStore());
 
     const props = defineProps({
         sendInviteDialogVisible: {
@@ -118,7 +110,7 @@
         }
     });
 
-    const emit = defineEmits(['closeInviteDialog', 'update:sendInviteDialogVisible']);
+    const emit = defineEmits(['closeInviteDialog', 'update:sendInviteDialogVisible', 'update:sendInviteDialog']);
 
     const isSendInviteConfirmDialogVisible = ref(false);
 
@@ -127,23 +119,63 @@
         newMessage: ''
     });
 
+    const inviteMessageRows = computed(() => inviteMessageTable.value?.data ?? []);
+    const inviteMessageColumns = computed(() =>
+        createColumns({
+            onEdit: showEditAndSendInviteDialog
+        })
+    );
+
+    const { table: inviteMessageTanstackTable } = useVrcxVueTable({
+        persistKey: 'invite-message',
+        get data() {
+            return inviteMessageRows.value;
+        },
+        columns: inviteMessageColumns,
+        getRowId: (row) => String(row?.slot ?? ''),
+        enablePagination: false,
+        initialSorting: [{ id: 'slot', desc: false }]
+    });
+
+    /**
+     *
+     * @param row
+     */
+    function handleInviteMessageRowClick(row) {
+        showSendInviteConfirmDialog(row?.original);
+    }
+
+    /**
+     *
+     * @param row
+     */
     function showSendInviteConfirmDialog(row) {
-        props.sendInviteDialog.messageSlot = row;
+        emit('update:sendInviteDialog', { ...props.sendInviteDialog, messageSlot: row });
         isSendInviteConfirmDialogVisible.value = true;
     }
 
+    /**
+     *
+     * @param row
+     */
     function showEditAndSendInviteDialog(row) {
-        props.sendInviteDialog.messageSlot = row;
+        emit('update:sendInviteDialog', { ...props.sendInviteDialog, messageSlot: row });
         editAndSendInviteDialog.value = {
             newMessage: row.message,
             visible: true
         };
     }
 
+    /**
+     *
+     */
     function cancelSendInvite() {
         emit('update:sendInviteDialogVisible', false);
     }
 
+    /**
+     *
+     */
     function closeInviteDialog() {
         cancelSendInvite();
         emit('closeInviteDialog');

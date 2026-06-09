@@ -1,145 +1,148 @@
 <template>
-    <safe-dialog
-        ref="friendImportDialogRef"
-        :visible.sync="isVisible"
-        :title="t('dialog.friend_import.header')"
-        width="650px">
-        <div style="display: flex; align-items: center; justify-content: space-between">
-            <div style="font-size: 12px">{{ t('dialog.friend_import.description') }}</div>
-            <div style="display: flex; align-items: center">
-                <div v-if="friendImportDialog.progress">
-                    {{ t('dialog.friend_import.process_progress') }} {{ friendImportDialog.progress }} /
-                    {{ friendImportDialog.progressTotal }}
-                    <i class="el-icon-loading" style="margin: 0 5px"></i>
+    <Dialog v-model:open="isVisible">
+        <DialogContent class="sm:max-w-xl">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.friend_import.header') }}</DialogTitle>
+            </DialogHeader>
+            <div style="display: flex; align-items: center; justify-content: space-between">
+                <div class="text-xs">{{ t('dialog.friend_import.description') }}</div>
+                <div style="display: flex; align-items: center">
+                    <div v-if="friendImportDialog.progress">
+                        {{ t('dialog.friend_import.process_progress') }} {{ friendImportDialog.progress }} /
+                        {{ friendImportDialog.progressTotal }}
+                        <Spinner class="inline-block ml-1 mr-1" />
+                    </div>
+                    <Button v-if="friendImportDialog.loading" size="sm" variant="secondary" @click="cancelFriendImport">
+                        {{ t('dialog.friend_import.cancel') }}
+                    </Button>
+                    <Button size="sm" v-else :disabled="!friendImportDialog.input" @click="processFriendImportList">
+                        {{ t('dialog.friend_import.process_list') }}
+                    </Button>
                 </div>
-                <el-button v-if="friendImportDialog.loading" size="small" @click="cancelFriendImport">
-                    {{ t('dialog.friend_import.cancel') }}
-                </el-button>
-                <el-button v-else size="small" :disabled="!friendImportDialog.input" @click="processFriendImportList">
-                    {{ t('dialog.friend_import.process_list') }}
-                </el-button>
             </div>
-        </div>
-        <el-input
-            v-model="friendImportDialog.input"
-            type="textarea"
-            size="mini"
-            rows="10"
-            resize="none"
-            style="margin-top: 10px" />
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 5px">
+            <InputGroupTextareaField v-model="friendImportDialog.input" :rows="10" input-class="resize-none mt-2" />
             <div>
-                <el-dropdown trigger="click" size="small" @click.native.stop>
-                    <el-button size="mini">
-                        <span v-if="friendImportDialog.friendImportFavoriteGroup">
-                            {{ friendImportDialog.friendImportFavoriteGroup.displayName }} ({{
-                                friendImportDialog.friendImportFavoriteGroup.count
-                            }}/{{ friendImportDialog.friendImportFavoriteGroup.capacity }})
-                            <i class="el-icon-arrow-down el-icon--right"></i>
-                        </span>
-                        <span v-else
-                            >{{ t('dialog.friend_import.select_group_placeholder') }}
-                            <i class="el-icon-arrow-down el-icon--right"></i
-                        ></span>
-                    </el-button>
-                    <el-dropdown-menu slot="dropdown">
-                        <template v-for="groupAPI in favoriteFriendGroups">
-                            <el-dropdown-item
-                                :key="groupAPI.name"
-                                style="display: block; margin: 10px 0"
-                                :disabled="groupAPI.count >= groupAPI.capacity"
-                                @click.native="selectFriendImportGroup(groupAPI)">
-                                {{ groupAPI.displayName }} ({{ groupAPI.count }}/{{ groupAPI.capacity }})
-                            </el-dropdown-item>
-                        </template>
-                    </el-dropdown-menu>
-                </el-dropdown>
-                <span v-if="friendImportDialog.friendImportFavoriteGroup" style="margin-left: 5px">
-                    {{ friendImportTable.data.length }} /
-                    {{
-                        friendImportDialog.friendImportFavoriteGroup.capacity -
-                        friendImportDialog.friendImportFavoriteGroup.count
-                    }}
-                </span>
-            </div>
-            <div>
-                <el-button size="small" :disabled="friendImportTable.data.length === 0" @click="clearFriendImportTable">
-                    {{ t('dialog.friend_import.clear_table') }}
-                </el-button>
-                <el-button
-                    size="small"
-                    type="primary"
-                    style="margin: 5px"
-                    :disabled="friendImportTable.data.length === 0 || !friendImportDialog.friendImportFavoriteGroup"
-                    @click="importFriendImportTable">
-                    {{ t('dialog.friend_import.import') }}
-                </el-button>
-            </div>
-        </div>
-        <span v-if="friendImportDialog.importProgress" style="margin: 10px">
-            <i class="el-icon-loading" style="margin-right: 5px"></i>
-            {{ t('dialog.friend_import.import_progress') }} {{ friendImportDialog.importProgress }}/{{
-                friendImportDialog.importProgressTotal
-            }}
-        </span>
-        <br />
-        <template v-if="friendImportDialog.errors">
-            <el-button size="small" @click="friendImportDialog.errors = ''">
-                {{ t('dialog.friend_import.clear_errors') }}
-            </el-button>
-            <h2 style="font-weight: bold; margin: 5px 0">{{ t('dialog.friend_import.errors') }}</h2>
-            <pre style="white-space: pre-wrap; font-size: 12px" v-text="friendImportDialog.errors"></pre>
-        </template>
-        <data-tables v-loading="friendImportDialog.loading" v-bind="friendImportTable" style="margin-top: 10px">
-            <el-table-column :label="t('table.import.image')" width="70" prop="currentAvatarThumbnailImageUrl">
-                <template slot-scope="scope">
-                    <el-popover placement="right" height="500px" trigger="hover">
-                        <template slot="reference">
-                            <img class="friends-list-avatar" :src="userImage(scope.row)" />
-                        </template>
-                        <img
-                            class="friends-list-avatar"
-                            :src="userImageFull(scope.row)"
-                            style="height: 500px; cursor: pointer"
-                            @click="showFullscreenImageDialog(userImageFull(scope.row))" />
-                    </el-popover>
-                </template>
-            </el-table-column>
-            <el-table-column :label="t('table.import.name')" prop="displayName">
-                <template slot-scope="scope">
-                    <span class="x-link" :title="scope.row.displayName" @click="showUserDialog(scope.row.id)">
-                        {{ scope.row.displayName }}
+                <div class="mb-2">
+                    <div class="flex items-center gap-2">
+                        <Select
+                            :model-value="friendImportFavoriteGroupSelection"
+                            @update:modelValue="handleFriendImportGroupSelect">
+                            <SelectTrigger size="sm">
+                                <SelectValue :placeholder="t('dialog.friend_import.select_group_placeholder')" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectItem
+                                        v-for="groupAPI in favoriteFriendGroups"
+                                        :key="groupAPI.name"
+                                        :value="groupAPI.name"
+                                        :disabled="groupAPI.count >= groupAPI.capacity">
+                                        {{ groupAPI.displayName }} ({{ groupAPI.count }}/{{ groupAPI.capacity }})
+                                    </SelectItem>
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            class="ml-2"
+                            :model-value="friendImportLocalFavoriteGroupSelection"
+                            @update:modelValue="handleFriendImportLocalGroupSelect">
+                            <SelectTrigger size="sm">
+                                <SelectValue :placeholder="t('dialog.world_import.select_local_group_placeholder')" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectItem v-for="group in localFriendFavoriteGroups" :key="group" :value="group">
+                                        {{ group }} ({{ localFriendFavGroupLength(group) }})
+                                    </SelectItem>
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <span class="ml-1.5" v-if="friendImportDialog.friendImportFavoriteGroup">
+                        {{ friendImportTable.data.length }} /
+                        {{
+                            friendImportDialog.friendImportFavoriteGroup.capacity -
+                            friendImportDialog.friendImportFavoriteGroup.count
+                        }}
                     </span>
-                </template>
-            </el-table-column>
-            <el-table-column :label="t('table.import.action')" width="90" align="right">
-                <template slot-scope="scope">
-                    <el-button type="text" icon="el-icon-close" size="mini" @click="deleteItemFriendImport(scope.row)">
-                    </el-button>
-                </template>
-            </el-table-column>
-        </data-tables>
-    </safe-dialog>
+                </div>
+                <div>
+                    <Button
+                        size="sm"
+                        class="mr-2"
+                        variant="secondary"
+                        :disabled="friendImportTable.data.length === 0"
+                        @click="clearFriendImportTable">
+                        {{ t('dialog.friend_import.clear_table') }}
+                    </Button>
+                    <Button
+                        size="sm"
+                        :disabled="
+                            friendImportTable.data.length === 0 ||
+                            (!friendImportDialog.friendImportFavoriteGroup &&
+                                !friendImportDialog.friendImportLocalFavoriteGroup)
+                        "
+                        @click="importFriendImportTable">
+                        {{ t('dialog.friend_import.import') }}
+                    </Button>
+                </div>
+            </div>
+            <span class="m-2" v-if="friendImportDialog.importProgress">
+                <Spinner class="inline-block ml-2 mr-2" />
+                {{ t('dialog.friend_import.import_progress') }} {{ friendImportDialog.importProgress }}/{{
+                    friendImportDialog.importProgressTotal
+                }}
+            </span>
+            <br />
+            <template v-if="friendImportDialog.errors">
+                <Button size="sm" variant="secondary" @click="friendImportDialog.errors = ''">
+                    {{ t('dialog.friend_import.clear_errors') }}
+                </Button>
+                <h2 class="my-1.5 mx-0" style="font-weight: bold">{{ t('dialog.friend_import.errors') }}</h2>
+                <pre class="whitespace-pre-wrap text-xs" v-text="friendImportDialog.errors"></pre>
+            </template>
+            <DataTableLayout
+                class="min-w-0 w-full"
+                :table="table"
+                :loading="friendImportDialog.loading"
+                :table-style="tableStyle"
+                :show-pagination="false"
+                style="margin-top: 8px" />
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { ref, computed, watch, getCurrentInstance } from 'vue';
+    import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, ref, watch } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { DataTableLayout } from '@/components/ui/data-table';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
+    import { Spinner } from '@/components/ui/spinner';
     import { storeToRefs } from 'pinia';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { favoriteRequest, userRequest } from '../../../api';
-    import { adjustDialogZ, removeFromArray, userImage, userImageFull } from '../../../shared/utils';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
+    import { removeFromArray } from '../../../shared/utils';
+    import { useUserDisplay } from '../../../composables/useUserDisplay';
     import { useFavoriteStore, useGalleryStore, useUserStore } from '../../../stores';
+    import { addLocalFriendFavorite } from '../../../coordinators/favoriteCoordinator';
+    import { favoriteRequest, userRequest } from '../../../api';
+    import { createColumns } from './friendImportColumns.jsx';
+    import { useVrcxVueTable } from '../../../lib/table/useVrcxVueTable';
+    import { showUserDialog } from '../../../coordinators/userCoordinator';
 
-    const { proxy } = getCurrentInstance();
-
+    const { userImage, userImageFull } = useUserDisplay();
     const { t } = useI18n();
 
     const emit = defineEmits(['update:friendImportDialogInput']);
 
-    const { showUserDialog } = useUserStore();
-    const { favoriteFriendGroups, friendImportDialogInput, friendImportDialogVisible } =
+    const { favoriteFriendGroups, friendImportDialogInput, friendImportDialogVisible, localFriendFavoriteGroups } =
         storeToRefs(useFavoriteStore());
     const { showFullscreenImageDialog } = useGalleryStore();
+    const { getCachedFavoritesByObjectId, localFriendFavGroupLength } = useFavoriteStore();
 
     const friendImportDialog = ref({
         loading: false,
@@ -149,20 +152,45 @@
         userIdList: new Set(),
         errors: '',
         friendImportFavoriteGroup: null,
+        friendImportLocalFavoriteGroup: null,
         importProgress: 0,
         importProgressTotal: 0
     });
 
+    const friendImportFavoriteGroupSelection = ref('');
+    const friendImportLocalFavoriteGroupSelection = ref('');
+
     const friendImportTable = ref({
         data: [],
-        tableProps: {
-            stripe: true,
-            size: 'mini'
-        },
         layout: 'table'
     });
 
-    const friendImportDialogRef = ref(null);
+    const tableStyle = { maxHeight: '400px' };
+
+    const rows = computed(() =>
+        Array.isArray(friendImportTable.value?.data) ? friendImportTable.value.data.slice() : []
+    );
+
+    const columns = computed(() =>
+        createColumns({
+            userImage,
+            userImageFull,
+            onShowFullscreenImage: showFullscreenImageDialog,
+            onShowUser: showUserDialog,
+            onDelete: deleteItemFriendImport
+        })
+    );
+
+    const { table } = useVrcxVueTable({
+        persistKey: 'friendImportDialog',
+        get data() {
+            return rows.value;
+        },
+        columns: columns.value,
+        getRowId: (row) => String(row?.id ?? ''),
+        enablePagination: false,
+        enableSorting: false
+    });
 
     const isVisible = computed({
         get() {
@@ -177,9 +205,10 @@
         () => friendImportDialogVisible.value,
         (value) => {
             if (value) {
-                adjustDialogZ(friendImportDialogRef.value.$el);
                 clearFriendImportTable();
                 resetFriendImport();
+                friendImportFavoriteGroupSelection.value =
+                    friendImportDialog.value.friendImportFavoriteGroup?.name ?? '';
                 if (friendImportDialogInput.value) {
                     friendImportDialog.value.input = friendImportDialogInput.value;
                     processFriendImportList();
@@ -188,6 +217,19 @@
             }
         }
     );
+
+    function handleFriendImportGroupSelect(value) {
+        friendImportFavoriteGroupSelection.value = value;
+        const group = favoriteFriendGroups.value.find((g) => g.name === value) || null;
+        if (group) {
+            selectFriendImportGroup(group);
+        }
+    }
+
+    function handleFriendImportLocalGroupSelect(value) {
+        friendImportLocalFavoriteGroupSelection.value = value;
+        selectFriendImportLocalGroup(value || null);
+    }
 
     function cancelFriendImport() {
         friendImportDialog.value.loading = false;
@@ -201,30 +243,48 @@
         friendImportDialog.value.userIdList = new Set();
     }
     function selectFriendImportGroup(group) {
+        friendImportDialog.value.friendImportLocalFavoriteGroup = null;
         friendImportDialog.value.friendImportFavoriteGroup = group;
+        friendImportFavoriteGroupSelection.value = group?.name ?? '';
+        friendImportLocalFavoriteGroupSelection.value = '';
     }
+
+    function selectFriendImportLocalGroup(group) {
+        friendImportDialog.value.friendImportFavoriteGroup = null;
+        friendImportDialog.value.friendImportLocalFavoriteGroup = group;
+        friendImportFavoriteGroupSelection.value = '';
+        friendImportLocalFavoriteGroupSelection.value = group ?? '';
+    }
+
     async function importFriendImportTable() {
         const D = friendImportDialog.value;
         D.loading = true;
-        if (!D.friendImportFavoriteGroup) {
+        if (!D.friendImportFavoriteGroup && !D.friendImportLocalFavoriteGroup) {
             return;
         }
         const data = [...friendImportTable.value.data].reverse();
         D.importProgressTotal = data.length;
-        let ref = '';
+        let ref = null;
         try {
             for (let i = data.length - 1; i >= 0; i--) {
                 if (!D.loading || !isVisible.value) {
                     break;
                 }
                 ref = data[i];
-                await addFavoriteUser(ref, D.friendImportFavoriteGroup, false);
+                if (D.friendImportFavoriteGroup) {
+                    if (getCachedFavoritesByObjectId(ref.id)) {
+                        throw new Error('Friend is already in favorites');
+                    }
+                    await addFavoriteUser(ref, D.friendImportFavoriteGroup, false);
+                } else if (D.friendImportLocalFavoriteGroup) {
+                    addLocalFriendFavorite(ref.id, D.friendImportLocalFavoriteGroup);
+                }
                 removeFromArray(friendImportTable.value.data, ref);
                 D.userIdList.delete(ref.id);
                 D.importProgress++;
             }
         } catch (err) {
-            D.errors = `Name: ${ref.displayName}\nUserId: ${ref.id}\n${err}\n\n`;
+            D.errors = `Name: ${ref?.displayName}\nUserId: ${ref?.id}\n${err}\n\n`;
         } finally {
             D.importProgress = 0;
             D.importProgressTotal = 0;
@@ -234,16 +294,13 @@
     function addFavoriteUser(ref, group, message) {
         return favoriteRequest
             .addFavorite({
-                type: 'friend',
+                type: group.type,
                 favoriteId: ref.id,
                 tags: group.name
             })
             .then((args) => {
                 if (message) {
-                    proxy.$message({
-                        message: 'Friend added to favorites',
-                        type: 'success'
-                    });
+                    toast.success('Friend added to favorites');
                 }
                 return args;
             });
@@ -282,11 +339,10 @@
                 }
             }
             D.progress++;
-            if (D.progress === userIdList.size) {
-                D.progress = 0;
-            }
         }
         D.loading = false;
+        D.progress = 0;
+        D.progressTotal = 0;
     }
     function resetFriendImport() {
         friendImportDialog.value.input = '';

@@ -1,6 +1,7 @@
-import { $app } from '../app';
-import { t } from '../plugin';
-import { request } from '../service/request';
+import { toast } from 'vue-sonner';
+
+import { i18n } from '../plugins/i18n';
+import { request } from '../services/request';
 import { useInstanceStore } from '../stores';
 
 const instanceReq = {
@@ -110,16 +111,10 @@ const instanceReq = {
             })
             .catch((err) => {
                 if (err?.error?.message) {
-                    $app.$message({
-                        message: err.error.message,
-                        type: 'error'
-                    });
+                    toast.error(err.error.message);
                     throw err;
                 }
-                $app.$message({
-                    message: t('message.instance.not_allowed'),
-                    type: 'error'
-                });
+                toast.error(i18n.global.t('message.instance.not_allowed'));
                 throw err;
             });
     }

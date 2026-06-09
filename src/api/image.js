@@ -1,5 +1,6 @@
-import { request } from '../service/request';
 import { useAvatarStore, useWorldStore } from '../stores';
+import { applyWorld } from '../coordinators/worldCoordinator';
+import { request } from '../services/request';
 
 const imageReq = {
     async uploadAvatarFailCleanup(id) {
@@ -12,14 +13,16 @@ const imageReq = {
             const fileVersion = json.versions[json.versions.length - 1].version;
             request(`file/${fileId}/${fileVersion}/signature/finish`, {
                 method: 'PUT'
-            }).catch(err => console.error('Failed to finish signature:', err));
+            }).catch((err) =>
+                console.error('Failed to finish signature:', err)
+            );
             request(`file/${fileId}/${fileVersion}/file/finish`, {
                 method: 'PUT'
-            }).catch(err => console.error('Failed to finish file:', err));
+            }).catch((err) => console.error('Failed to finish file:', err));
         } catch (error) {
             console.error('Failed to cleanup avatar upload:', error);
         }
-        avatarStore.avatarDialog.loading = false;
+        avatarStore.setAvatarDialogLoading(false);
     },
 
     async uploadAvatarImage(params, fileId) {
@@ -143,14 +146,16 @@ const imageReq = {
             const fileVersion = json.versions[json.versions.length - 1].version;
             request(`file/${fileId}/${fileVersion}/signature/finish`, {
                 method: 'PUT'
-            }).catch(err => console.error('Failed to finish signature:', err));
+            }).catch((err) =>
+                console.error('Failed to finish signature:', err)
+            );
             request(`file/${fileId}/${fileVersion}/file/finish`, {
                 method: 'PUT'
-            }).catch(err => console.error('Failed to finish file:', err));
+            }).catch((err) => console.error('Failed to finish file:', err));
         } catch (error) {
             console.error('Failed to cleanup world upload:', error);
         }
-        worldStore.worldDialog.loading = false;
+        worldStore.setWorldDialogLoading(false);
     },
 
     async uploadWorldImage(params, fileId) {
@@ -263,7 +268,7 @@ const imageReq = {
                 json,
                 params
             };
-            args.ref = worldStore.applyWorld(json);
+            args.ref = applyWorld(json);
             return args;
         });
     },

@@ -1,36 +1,50 @@
 import { defineStore } from 'pinia';
-import { computed, reactive, watch } from 'vue';
-import * as workerTimers from 'worker-timers';
+import { watch } from 'vue';
+
+import { database } from '../services/database';
 import { groupRequest } from '../api';
-import { database } from '../service/database';
-import { watchState } from '../service/watchState';
+import { runRefreshFriendsListFlow } from '../coordinators/friendSyncCoordinator';
+import { runUpdateIsGameRunningFlow } from '../coordinators/gameCoordinator';
+import { addGameLogEvent } from '../coordinators/gameLogCoordinator';
+import { runRefreshPlayerModerationsFlow } from '../coordinators/moderationCoordinator';
+import { clearVRCXCache } from '../coordinators/vrcxCoordinator';
 import { useAuthStore } from './auth';
-import { useFriendStore } from './friend';
-import { useGameStore } from './game';
-import { useGameLogStore } from './gameLog';
-import { useModerationStore } from './moderation';
 import { useDiscordPresenceSettingsStore } from './settings/discordPresence';
-import { useUiStore } from './ui';
+import { useFriendStore } from './friend';
+import { handleGroupUserInstances } from '../coordinators/groupCoordinator';
+import {
+    getCurrentUser,
+    updateAutoStateChange
+} from '../coordinators/userCoordinator';
 import { useUserStore } from './user';
-import { useVrcxStore } from './vrcx';
 import { useVRCXUpdaterStore } from './vrcxUpdater';
-import { useGroupStore } from './group';
 import { useVrStore } from './vr';
+import { useVrcxStore } from './vrcx';
+import { watchState } from '../services/watchState';
+
+import * as workerTimers from 'worker-timers';
 
 export const useUpdateLoopStore = defineStore('UpdateLoop', () => {
-    const state = reactive({
+    const authStore = useAuthStore();
+    const userStore = useUserStore();
+    const friendStore = useFriendStore();
+    const vrcxStore = useVrcxStore();
+    const discordPresenceSettingsStore = useDiscordPresenceSettingsStore();
+    const vrcxUpdaterStore = useVRCXUpdaterStore();
+    const vrStore = useVrStore();
+    const state = {
         nextCurrentUserRefresh: 300,
         nextFriendsRefresh: 3600,
         nextGroupInstanceRefresh: 0,
         nextAppUpdateCheck: 3600,
         ipcTimeout: 0,
-        nextClearVRCXCacheCheck: 0,
+        nextClearVRCXCacheCheck: 86400,
         nextDiscordUpdate: 0,
         nextAutoStateChange: 0,
         nextGetLogCheck: 0,
         nextGameRunningCheck: 0,
         nextDatabaseOptimize: 3600
-    });
+    };
 
     watch(
         () => watchState.isLoggedIn,
@@ -42,59 +56,34 @@ export const useUpdateLoopStore = defineStore('UpdateLoop', () => {
         { flush: 'sync' }
     );
 
-    const nextGroupInstanceRefresh = computed({
-        get: () => state.nextGroupInstanceRefresh,
-        set: (value) => {
-            state.nextGroupInstanceRefresh = value;
-        }
-    });
+    const nextGroupInstanceRefresh = state.nextGroupInstanceRefresh;
 
-    const nextCurrentUserRefresh = computed({
-        get: () => state.nextCurrentUserRefresh,
-        set: (value) => {
-            state.nextCurrentUserRefresh = value;
-        }
-    });
+    const nextCurrentUserRefresh = state.nextCurrentUserRefresh;
 
-    const nextDiscordUpdate = computed({
-        get: () => state.nextDiscordUpdate,
-        set: (value) => {
-            state.nextDiscordUpdate = value;
-        }
-    });
+    const nextDiscordUpdate = state.nextDiscordUpdate;
 
-    const ipcTimeout = computed({
-        get: () => state.ipcTimeout,
-        set: (value) => {
-            state.ipcTimeout = value;
-        }
-    });
+    const ipcTimeout = state.ipcTimeout;
 
+    /**
+     *
+     */
     async function updateLoop() {
-        const authStore = useAuthStore();
-        const userStore = useUserStore();
-        const friendStore = useFriendStore();
-        const gameStore = useGameStore();
-        const moderationStore = useModerationStore();
-        const vrcxStore = useVrcxStore();
-        const discordPresenceSettingsStore = useDiscordPresenceSettingsStore();
-        const gameLogStore = useGameLogStore();
-        const vrcxUpdaterStore = useVRCXUpdaterStore();
-        const uiStore = useUiStore();
-        const groupStore = useGroupStore();
-        const vrStore = useVrStore();
         try {
             if (watchState.isLoggedIn) {
                 if (--state.nextCurrentUserRefresh <= 0) {
                     state.nextCurrentUserRefresh = 300; // 5min
-                    userStore.getCurrentUser();
+                    getCurrentUser();
                 }
                 if (--state.nextFriendsRefresh <= 0) {
                     state.nextFriendsRefresh = 3600; // 1hour
-                    friendStore.refreshFriendsList();
+                    runRefreshFriendsListFlow();
                     authStore.updateStoredUser(userStore.currentUser);
-                    if (gameStore.isGameRunning) {
-                        moderationStore.refreshPlayerModerations();
+                    if (
+                        userStore.currentUser.last_activity &&
+                        new Date(userStore.currentUser.last_activity) >
+                            new Date(Date.now() - 3600 * 1000) // 1hour
+                    ) {
+                        runRefreshPlayerModerationsFlow();
                     }
                 }
                 if (--state.nextGroupInstanceRefresh <= 0) {
@@ -102,7 +91,7 @@ export const useUpdateLoopStore = defineStore('UpdateLoop', () => {
                         state.nextGroupInstanceRefresh = 300; // 5min
                         const args =
                             await groupRequest.getUsersGroupInstances();
-                        groupStore.handleGroupUserInstances(args);
+                        handleGroupUserInstances(args);
                     }
                     AppApi.CheckGameRunning();
                 }
@@ -114,7 +103,7 @@ export const useUpdateLoopStore = defineStore('UpdateLoop', () => {
                     vrcxStore.tryAutoBackupVrcRegistry();
                 }
                 if (--state.ipcTimeout <= 0) {
-                    vrcxStore.ipcEnabled = false;
+                    vrcxStore.setIpcEnabled(false);
                 }
                 if (
                     --state.nextClearVRCXCacheCheck <= 0 &&
@@ -122,7 +111,7 @@ export const useUpdateLoopStore = defineStore('UpdateLoop', () => {
                 ) {
                     state.nextClearVRCXCacheCheck =
                         vrcxStore.clearVRCXCacheFrequency / 2;
-                    vrcxStore.clearVRCXCache();
+                    clearVRCXCache();
                 }
                 if (--state.nextDiscordUpdate <= 0) {
                     state.nextDiscordUpdate = 3;
@@ -132,49 +121,89 @@ export const useUpdateLoopStore = defineStore('UpdateLoop', () => {
                 }
                 if (--state.nextAutoStateChange <= 0) {
                     state.nextAutoStateChange = 3;
-                    userStore.updateAutoStateChange();
+                    updateAutoStateChange();
                 }
                 if (LINUX && --state.nextGetLogCheck <= 0) {
                     state.nextGetLogCheck = 0.5;
                     const logLines = await LogWatcher.GetLogLines();
                     if (logLines) {
                         logLines.forEach((logLine) => {
-                            gameLogStore.addGameLogEvent(logLine);
+                            addGameLogEvent(logLine);
                         });
                     }
                 }
                 if (LINUX && --state.nextGameRunningCheck <= 0) {
-                    if (WINDOWS) {
-                        state.nextGameRunningCheck = 3;
-                        AppApi.CheckGameRunning();
-                    } else {
-                        state.nextGameRunningCheck = 1;
-                        gameStore.updateIsGameRunning(
-                            await AppApi.IsGameRunning(),
-                            await AppApi.IsSteamVRRunning(),
-                            false
-                        );
-                        vrStore.vrInit(); // TODO: make this event based
-                    }
+                    state.nextGameRunningCheck = 1;
+                    await runUpdateIsGameRunningFlow(
+                        await AppApi.IsGameRunning(),
+                        await AppApi.IsSteamVRRunning()
+                    );
+                    vrStore.vrInit(); // TODO: make this event based
                 }
                 if (--state.nextDatabaseOptimize <= 0) {
                     state.nextDatabaseOptimize = 86400; // 1 day
-                    database.optimize();
+                    database.optimize().catch(console.error);
                 }
             }
         } catch (err) {
-            friendStore.isRefreshFriendsLoading = false;
+            friendStore.setIsRefreshFriendsLoading(false);
             console.error(err);
         }
         workerTimers.setTimeout(() => updateLoop(), 1000);
     }
 
+    /**
+     *
+     * @param value
+     */
+    function setNextClearVRCXCacheCheck(value) {
+        state.nextClearVRCXCacheCheck = value;
+    }
+
+    /**
+     *
+     * @param value
+     */
+    function setNextGroupInstanceRefresh(value) {
+        state.nextGroupInstanceRefresh = value;
+    }
+
+    /**
+     *
+     * @param value
+     */
+    function setNextDiscordUpdate(value) {
+        state.nextDiscordUpdate = value;
+    }
+
+    /**
+     *
+     * @param value
+     */
+    function setIpcTimeout(value) {
+        state.ipcTimeout = value;
+    }
+
+    /**
+     *
+     * @param value
+     */
+    function setNextCurrentUserRefresh(value) {
+        state.nextCurrentUserRefresh = value;
+    }
+
     return {
-        state,
+        // state,
+
         nextGroupInstanceRefresh,
         nextCurrentUserRefresh,
         nextDiscordUpdate,
         ipcTimeout,
-        updateLoop
+        updateLoop,
+        setIpcTimeout,
+        setNextCurrentUserRefresh,
+        setNextDiscordUpdate,
+        setNextGroupInstanceRefresh,
+        setNextClearVRCXCacheCheck
     };
 });

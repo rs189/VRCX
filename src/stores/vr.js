@@ -1,18 +1,19 @@
 import { defineStore } from 'pinia';
-import { reactive, watch } from 'vue';
+import { watch } from 'vue';
+
 import { isRpcWorld } from '../shared/utils';
-import { watchState } from '../service/watchState';
-import { useFriendStore } from './friend';
-import { useGameStore } from './game';
-import { useGameLogStore } from './gameLog';
-import { useLocationStore } from './location';
-import { usePhotonStore } from './photon';
 import { useAdvancedSettingsStore } from './settings/advanced';
 import { useAppearanceSettingsStore } from './settings/appearance';
+import { useFriendStore } from './friend';
+import { useGameLogStore } from './gameLog';
+import { useGameStore } from './game';
+import { useLocationStore } from './location';
 import { useNotificationsSettingsStore } from './settings/notifications';
-import { useWristOverlaySettingsStore } from './settings/wristOverlay';
+import { usePhotonStore } from './photon';
 import { useSharedFeedStore } from './sharedFeed';
 import { useUserStore } from './user';
+import { useWristOverlaySettingsStore } from './settings/wristOverlay';
+import { watchState } from '../services/watchState';
 
 export const useVrStore = defineStore('Vr', () => {
     const friendStore = useFriendStore();
@@ -26,8 +27,6 @@ export const useVrStore = defineStore('Vr', () => {
     const gameLogStore = useGameLogStore();
     const userStore = useUserStore();
     const sharedFeedStore = useSharedFeedStore();
-
-    const state = reactive({});
 
     watch(
         () => watchState.isFriendsLoaded,
@@ -45,13 +44,11 @@ export const useVrStore = defineStore('Vr', () => {
         updateVRLastLocation();
         updateVrNowPlaying();
         // run these methods again to send data to the overlay
-        sharedFeedStore.updateSharedFeed(true);
-        friendStore.onlineFriendCount = 0; // force an update
-        friendStore.updateOnlineFriendCoutner();
+        sharedFeedStore.sendSharedFeed();
+        friendStore.updateOnlineFriendCounter(true); // force an update
     }
 
     async function saveOpenVROption() {
-        sharedFeedStore.updateSharedFeed(true);
         updateVRConfigVars();
         updateVRLastLocation();
         AppApi.ExecuteVrOverlayFunction('notyClear', '');
@@ -60,7 +57,6 @@ export const useVrStore = defineStore('Vr', () => {
 
     function updateVrNowPlaying() {
         const json = JSON.stringify(gameLogStore.nowPlaying);
-        AppApi.ExecuteVrFeedFunction('nowPlayingUpdate', json);
         AppApi.ExecuteVrOverlayFunction('nowPlayingUpdate', json);
     }
 
@@ -92,7 +88,6 @@ export const useVrStore = defineStore('Vr', () => {
             onlineFor
         };
         const json = JSON.stringify(lastLocation);
-        AppApi.ExecuteVrFeedFunction('lastLocationUpdate', json);
         AppApi.ExecuteVrOverlayFunction('lastLocationUpdate', json);
     }
 
@@ -101,6 +96,26 @@ export const useVrStore = defineStore('Vr', () => {
         if (appearanceSettingsStore.isDarkMode) {
             notificationTheme = 'sunset';
         }
+
+        /**
+         * @typedef {object} VrConfigVarsPayload
+         * @property {boolean} overlayNotifications
+         * @property {boolean} hideDevicesFromFeed
+         * @property {boolean} vrOverlayCpuUsage
+         * @property {boolean} minimalFeed
+         * @property {string} notificationPosition
+         * @property {number} notificationTimeout
+         * @property {number} photonOverlayMessageTimeout
+         * @property {string} notificationTheme
+         * @property {boolean} backgroundEnabled
+         * @property {boolean} dtHour12
+         * @property {boolean} pcUptimeOnFeed
+         * @property {string} appLanguage
+         * @property {number} notificationOpacity
+         * @property {boolean} isWristDisabled
+         */
+
+        /** @type {VrConfigVarsPayload} */
         const VRConfigVars = {
             overlayNotifications:
                 notificationsSettingsStore.overlayNotifications,
@@ -117,10 +132,12 @@ export const useVrStore = defineStore('Vr', () => {
             dtHour12: appearanceSettingsStore.dtHour12,
             pcUptimeOnFeed: wristOverlaySettingsStore.pcUptimeOnFeed,
             appLanguage: appearanceSettingsStore.appLanguage,
-            notificationOpacity: advancedSettingsStore.notificationOpacity
+            notificationOpacity: advancedSettingsStore.notificationOpacity,
+            isWristDisabled: wristOverlaySettingsStore.overlayWrist === false
         };
+
+        /** @type {string} */
         const json = JSON.stringify(VRConfigVars);
-        AppApi.ExecuteVrFeedFunction('configUpdate', json);
         AppApi.ExecuteVrOverlayFunction('configUpdate', json);
     }
 
@@ -152,7 +169,7 @@ export const useVrStore = defineStore('Vr', () => {
                 hmdOverlay,
                 wristOverlay: wristOverlaySettingsStore.overlayWrist,
                 menuButton: wristOverlaySettingsStore.overlaybutton,
-                overlayHand: wristOverlaySettingsStore.overlayHand
+                overlayHand: parseInt(wristOverlaySettingsStore.overlayHand, 10)
             };
         }
 
@@ -163,6 +180,9 @@ export const useVrStore = defineStore('Vr', () => {
             newState.menuButton,
             newState.overlayHand
         );
+        if (!newState.active) {
+            gameStore.setIsHmdAfk(false);
+        }
 
         if (LINUX) {
             window.electron.updateVr(
@@ -178,7 +198,6 @@ export const useVrStore = defineStore('Vr', () => {
     }
 
     return {
-        state,
         vrInit,
         saveOpenVROption,
         updateVrNowPlaying,

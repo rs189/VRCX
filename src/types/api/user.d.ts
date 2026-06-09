@@ -55,6 +55,8 @@ export interface VrcxUser extends GetUserResponse {
     $joinCount: number;
     $timeSpent: number;
     $lastSeen: string;
+    $mutualCount: number;
+    $mutualOptedOut: boolean;
     $nickName: string;
     $previousLocation: string;
     $customTag: string;
@@ -132,6 +134,7 @@ interface GetUserResponse {
     currentAvatarThumbnailImageUrl: string;
     date_joined: string;
     developerType: string;
+    discordId: string;
     displayName: string;
     friendKey: string;
     friendRequestStatus?: string;

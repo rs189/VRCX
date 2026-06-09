@@ -1,37 +1,36 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="sendInviteResponseConfirmDialog.visible"
-        :title="t('dialog.invite_response_message.header')"
-        width="400px"
-        append-to-body
-        @close="cancelInviteResponseConfirm">
-        <div style="font-size: 12px">
-            <span>{{ t('dialog.invite_response_message.confirmation') }}</span>
-        </div>
+    <Dialog
+        :open="sendInviteResponseConfirmDialog.visible"
+        @update:open="(open) => (open ? null : cancelInviteResponseConfirm())">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.invite_response_message.header') }}</DialogTitle>
+            </DialogHeader>
+            <div class="text-xs">
+                <span>{{ t('dialog.invite_response_message.confirmation') }}</span>
+            </div>
 
-        <template #footer>
-            <el-button type="small" @click="cancelInviteResponseConfirm">{{
-                t('dialog.invite_response_message.cancel')
-            }}</el-button>
-            <el-button type="primary" size="small" @click="sendInviteResponseConfirm">{{
-                t('dialog.invite_response_message.confirm')
-            }}</el-button>
-        </template>
-    </safe-dialog>
+            <DialogFooter>
+                <Button variant="secondary" class="mr-2" @click="cancelInviteResponseConfirm">{{
+                    t('dialog.invite_response_message.cancel')
+                }}</Button>
+                <Button @click="sendInviteResponseConfirm">{{ t('dialog.invite_response_message.confirm') }}</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
     import { storeToRefs } from 'pinia';
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
+    import { useGalleryStore, useNotificationStore } from '../../../stores';
     import { notificationRequest } from '../../../api';
-    import { useGalleryStore } from '../../../stores';
 
     const { t } = useI18n();
 
-    const instance = getCurrentInstance();
-    const $message = instance.proxy.$message;
     const galleryStore = useGalleryStore();
     const { uploadImage } = storeToRefs(galleryStore);
 
@@ -46,11 +45,10 @@
         }
     });
 
-    const emit = defineEmits(['update:sendInviteResponseConfirmDialog', 'closeInviteDialog']);
+    const emit = defineEmits(['closeResponseConfirmDialog', 'closeInviteDialog']);
 
     function cancelInviteResponseConfirm() {
-        emit('update:sendInviteResponseConfirmDialog', { visible: false });
-        props.sendInviteResponseConfirmDialog.visible = false;
+        emit('closeResponseConfirmDialog');
     }
 
     function sendInviteResponseConfirm() {
@@ -61,18 +59,20 @@
         };
         if (uploadImage.value) {
             notificationRequest
-                .sendInviteResponsePhoto(params, D.invite.id, D.messageSlot.messageType)
+                .sendInviteResponsePhoto(params, D.invite.id)
                 .catch((err) => {
-                    throw err;
+                    console.error('Invite response photo failed', err);
+                    toast.error(t('message.error'));
                 })
                 .then((args) => {
-                    notificationRequest.hideNotification({
-                        notificationId: D.invite.id
-                    });
-                    $message({
-                        message: 'Invite response photo message sent',
-                        type: 'success'
-                    });
+                    notificationRequest
+                        .hideNotification({
+                            notificationId: D.invite.id
+                        })
+                        .then(() => {
+                            useNotificationStore().handleNotificationHide(D.invite.id);
+                        });
+                    toast.success(t('message.invite.response_photo_sent'));
                     return args;
                 })
                 .finally(() => {
@@ -80,18 +80,20 @@
                 });
         } else {
             notificationRequest
-                .sendInviteResponse(params, D.invite.id, D.messageSlot.messageType)
+                .sendInviteResponse(params, D.invite.id)
                 .catch((err) => {
-                    throw err;
+                    console.error('Invite response failed', err);
+                    toast.error(t('message.error'));
                 })
                 .then((args) => {
-                    notificationRequest.hideNotification({
-                        notificationId: D.invite.id
-                    });
-                    $message({
-                        message: 'Invite response message sent',
-                        type: 'success'
-                    });
+                    notificationRequest
+                        .hideNotification({
+                            notificationId: D.invite.id
+                        })
+                        .then(() => {
+                            useNotificationStore().handleNotificationHide(D.invite.id);
+                        });
+                    toast.success(t('message.invite.response_sent'));
                     return args;
                 })
                 .finally(() => {

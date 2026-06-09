@@ -3,25 +3,27 @@
  * Export all API requests from here
  */
 
-import { request } from '../service/request';
-import userRequest from './user';
-import worldRequest from './world';
-import instanceRequest from './instance';
-import friendRequest from './friend';
+import { request } from '../services/request';
+
+import authRequest from './auth';
+import avatarModerationRequest from './avatarModeration';
 import avatarRequest from './avatar';
+import favoriteRequest from './favorite';
+import friendRequest from './friend';
+import groupRequest from './group';
+import imageRequest from './image';
+import instanceRequest from './instance';
+import inventoryRequest from './inventory';
+import inviteMessagesRequest from './inviteMessages';
+import miscRequest from './misc';
 import notificationRequest from './notification';
 import playerModerationRequest from './playerModeration';
-import avatarModerationRequest from './avatarModeration';
-import favoriteRequest from './favorite';
+import propRequest from './prop';
+import queryRequest from './queryRequest';
+import userRequest from './user';
 import vrcPlusIconRequest from './vrcPlusIcon';
 import vrcPlusImageRequest from './vrcPlusImage';
-import inviteMessagesRequest from './inviteMessages';
-import imageRequest from './image';
-import miscRequest from './misc';
-import groupRequest from './group';
-import authRequest from './auth';
-import inventoryRequest from './inventory';
-import propRequest from './prop';
+import worldRequest from './world';
 
 window.request = {
     request,
@@ -37,12 +39,13 @@ window.request = {
     vrcPlusIconRequest,
     vrcPlusImageRequest,
     inviteMessagesRequest,
-    imageRequest,
     miscRequest,
     authRequest,
     groupRequest,
     inventoryRequest,
-    propRequest
+    propRequest,
+    imageRequest,
+    queryRequest
 };
 
 export {
@@ -59,10 +62,11 @@ export {
     vrcPlusIconRequest,
     vrcPlusImageRequest,
     inviteMessagesRequest,
-    imageRequest,
     miscRequest,
     authRequest,
     groupRequest,
     inventoryRequest,
-    propRequest
+    propRequest,
+    imageRequest,
+    queryRequest
 };

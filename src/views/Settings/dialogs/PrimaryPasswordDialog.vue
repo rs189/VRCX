@@ -1,47 +1,44 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible.sync="enablePrimaryPasswordDialog.visible"
-        :before-close="enablePrimaryPasswordDialog.beforeClose"
-        :close-on-click-modal="false"
-        :title="t('dialog.primary_password.header')"
-        width="400px">
-        <el-input
-            v-model="enablePrimaryPasswordDialog.password"
-            :placeholder="t('dialog.primary_password.password_placeholder')"
-            type="password"
-            size="mini"
-            maxlength="32"
-            show-password
-            autofocus>
-        </el-input>
-        <el-input
-            v-model="enablePrimaryPasswordDialog.rePassword"
-            :placeholder="t('dialog.primary_password.re_input_placeholder')"
-            type="password"
-            style="margin-top: 5px"
-            size="mini"
-            maxlength="32"
-            show-password>
-        </el-input>
-        <template #footer>
-            <el-button
-                type="primary"
-                size="small"
-                :disabled="
-                    enablePrimaryPasswordDialog.password.length === 0 ||
-                    enablePrimaryPasswordDialog.password !== enablePrimaryPasswordDialog.rePassword
-                "
-                @click="handleSetPrimaryPassword()">
-                {{ t('dialog.primary_password.ok') }}
-            </el-button>
-        </template>
-    </safe-dialog>
+    <Dialog v-model:open="enablePrimaryPasswordDialog.visible">
+        <DialogContent @interact-outside.prevent>
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.primary_password.header') }}</DialogTitle>
+            </DialogHeader>
+            <InputGroupField
+                v-model="enablePrimaryPasswordDialog.password"
+                :placeholder="t('dialog.primary_password.password_placeholder')"
+                type="password"
+                size="sm"
+                :maxlength="32"
+                autofocus />
+            <InputGroupField
+                class="mt-1.5"
+                v-model="enablePrimaryPasswordDialog.rePassword"
+                :placeholder="t('dialog.primary_password.re_input_placeholder')"
+                type="password"
+                size="sm"
+                :maxlength="32" />
+            <DialogFooter>
+                <Button
+                    :disabled="
+                        enablePrimaryPasswordDialog.password.length === 0 ||
+                        enablePrimaryPasswordDialog.password !== enablePrimaryPasswordDialog.rePassword
+                    "
+                    @click="handleSetPrimaryPassword()">
+                    {{ t('dialog.primary_password.ok') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { InputGroupField } from '@/components/ui/input-group';
     import { storeToRefs } from 'pinia';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { useI18n } from 'vue-i18n';
+
     import { useAuthStore } from '../../../stores';
 
     const { t } = useI18n();
@@ -50,6 +47,9 @@
     const { enablePrimaryPasswordDialog } = storeToRefs(authStore);
     const { setPrimaryPassword } = authStore;
 
+    /**
+     *
+     */
     function handleSetPrimaryPassword() {
         setPrimaryPassword(enablePrimaryPasswordDialog.value.password);
         enablePrimaryPasswordDialog.value.visible = false;

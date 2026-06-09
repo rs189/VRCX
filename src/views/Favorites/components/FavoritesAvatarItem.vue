@@ -1,222 +1,214 @@
 <template>
-    <div @click="$emit('click')">
-        <div class="x-friend-item">
-            <template v-if="isLocalFavorite ? favorite.name : favorite.ref">
-                <div class="avatar">
-                    <img v-lazy="smallThumbnail" />
-                </div>
-                <div class="detail">
-                    <span class="name" v-text="localFavFakeRef.name"></span>
-                    <span class="extra" v-text="localFavFakeRef.authorName"></span>
-                </div>
-                <template v-if="editFavoritesMode">
-                    <el-dropdown trigger="click" size="mini" style="margin-left: 5px" @click.native.stop>
-                        <el-tooltip placement="top" :content="tooltipContent" :disabled="hideTooltips">
-                            <el-button type="default" icon="el-icon-back" size="mini" circle></el-button>
-                        </el-tooltip>
-                        <el-dropdown-menu slot="dropdown">
-                            <template
-                                v-for="groupAPI in favoriteAvatarGroups"
-                                v-if="isLocalFavorite || groupAPI.name !== group.name">
-                                <el-dropdown-item
-                                    :key="groupAPI.name"
-                                    style="display: block; margin: 10px 0"
-                                    :disabled="groupAPI.count >= groupAPI.capacity"
-                                    @click.native="handleDropdownItemClick(groupAPI)">
-                                    {{ groupAPI.displayName }} ({{ groupAPI.count }} / {{ groupAPI.capacity }})
-                                </el-dropdown-item>
-                            </template>
-                        </el-dropdown-menu>
-                    </el-dropdown>
-                    <el-button v-if="!isLocalFavorite" type="text" size="mini" style="margin-left: 5px" @click.stop>
-                        <el-checkbox v-model="isSelected"></el-checkbox>
-                    </el-button>
-                </template>
-                <template v-else-if="!isLocalFavorite">
-                    <el-tooltip
-                        v-if="favorite.deleted"
-                        placement="left"
-                        :content="t('view.favorite.unavailable_tooltip')">
-                        <i class="el-icon-warning" style="color: #f56c6c; margin-left: 5px"></i>
-                    </el-tooltip>
-                    <el-tooltip
-                        v-if="favorite.ref.releaseStatus === 'private'"
-                        placement="left"
-                        :content="t('view.favorite.private')">
-                        <i class="el-icon-warning" style="color: #e6a23c; margin-left: 5px"></i>
-                    </el-tooltip>
-                    <el-tooltip
-                        v-if="favorite.ref.releaseStatus !== 'private' && !favorite.deleted"
-                        placement="left"
-                        :content="t('view.favorite.select_avatar_tooltip')"
-                        :disabled="hideTooltips">
-                        <el-button
-                            :disabled="currentUser.currentAvatar === favorite.id"
-                            size="mini"
-                            icon="el-icon-check"
-                            circle
-                            style="margin-left: 5px"
-                            @click.stop="selectAvatarWithConfirmation(favorite.id)"></el-button>
-                    </el-tooltip>
-                    <el-tooltip
-                        placement="right"
-                        :content="t('view.favorite.unfavorite_tooltip')"
-                        :disabled="hideTooltips">
-                        <el-button
-                            v-if="shiftHeld"
-                            size="mini"
-                            icon="el-icon-close"
-                            circle
-                            style="color: #f56c6c; margin-left: 5px"
-                            @click.stop="deleteFavorite(favorite.id)"></el-button>
-                        <el-button
-                            v-else
-                            type="default"
-                            icon="el-icon-star-on"
-                            size="mini"
-                            circle
-                            style="margin-left: 5px"
-                            @click.stop="showFavoriteDialog('avatar', favorite.id)"></el-button>
-                    </el-tooltip>
-                </template>
-                <template v-else>
-                    <el-tooltip
-                        placement="left"
-                        :content="t('view.favorite.select_avatar_tooltip')"
-                        :disabled="hideTooltips">
-                        <el-button
-                            :disabled="currentUser.currentAvatar === favorite.id"
-                            size="mini"
-                            circle
-                            style="margin-left: 5px"
-                            icon="el-icon-check"
-                            @click.stop="selectAvatarWithConfirmation(favorite.id)" />
-                    </el-tooltip>
-                </template>
-                <el-tooltip
-                    v-if="isLocalFavorite"
-                    placement="right"
-                    :content="t('view.favorite.unfavorite_tooltip')"
-                    :disabled="hideTooltips">
-                    <el-button
-                        v-if="shiftHeld"
-                        size="mini"
-                        icon="el-icon-close"
-                        circle
-                        style="color: #f56c6c; margin-left: 5px"
-                        @click.stop="removeLocalAvatarFavorite" />
-                    <el-button
-                        v-else
-                        type="default"
-                        icon="el-icon-star-on"
-                        size="mini"
-                        circle
-                        style="margin-left: 5px"
-                        @click.stop="showFavoriteDialog('avatar', favorite.id)"
-                /></el-tooltip>
-            </template>
-            <template v-else>
-                <div class="avatar"></div>
-                <div class="detail">
-                    <span class="name" v-text="favorite.name || favorite.id"></span>
-                </div>
-                <el-button
-                    v-if="isLocalFavorite"
-                    type="text"
-                    icon="el-icon-close"
-                    size="mini"
-                    style="margin-left: 5px"
-                    @click.stop="removeLocalAvatarFavorite"></el-button>
-                <el-button
-                    v-else
-                    type="text"
-                    icon="el-icon-close"
-                    size="mini"
-                    style="margin-left: 5px"
-                    @click.stop="deleteFavorite(favorite.id)"></el-button>
-            </template>
-        </div>
-    </div>
+    <template v-if="localFavFakeRef">
+        <ContextMenu>
+            <ContextMenuTrigger as-child>
+                <Item
+                    variant="outline"
+                    class="favorites-item cursor-pointer hover:bg-muted x-hover-list"
+                    :style="itemStyle"
+                    @click="handleViewDetails">
+                    <ItemMedia variant="image">
+                        <Avatar class="rounded-sm size-full">
+                            <AvatarImage
+                                v-if="smallThumbnail"
+                                :src="smallThumbnail"
+                                loading="lazy"
+                                decoding="async"
+                                fetchpriority="low"
+                                class="rounded-sm object-cover" />
+                            <AvatarFallback class="rounded-sm">
+                                <Image class="size-4 text-muted-foreground" />
+                            </AvatarFallback>
+                        </Avatar>
+                    </ItemMedia>
+                    <ItemContent class="min-w-0">
+                        <ItemTitle class="truncate max-w-full">
+                            {{ localFavFakeRef.name }}
+                            <AlertTriangle
+                                v-if="showUnavailable"
+                                :title="t('view.favorite.unavailable_tooltip')"
+                                class="h-4 w-4" />
+                            <Lock v-if="isPrivateAvatar" :title="t('view.favorite.private')" class="h-4 w-4" />
+                        </ItemTitle>
+                        <ItemDescription class="truncate line-clamp-1 text-xs">
+                            {{ localFavFakeRef.authorName }}
+                        </ItemDescription>
+                    </ItemContent>
+                    <ItemActions v-if="editMode && !isLocalFavorite" @click.stop>
+                        <Checkbox v-model="isSelected" />
+                    </ItemActions>
+                    <ItemActions v-else-if="!editMode">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                                <Button size="icon-sm" variant="ghost" class="rounded-full" @click.stop>
+                                    <MoreHorizontal class="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem @click="handleViewDetails">
+                                    {{ t('common.actions.view_details') }}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    v-if="canSelectAvatar"
+                                    :disabled="currentUser.currentAvatar === favorite.id"
+                                    @click="selectAvatarWithConfirmation(favorite.id)">
+                                    {{ t('view.favorite.select_avatar_tooltip') }}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator v-if="canSelectAvatar" />
+                                <DropdownMenuItem @click="showFavoriteDialog('avatar', favorite.id)">
+                                    {{ t('view.favorite.edit_favorite_tooltip') }}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem variant="destructive" @click="handleDeleteFavorite">
+                                    {{ deleteMenuLabel }}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </ItemActions>
+                </Item>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+                <ContextMenuItem @click="handleViewDetails">{{ t('common.actions.view_details') }}</ContextMenuItem>
+                <ContextMenuItem
+                    v-if="canSelectAvatar"
+                    :disabled="currentUser.currentAvatar === favorite.id"
+                    @click="selectAvatarWithConfirmation(favorite.id)">
+                    {{ t('view.favorite.select_avatar_tooltip') }}
+                </ContextMenuItem>
+                <ContextMenuSeparator v-if="canSelectAvatar" />
+                <ContextMenuItem @click="showFavoriteDialog('avatar', favorite.id)">
+                    {{ t('view.favorite.edit_favorite_tooltip') }}
+                </ContextMenuItem>
+                <ContextMenuItem variant="destructive" @click="handleDeleteFavorite">
+                    {{ deleteMenuLabel }}
+                </ContextMenuItem>
+            </ContextMenuContent>
+        </ContextMenu>
+    </template>
+    <template v-else>
+        <Item variant="outline" class="favorites-item hover:bg-muted x-hover-list" :style="itemStyle">
+            <ItemMedia variant="image" />
+            <ItemContent class="min-w-0">
+                <ItemTitle class="truncate max-w-full">{{ favorite.name || favorite.id }}</ItemTitle>
+            </ItemContent>
+            <ItemActions>
+                <Button class="rounded-full h-6 w-6" size="icon-sm" variant="ghost" @click.stop="handleDeleteFavorite">
+                    <Trash2 class="h-4 w-4" />
+                </Button>
+            </ItemActions>
+        </Item>
+    </template>
 </template>
 
 <script setup>
-    import { storeToRefs } from 'pinia';
-    import { computed } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { favoriteRequest } from '../../../api';
-    import { $app } from '../../../app';
+    import { AlertTriangle, Image, Lock, MoreHorizontal, Trash2 } from 'lucide-vue-next';
+    import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+    import { Button } from '@/components/ui/button';
+    import { Checkbox } from '@/components/ui/checkbox';
     import {
-        useAppearanceSettingsStore,
-        useAvatarStore,
-        useFavoriteStore,
-        useUiStore,
-        useUserStore
-    } from '../../../stores';
+        ContextMenu,
+        ContextMenuContent,
+        ContextMenuItem,
+        ContextMenuSeparator,
+        ContextMenuTrigger
+    } from '@/components/ui/context-menu';
+    import {
+        DropdownMenu,
+        DropdownMenuContent,
+        DropdownMenuItem,
+        DropdownMenuSeparator,
+        DropdownMenuTrigger
+    } from '@/components/ui/dropdown-menu';
+    import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
+    import { computed } from 'vue';
+    import { storeToRefs } from 'pinia';
+    import { useI18n } from 'vue-i18n';
+
+    import { favoriteRequest } from '../../../api';
+    import { selectAvatarWithConfirmation, showAvatarDialog } from '../../../coordinators/avatarCoordinator';
+    import { removeLocalAvatarFavorite } from '../../../coordinators/favoriteCoordinator';
+    import { useFavoriteStore, useUserStore } from '../../../stores';
 
     const props = defineProps({
         favorite: Object,
         group: [Object, String],
-        editFavoritesMode: Boolean,
-        isLocalFavorite: Boolean
+        isLocalFavorite: Boolean,
+        editMode: { type: Boolean, default: false },
+        selected: { type: Boolean, default: false }
     });
-    const emit = defineEmits(['click', 'handle-select']);
+    const emit = defineEmits(['toggle-select']);
 
     const { t } = useI18n();
-
-    const { hideTooltips } = storeToRefs(useAppearanceSettingsStore());
-    const { favoriteAvatarGroups } = storeToRefs(useFavoriteStore());
-    const { removeLocalAvatarFavorite, showFavoriteDialog } = useFavoriteStore();
-    const { selectAvatarWithConfirmation } = useAvatarStore();
-    const { shiftHeld } = storeToRefs(useUiStore());
+    const { showFavoriteDialog } = useFavoriteStore();
     const { currentUser } = storeToRefs(useUserStore());
 
     const isSelected = computed({
-        get: () => props.favorite.$selected,
-        set: (value) => emit('handle-select', value)
+        get: () => props.selected,
+        set: (value) => emit('toggle-select', value)
     });
-    const localFavFakeRef = computed(() => (props.isLocalFavorite ? props.favorite : props.favorite.ref));
-    const tooltipContent = computed(() =>
-        t(props.isLocalFavorite ? 'view.favorite.copy_tooltip' : 'view.favorite.move_tooltip')
+
+    const localFavFakeRef = computed(() => (props.isLocalFavorite ? props.favorite : props.favorite?.ref));
+
+    const showUnavailable = computed(() => !props.isLocalFavorite && props.favorite?.deleted);
+
+    const isPrivateAvatar = computed(() => !props.isLocalFavorite && props.favorite?.ref?.releaseStatus === 'private');
+
+    const deleteMenuLabel = computed(() =>
+        props.isLocalFavorite ? t('view.favorite.delete_tooltip') : t('view.favorite.unfavorite_tooltip')
     );
-    const smallThumbnail = computed(
-        () => localFavFakeRef.value.thumbnailImageUrl.replace('256', '128') || localFavFakeRef.value.thumbnailImageUrl
-    );
 
-    function moveFavorite(ref, group, type) {
-        favoriteRequest.deleteFavorite({ objectId: ref.id }).then(() => {
-            favoriteRequest.addFavorite({
-                type,
-                favoriteId: ref.id,
-                tags: group.name
-            });
-        });
-    }
+    const itemStyle = computed(() => ({
+        padding: 'var(--favorites-card-padding-y, 8px) var(--favorites-card-padding-x, 10px)',
+        gap: 'var(--favorites-card-content-gap, 10px)',
+        minWidth: 'var(--favorites-card-min-width, 220px)',
+        maxWidth: 'var(--favorites-card-target-width, 220px)',
+        width: '100%',
+        fontSize: 'calc(0.875rem * var(--favorites-card-scale, 1))'
+    }));
 
-    function deleteFavorite(objectId) {
-        favoriteRequest.deleteFavorite({ objectId });
-    }
-
-    function addFavoriteAvatar(groupAPI) {
-        return favoriteRequest
-            .addFavorite({
-                type: 'avatar',
-                favoriteId: props.favorite.id,
-                tags: groupAPI.name
-            })
-            .then((args) => {
-                $app.$message({
-                    message: 'Avatar added to favorites',
-                    type: 'success'
-                });
-                return args;
-            });
-    }
-
-    function handleDropdownItemClick(groupAPI) {
-        if (props.isLocalFavorite) {
-            addFavoriteAvatar(groupAPI);
-        } else {
-            moveFavorite(props.favorite.ref, groupAPI, 'avatar');
+    const smallThumbnail = computed(() => {
+        if (!localFavFakeRef.value?.thumbnailImageUrl) {
+            return '';
         }
+        return localFavFakeRef.value.thumbnailImageUrl.replace('256', '128');
+    });
+
+    const favoriteGroupName = computed(() => {
+        if (typeof props.group === 'string') {
+            return props.group;
+        }
+        return props.group?.name ?? props.group?.key;
+    });
+
+    const canSelectAvatar = computed(() => {
+        if (props.isLocalFavorite) {
+            return true;
+        }
+        if (props.favorite?.deleted) {
+            return false;
+        }
+        return props.favorite?.ref?.releaseStatus !== 'private';
+    });
+
+    function handleViewDetails() {
+        showAvatarDialog(props.favorite.id);
+    }
+
+    function handleDeleteFavorite() {
+        if (props.isLocalFavorite) {
+            removeLocalAvatarFavorite(props.favorite.id, favoriteGroupName.value);
+            return;
+        }
+        favoriteRequest.deleteFavorite({ objectId: props.favorite.id });
     }
 </script>
+
+<style scoped>
+    .favorites-item :deep(img) {
+        filter: saturate(0.8) contrast(0.8);
+        transition: filter 0.2s ease;
+    }
+
+    .favorites-item:hover :deep(img) {
+        filter: saturate(1) contrast(1);
+    }
+</style>

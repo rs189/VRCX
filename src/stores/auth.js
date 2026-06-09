@@ -1,167 +1,109 @@
-import Noty from 'noty';
+import { reactive, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
-import { computed, reactive, watch } from 'vue';
+import { toast } from 'vue-sonner';
+import { useI18n } from 'vue-i18n';
+
+import Noty from 'noty';
+
+import {
+    runLoginSuccessFlow,
+    runLogoutFlow
+} from '../coordinators/authCoordinator';
+import { AppDebug } from '../services/appConfig';
 import { authRequest } from '../api';
-import { $app } from '../app';
-import { useI18n } from 'vue-i18n-bridge';
-import configRepository from '../service/config';
-import { database } from '../service/database';
-import { AppGlobal } from '../service/appConfig';
-import { request } from '../service/request';
-import security from '../service/security';
-import webApiService from '../service/webapi';
-import { closeWebSocket, initWebsocket } from '../service/websocket';
-import { watchState } from '../service/watchState';
+import { database } from '../services/database';
 import { escapeTag } from '../shared/utils';
-import { useNotificationStore } from './notification';
+import { links } from '../shared/constants/link';
+import { initWebsocket } from '../services/websocket';
+import { request } from '../services/request';
+import { runHandleAutoLoginFlow } from '../coordinators/authAutoLoginCoordinator';
+import { getCurrentUser } from '../coordinators/userCoordinator';
 import { useAdvancedSettingsStore } from './settings/advanced';
+import { useGeneralSettingsStore } from './settings/general';
+import { useModalStore } from './modal';
 import { useUpdateLoopStore } from './updateLoop';
 import { useUserStore } from './user';
 import { useVrcxStore } from './vrcx';
+import { watchState } from '../services/watchState';
+
+import configRepository from '../services/config';
+import security from '../services/security';
+import webApiService from '../services/webapi';
+
+import * as workerTimers from 'worker-timers';
+import { useActivityStore } from './activity';
 
 export const useAuthStore = defineStore('Auth', () => {
     const advancedSettingsStore = useAdvancedSettingsStore();
-    const notificationStore = useNotificationStore();
+    const generalSettingsStore = useGeneralSettingsStore();
     const userStore = useUserStore();
     const updateLoopStore = useUpdateLoopStore();
+    const modalStore = useModalStore();
     const vrcxStore = useVrcxStore();
+    const activityStore = useActivityStore();
 
     const { t } = useI18n();
-    const state = reactive({
-        attemptingAutoLogin: false,
-        autoLoginAttempts: new Set(),
-        loginForm: {
-            loading: false,
-            username: '',
-            password: '',
-            endpoint: '',
-            websocket: '',
-            saveCredentials: false,
-            savedCredentials: {},
-            lastUserLoggedIn: '',
-            rules: {
-                username: [
-                    {
-                        required: true,
-                        trigger: 'blur'
-                    }
-                ],
-                password: [
-                    {
-                        required: true,
-                        trigger: 'blur'
-                    }
-                ]
-            }
-        },
-        enablePrimaryPasswordDialog: {
-            visible: false,
-            password: '',
-            rePassword: '',
-            beforeClose(done) {
-                $app._data.enablePrimaryPassword = false;
-                done();
-            }
-        },
-        saveCredentials: null,
-        // it's a flag
-        twoFactorAuthDialogVisible: false,
-        enableCustomEndpoint: false,
-        cachedConfig: {}
+    const autoLoginAttempts = ref(new Set());
+
+    const loginForm = ref({
+        loading: false,
+        username: '',
+        password: '',
+        endpoint: '',
+        websocket: '',
+        saveCredentials: false,
+        lastUserLoggedIn: ''
     });
 
-    async function init() {
-        const [savedCredentials, lastUserLoggedIn, enableCustomEndpoint] =
-            await Promise.all([
-                configRepository.getString('savedCredentials'),
-                configRepository.getString('lastUserLoggedIn'),
-                configRepository.getBool('VRCX_enableCustomEndpoint', false)
-            ]);
-        try {
-            state.loginForm = {
-                ...state.loginForm,
-                savedCredentials: savedCredentials
-                    ? JSON.parse(savedCredentials)
-                    : {},
-                lastUserLoggedIn
-            };
-        } catch (error) {
-            console.error('Failed to parse savedCredentials:', error);
-            state.loginForm = {
-                ...state.loginForm,
-                savedCredentials: {},
-                lastUserLoggedIn
-            };
-        }
-        state.enableCustomEndpoint = enableCustomEndpoint;
-    }
-
-    init();
-
-    const loginForm = computed({
-        get: () => state.loginForm,
-        set: (value) => {
-            state.loginForm = value;
+    const enablePrimaryPasswordDialog = ref({
+        visible: false,
+        password: '',
+        rePassword: '',
+        beforeClose(done) {
+            // $app._data.enablePrimaryPassword = false;
+            done();
         }
     });
 
-    const enablePrimaryPasswordDialog = computed({
-        get: () => state.enablePrimaryPasswordDialog,
-        set: (value) => {
-            state.enablePrimaryPasswordDialog = value;
-        }
-    });
+    const credentialsToSave = ref(null);
 
-    const saveCredentials = computed({
-        get: () => state.saveCredentials,
-        set: (value) => {
-            state.saveCredentials = value;
-        }
-    });
+    const twoFactorAuthDialogVisible = ref(false);
 
-    const twoFactorAuthDialogVisible = computed({
-        get: () => state.twoFactorAuthDialogVisible,
-        set: (value) => {
-            state.twoFactorAuthDialogVisible = value;
-        }
-    });
+    const cachedConfig = ref({});
 
-    const cachedConfig = computed({
-        get: () => state.cachedConfig,
-        set: (value) => {
-            state.cachedConfig = value;
-        }
-    });
+    const enableCustomEndpoint = ref(false);
 
-    const enableCustomEndpoint = computed({
-        get: () => state.enableCustomEndpoint,
-        set: (value) => {
-            state.enableCustomEndpoint = value;
-        }
+    const attemptingAutoLogin = ref(false);
+    const loginNetworkIssueHintState = reactive({
+        hinted: false,
+        timestamps: [],
+        lastAttemptFingerprint: ''
     });
-
-    const attemptingAutoLogin = computed({
-        get: () => state.attemptingAutoLogin,
-        set: (value) => {
-            state.attemptingAutoLogin = value;
-        }
-    });
+    const loginNetworkIssueHintToastId = ref(null);
+    const loginNetworkIssueHintWindowMs = 90000;
+    const loginNetworkIssueHintThreshold = 3;
 
     watch(
         [() => watchState.isLoggedIn, () => userStore.currentUser],
         ([isLoggedIn, currentUser]) => {
-            state.twoFactorAuthDialogVisible = false;
+            twoFactorAuthDialogVisible.value = false;
             if (isLoggedIn) {
+                resetLoginNetworkIssueHintState();
                 updateStoredUser(currentUser);
                 new Noty({
                     type: 'success',
-                    text: `Hello there, <strong>${escapeTag(
-                        currentUser.displayName
-                    )}</strong>!`
+                    text: t('message.auth.login_greeting', {
+                        name: `<strong>${escapeTag(currentUser.displayName)}</strong>`
+                    })
                 }).show();
             }
         },
         { flush: 'sync' }
+    );
+
+    watch(
+        [() => loginForm.value.username, () => loginForm.value.password],
+        resetLoginNetworkIssueHintState
     );
 
     watch(
@@ -175,26 +117,76 @@ export const useAuthStore = defineStore('Auth', () => {
         { flush: 'sync' }
     );
 
-    async function handleLogoutEvent() {
-        if (watchState.isLoggedIn) {
-            new Noty({
-                type: 'success',
-                text: `See you again, <strong>${escapeTag(
-                    userStore.currentUser.displayName
-                )}</strong>!`
-            }).show();
+    /**
+     *
+     */
+    async function init() {
+        const [lastUserLoggedIn, savedEnableCustomEndpoint] = await Promise.all(
+            [
+                configRepository.getString('lastUserLoggedIn', ''),
+                configRepository.getBool('VRCX_enableCustomEndpoint', false)
+            ]
+        );
+        loginForm.value.lastUserLoggedIn = lastUserLoggedIn;
+        enableCustomEndpoint.value = savedEnableCustomEndpoint;
+    }
+
+    init();
+
+    /**
+     *
+     */
+    async function getAllSavedCredentials() {
+        let savedCredentials = {};
+        try {
+            savedCredentials = JSON.parse(
+                await configRepository.getString('savedCredentials', '{}')
+            );
+            let edited = false;
+            for (const userId in savedCredentials) {
+                // fix goofy typo
+                if (savedCredentials[userId].loginParmas) {
+                    savedCredentials[userId].loginParams =
+                        savedCredentials[userId].loginParmas;
+                    delete savedCredentials[userId].loginParmas;
+                    edited = true;
+                }
+                // fix missing fields
+                if (!savedCredentials[userId].loginParams.endpoint) {
+                    savedCredentials[userId].loginParams.endpoint = '';
+                    edited = true;
+                }
+                if (!savedCredentials[userId].loginParams.websocket) {
+                    savedCredentials[userId].loginParams.websocket = '';
+                    edited = true;
+                }
+            }
+            if (edited) {
+                await configRepository.setString(
+                    'savedCredentials',
+                    JSON.stringify(savedCredentials)
+                );
+            }
+        } catch (e) {
+            console.error('Failed to get saved credentials:', e);
         }
-        watchState.isLoggedIn = false;
-        watchState.isFriendsLoaded = false;
-        notificationStore.notificationInitStatus = false;
-        await updateStoredUser(userStore.currentUser);
-        webApiService.clearCookies();
-        state.loginForm.lastUserLoggedIn = '';
-        await configRepository.remove('lastUserLoggedIn');
-        // workerTimers.setTimeout(() => location.reload(), 500);
-        state.attemptingAutoLogin = false;
-        state.autoLoginAttempts.clear();
-        closeWebSocket();
+        return savedCredentials;
+    }
+
+    /**
+     *
+     * @param userId
+     */
+    async function getSavedCredentials(userId) {
+        const savedCredentials = await getAllSavedCredentials();
+        return savedCredentials[userId];
+    }
+
+    /**
+     *
+     */
+    async function handleLogoutEvent() {
+        await runLogoutFlow();
     }
 
     /**
@@ -202,113 +194,227 @@ export const useAuthStore = defineStore('Auth', () => {
      * @returns {Promise<void>}
      */
     async function autoLoginAfterMounted() {
+        const canAutoLogin = await vrcxStore.waitForDatabaseInit();
+        if (!canAutoLogin) {
+            console.warn(
+                'Skipping auto-login after mount because database initialization did not complete successfully.'
+            );
+            return;
+        }
         if (
             !advancedSettingsStore.enablePrimaryPassword &&
             (await configRepository.getString('lastUserLoggedIn')) !== null
         ) {
-            const user =
-                state.loginForm.savedCredentials[
-                    state.loginForm.lastUserLoggedIn
-                ];
-            if (user?.loginParmas?.endpoint) {
-                AppGlobal.endpointDomain = user.loginParmas.endpoint;
-                AppGlobal.websocketDomain = user.loginParmas.websocket;
+            const user = await getSavedCredentials(
+                loginForm.value.lastUserLoggedIn
+            );
+            if (user?.loginParams?.endpoint) {
+                AppDebug.endpointDomain = user.loginParams.endpoint;
+                AppDebug.websocketDomain = user.loginParams.websocket;
             }
+            await applyAutoLoginDelay();
             // login at startup
-            state.loginForm.loading = true;
-            authRequest
-                .getConfig()
-                .catch((err) => {
-                    state.loginForm.loading = false;
-                    throw err;
-                })
-                .then(() => {
-                    userStore
-                        .getCurrentUser()
-                        .finally(() => {
-                            state.loginForm.loading = false;
-                        })
-                        .catch((err) => {
-                            updateLoopStore.nextCurrentUserRefresh = 60; // 1min
-                            console.error(err);
-                        });
-                });
+            loginForm.value.loading = true;
+            try {
+                await authRequest.getConfig();
+                try {
+                    await getCurrentUser();
+                } catch (err) {
+                    updateLoopStore.setNextCurrentUserRefresh(60); // 1min
+                    console.error(err);
+                }
+            } finally {
+                loginForm.value.loading = false;
+            }
         }
     }
 
+    /**
+     *
+     */
     async function clearCookiesTryLogin() {
         await webApiService.clearCookies();
-        if (state.loginForm.lastUserLoggedIn) {
-            const user =
-                state.loginForm.savedCredentials[
-                    state.loginForm.lastUserLoggedIn
-                ];
-            if (typeof user !== 'undefined') {
+        if (loginForm.value.lastUserLoggedIn) {
+            const user = await getSavedCredentials(
+                loginForm.value.lastUserLoggedIn
+            );
+            if (user) {
                 delete user.cookies;
-                await relogin(user);
+                await relogin(user, {
+                    shouldTrackLoginNetworkIssueHint: false
+                });
             }
         }
     }
 
+    /**
+     *
+     */
     async function resendEmail2fa() {
-        if (state.loginForm.lastUserLoggedIn) {
-            const user =
-                state.loginForm.savedCredentials[
-                    state.loginForm.lastUserLoggedIn
-                ];
-            if (typeof user !== 'undefined') {
+        if (loginForm.value.lastUserLoggedIn) {
+            const user = await getSavedCredentials(
+                loginForm.value.lastUserLoggedIn
+            );
+            if (user) {
                 await webApiService.clearCookies();
                 delete user.cookies;
-                relogin(user).then(() => {
-                    new Noty({
-                        type: 'success',
-                        text: 'Email 2FA resent.'
-                    }).show();
+                relogin(user, {
+                    shouldTrackLoginNetworkIssueHint: false
+                }).then(() => {
+                    toast.success(t('message.auth.email_2fa_resent'));
                 });
                 return;
             }
         }
-        new Noty({
-            type: 'error',
-            text: 'Cannot send 2FA email without saved credentials. Please login again.'
-        }).show();
+        toast.error(t('message.auth.email_2fa_no_credentials'));
     }
 
-    function enablePrimaryPasswordChange() {
-        advancedSettingsStore.enablePrimaryPassword =
-            !advancedSettingsStore.enablePrimaryPassword;
+    /**
+     *
+     */
+    function resetLoginNetworkIssueHintState() {
+        if (loginNetworkIssueHintToastId.value) {
+            toast.dismiss(loginNetworkIssueHintToastId.value);
+            loginNetworkIssueHintToastId.value = null;
+        }
+        loginNetworkIssueHintState.hinted = false;
+        loginNetworkIssueHintState.timestamps = [];
+        loginNetworkIssueHintState.lastAttemptFingerprint = '';
+    }
 
-        state.enablePrimaryPasswordDialog.password = '';
-        state.enablePrimaryPasswordDialog.rePassword = '';
-        if (advancedSettingsStore.enablePrimaryPassword) {
-            state.enablePrimaryPasswordDialog.visible = true;
-        } else {
-            $app.$prompt(
-                t('prompt.primary_password.description'),
-                t('prompt.primary_password.header'),
-                {
-                    inputType: 'password',
-                    inputPattern: /[\s\S]{1,32}/
+    /**
+     *
+     * @param {{ username?: string, password?: string, endpoint?: string, websocket?: string }} [params]
+     * @returns {string}
+     */
+    function buildLoginNetworkIssueAttemptFingerprint(params = {}) {
+        return [
+            params.username ?? '',
+            params.password ?? '',
+            params.endpoint ?? '',
+            params.websocket ?? ''
+        ].join('\u0000');
+    }
+
+    /**
+     *
+     * @param {{ username?: string, password?: string, endpoint?: string, websocket?: string }} params
+     */
+    function resetLoginNetworkIssueHintStateIfCredentialsChanged(params) {
+        const fingerprint = buildLoginNetworkIssueAttemptFingerprint(params);
+        if (
+            loginNetworkIssueHintState.lastAttemptFingerprint &&
+            loginNetworkIssueHintState.lastAttemptFingerprint !== fingerprint
+        ) {
+            resetLoginNetworkIssueHintState();
+        }
+        loginNetworkIssueHintState.lastAttemptFingerprint = fingerprint;
+    }
+
+    /**
+     *
+     * @param {Error & {status?: number, endpoint?: string}} err
+     * @returns {boolean}
+     */
+    function shouldCountLoginFailureForNetworkHint(err) {
+        if (!err || err.endpoint !== 'auth/user') {
+            return false;
+        }
+        if (
+            typeof err.message === 'string' &&
+            err.message.includes('Invalid Username/Email or Password')
+        ) {
+            return false;
+        }
+        return [401].includes(err.status);
+    }
+
+    /**
+     *
+     */
+    function maybeShowLoginNetworkIssueHint() {
+        const now = Date.now();
+        loginNetworkIssueHintState.timestamps =
+            loginNetworkIssueHintState.timestamps.filter(
+                (timestamp) => timestamp > now - loginNetworkIssueHintWindowMs
+            );
+        loginNetworkIssueHintState.timestamps.push(now);
+        if (
+            loginNetworkIssueHintState.hinted ||
+            loginNetworkIssueHintState.timestamps.length <
+                loginNetworkIssueHintThreshold
+        ) {
+            return;
+        }
+        loginNetworkIssueHintState.hinted = true;
+        loginNetworkIssueHintToastId.value = toast.warning(
+            t('message.auth.login_network_issue_hint_title'),
+            {
+                description: t(
+                    'message.auth.login_network_issue_hint_description'
+                ),
+                duration: Infinity,
+                action: {
+                    label: t('common.actions.open'),
+                    onClick: () =>
+                        AppApi.OpenLink(
+                            links.troubleshootingAuthUserConnectionIssues
+                        )
                 }
-            )
-                .then(({ value }) => {
-                    for (const userId in state.loginForm.savedCredentials) {
+            }
+        );
+    }
+
+    /**
+     *
+     */
+    function enablePrimaryPasswordChange() {
+        advancedSettingsStore.setEnablePrimaryPassword(
+            !advancedSettingsStore.enablePrimaryPassword
+        );
+
+        enablePrimaryPasswordDialog.value.password = '';
+        enablePrimaryPasswordDialog.value.rePassword = '';
+        if (advancedSettingsStore.enablePrimaryPassword) {
+            enablePrimaryPasswordDialog.value.visible = true;
+        } else {
+            modalStore
+                .prompt({
+                    title: t('prompt.primary_password.header'),
+                    description: t('prompt.primary_password.description'),
+                    inputType: 'password',
+                    pattern: /[\s\S]{1,32}/
+                })
+                .then(async ({ ok, value }) => {
+                    if (!ok) {
+                        advancedSettingsStore.setEnablePrimaryPassword(true);
+                        advancedSettingsStore.setEnablePrimaryPasswordConfigRepository(
+                            true
+                        );
+                        return;
+                    }
+
+                    const savedCredentials = JSON.parse(
+                        await configRepository.getString(
+                            'savedCredentials',
+                            '{}'
+                        )
+                    );
+                    for (const userId in savedCredentials) {
                         security
                             .decrypt(
-                                state.loginForm.savedCredentials[userId]
-                                    .loginParmas.password,
+                                savedCredentials[userId].loginParams.password,
                                 value
                             )
                             .then(async (pt) => {
-                                state.saveCredentials = {
+                                credentialsToSave.value = {
                                     username:
-                                        state.loginForm.savedCredentials[userId]
-                                            .loginParmas.username,
+                                        savedCredentials[userId].loginParams
+                                            .username,
                                     password: pt
                                 };
                                 await updateStoredUser(
-                                    state.loginForm.savedCredentials[userId]
-                                        .user
+                                    savedCredentials[userId].user
                                 );
                                 await configRepository.setBool(
                                     'enablePrimaryPassword',
@@ -316,87 +422,88 @@ export const useAuthStore = defineStore('Auth', () => {
                                 );
                             })
                             .catch(async () => {
-                                advancedSettingsStore.enablePrimaryPassword = true;
+                                advancedSettingsStore.setEnablePrimaryPassword(
+                                    true
+                                );
                                 advancedSettingsStore.setEnablePrimaryPasswordConfigRepository(
                                     true
                                 );
                             });
                     }
                 })
-                .catch(async () => {
-                    advancedSettingsStore.enablePrimaryPassword = true;
+                .catch((err) => {
+                    console.error(err);
+                    advancedSettingsStore.setEnablePrimaryPassword(true);
                     advancedSettingsStore.setEnablePrimaryPasswordConfigRepository(
                         true
                     );
                 });
         }
     }
+    /**
+     *
+     */
     async function setPrimaryPassword() {
         await configRepository.setBool(
             'enablePrimaryPassword',
             advancedSettingsStore.enablePrimaryPassword
         );
-        state.enablePrimaryPasswordDialog.visible = false;
+        enablePrimaryPasswordDialog.value.visible = false;
         if (advancedSettingsStore.enablePrimaryPassword) {
-            const key = state.enablePrimaryPasswordDialog.password;
-            for (const userId in state.loginForm.savedCredentials) {
+            const key = enablePrimaryPasswordDialog.value.password;
+            const savedCredentials = await getAllSavedCredentials();
+            for (const userId in savedCredentials) {
                 security
-                    .encrypt(
-                        state.loginForm.savedCredentials[userId].loginParmas
-                            .password,
-                        key
-                    )
+                    .encrypt(savedCredentials[userId].loginParams.password, key)
                     .then((ct) => {
-                        state.saveCredentials = {
+                        credentialsToSave.value = {
                             username:
-                                state.loginForm.savedCredentials[userId]
-                                    .loginParmas.username,
+                                savedCredentials[userId].loginParams.username,
                             password: ct
                         };
-                        updateStoredUser(
-                            state.loginForm.savedCredentials[userId].user
-                        );
+                        updateStoredUser(savedCredentials[userId].user);
                     });
             }
         }
     }
 
+    /**
+     *
+     * @param user
+     */
     async function updateStoredUser(user) {
-        let savedCredentials = {};
-        if ((await configRepository.getString('savedCredentials')) !== null) {
-            savedCredentials = JSON.parse(
-                await configRepository.getString('savedCredentials')
-            );
-        }
-        if (state.saveCredentials) {
-            const credentialsToSave = {
+        const savedCredentials = await getAllSavedCredentials();
+        if (credentialsToSave.value) {
+            savedCredentials[user.id] = {
                 user,
-                loginParmas: state.saveCredentials
+                loginParams: {
+                    username: '',
+                    password: '',
+                    endpoint: '',
+                    websocket: '',
+                    ...credentialsToSave.value
+                }
             };
-            savedCredentials[user.id] = credentialsToSave;
-            state.saveCredentials = null;
+            credentialsToSave.value = null;
         } else if (typeof savedCredentials[user.id] !== 'undefined') {
             savedCredentials[user.id].user = user;
             savedCredentials[user.id].cookies =
                 await webApiService.getCookies();
         }
-        state.loginForm.savedCredentials = savedCredentials;
         const jsonCredentialsArray = JSON.stringify(savedCredentials);
         await configRepository.setString(
             'savedCredentials',
             jsonCredentialsArray
         );
-        state.loginForm.lastUserLoggedIn = user.id;
+        loginForm.value.lastUserLoggedIn = user.id;
         await configRepository.setString('lastUserLoggedIn', user.id);
     }
 
+    /**
+     *
+     */
     async function migrateStoredUsers() {
-        let savedCredentials = {};
-        if ((await configRepository.getString('savedCredentials')) !== null) {
-            savedCredentials = JSON.parse(
-                await configRepository.getString('savedCredentials')
-            );
-        }
+        const savedCredentials = await getAllSavedCredentials();
         for (const name in savedCredentials) {
             const userId = savedCredentials[name]?.user?.id;
             if (userId && userId !== name) {
@@ -410,20 +517,28 @@ export const useAuthStore = defineStore('Auth', () => {
         );
     }
 
+    /**
+     *
+     * @param args
+     */
     function checkPrimaryPassword(args) {
         return new Promise((resolve, reject) => {
             if (!advancedSettingsStore.enablePrimaryPassword) {
                 resolve(args.password);
+                return;
             }
-            $app.$prompt(
-                t('prompt.primary_password.description'),
-                t('prompt.primary_password.header'),
-                {
+            modalStore
+                .prompt({
+                    title: t('prompt.primary_password.header'),
+                    description: t('prompt.primary_password.description'),
                     inputType: 'password',
-                    inputPattern: /[\s\S]{1,32}/
-                }
-            )
-                .then(({ value }) => {
+                    pattern: /[\s\S]{1,32}/
+                })
+                .then(({ ok, value }) => {
+                    if (!ok) {
+                        reject(new Error('primary password prompt cancelled'));
+                        return;
+                    }
                     security
                         .decrypt(args.password, value)
                         .then(resolve)
@@ -433,349 +548,384 @@ export const useAuthStore = defineStore('Auth', () => {
         });
     }
 
+    /**
+     *
+     */
     async function toggleCustomEndpoint() {
         await configRepository.setBool(
             'VRCX_enableCustomEndpoint',
-            state.enableCustomEndpoint
+            enableCustomEndpoint.value
         );
-        state.loginForm.endpoint = '';
-        state.loginForm.websocket = '';
+        loginForm.value.endpoint = '';
+        loginForm.value.websocket = '';
     }
 
+    /**
+     *
+     */
     function logout() {
-        $app.$confirm('Continue? Logout', 'Confirm', {
-            confirmButtonText: 'Confirm',
-            cancelButtonText: 'Cancel',
-            type: 'info',
-            callback: (action) => {
-                if (action === 'confirm') {
-                    const existingStyle = document.getElementById(
-                        'login-container-style'
-                    );
-                    if (existingStyle) {
-                        existingStyle.parentNode.removeChild(existingStyle);
-                    }
-                    handleLogoutEvent();
+        modalStore
+            .confirm({
+                description: t('confirm.logout'),
+                title: 'Confirm'
+            })
+            .then(({ ok }) => {
+                if (!ok) return;
+                const existingStyle = document.getElementById(
+                    'login-container-style'
+                );
+                if (existingStyle) {
+                    existingStyle.parentNode.removeChild(existingStyle);
                 }
-            }
-        });
+                handleLogoutEvent();
+            })
+            .catch(() => {});
     }
 
-    async function relogin(user) {
-        const { loginParmas } = user;
+    /**
+     *
+     * @param user
+     */
+    async function relogin(
+        user,
+        { shouldTrackLoginNetworkIssueHint = !attemptingAutoLogin.value } = {}
+    ) {
+        const { loginParams } = user;
         if (user.cookies) {
             await webApiService.setCookies(user.cookies);
         }
-        state.loginForm.lastUserLoggedIn = user.user.id; // for resend email 2fa
-        if (loginParmas.endpoint) {
-            AppGlobal.endpointDomain = loginParmas.endpoint;
-            AppGlobal.websocketDomain = loginParmas.websocket;
+        loginForm.value.lastUserLoggedIn = user.user.id; // for resend email 2fa
+        if (loginParams.endpoint) {
+            AppDebug.endpointDomain = loginParams.endpoint;
+            AppDebug.websocketDomain = loginParams.websocket;
         } else {
-            AppGlobal.endpointDomain = AppGlobal.endpointDomainVrchat;
-            AppGlobal.websocketDomain = AppGlobal.websocketDomainVrchat;
+            AppDebug.endpointDomain = AppDebug.endpointDomainVrchat;
+            AppDebug.websocketDomain = AppDebug.websocketDomainVrchat;
         }
-        return new Promise((resolve, reject) => {
-            state.loginForm.loading = true;
-            if (advancedSettingsStore.enablePrimaryPassword) {
-                checkPrimaryPassword(loginParmas)
-                    .then((pwd) => {
-                        return authRequest
-                            .getConfig()
-                            .catch((err) => {
-                                reject(err);
-                            })
-                            .then(() => {
-                                authLogin({
-                                    username: loginParmas.username,
-                                    password: pwd,
-                                    cipher: loginParmas.password,
-                                    endpoint: loginParmas.endpoint,
-                                    websocket: loginParmas.websocket
-                                })
-                                    .catch((err2) => {
-                                        reject(err2);
-                                    })
-                                    .then(() => {
-                                        resolve();
-                                    });
-                            });
-                    })
-                    .catch((_) => {
-                        $app.$message({
-                            message: 'Incorrect primary password',
-                            type: 'error'
-                        });
-                        reject(_);
-                    });
-            } else {
-                authRequest
-                    .getConfig()
-                    .catch((err) => {
-                        reject(err);
-                    })
-                    .then(() => {
-                        authLogin({
-                            username: loginParmas.username,
-                            password: loginParmas.password,
-                            endpoint: loginParmas.endpoint,
-                            websocket: loginParmas.websocket
-                        })
-                            .catch((err2) => {
-                                handleLogoutEvent();
-                                reject(err2);
-                            })
-                            .then(() => {
-                                resolve();
-                            });
-                    });
+
+        loginForm.value.loading = true;
+        try {
+            let password = loginParams.password;
+            if (shouldTrackLoginNetworkIssueHint) {
+                resetLoginNetworkIssueHintStateIfCredentialsChanged({
+                    username: loginParams.username,
+                    password,
+                    endpoint: loginParams.endpoint,
+                    websocket: loginParams.websocket
+                });
             }
-        }).finally(() => (state.loginForm.loading = false));
+            if (advancedSettingsStore.enablePrimaryPassword) {
+                try {
+                    password = await checkPrimaryPassword(loginParams);
+                } catch (err) {
+                    toast.error(t('message.auth.incorrect_primary_password'));
+                    throw err;
+                }
+            }
+
+            await authRequest.getConfig();
+            try {
+                await authLogin({
+                    username: loginParams.username,
+                    password,
+                    endpoint: loginParams.endpoint,
+                    websocket: loginParams.websocket
+                });
+            } catch (err) {
+                if (
+                    shouldTrackLoginNetworkIssueHint &&
+                    shouldCountLoginFailureForNetworkHint(err)
+                ) {
+                    maybeShowLoginNetworkIssueHint();
+                }
+                await handleLogoutEvent();
+                throw err;
+            }
+        } catch (err) {
+            if (err.message.includes('Invalid Username/Email or Password')) {
+                toast.error(t('message.auth.saved_credentials_invalid'));
+                await deleteSavedLogin(user.user.id);
+            }
+            throw err;
+        } finally {
+            loginForm.value.loading = false;
+        }
     }
 
+    /**
+     *
+     * @param userId
+     */
     async function deleteSavedLogin(userId) {
-        const savedCredentials = JSON.parse(
-            await configRepository.getString('savedCredentials')
-        );
+        const savedCredentials = await getAllSavedCredentials();
         delete savedCredentials[userId];
         // Disable primary password when no account is available.
         if (Object.keys(savedCredentials).length === 0) {
-            advancedSettingsStore.enablePrimaryPassword = false;
+            advancedSettingsStore.setEnablePrimaryPassword(false);
             advancedSettingsStore.setEnablePrimaryPasswordConfigRepository(
                 false
             );
         }
-        state.loginForm.savedCredentials = savedCredentials;
-        const jsonCredentials = JSON.stringify(savedCredentials);
-        await configRepository.setString('savedCredentials', jsonCredentials);
-        new Noty({
-            type: 'success',
-            text: 'Account removed.'
-        }).show();
-    }
-
-    async function login() {
-        // TODO: remove/refactor saveCredentials & primaryPassword (security)
-        await webApiService.clearCookies();
-        if (!state.loginForm.loading) {
-            state.loginForm.loading = true;
-            if (state.loginForm.endpoint) {
-                AppGlobal.endpointDomain = state.loginForm.endpoint;
-                AppGlobal.websocketDomain = state.loginForm.websocket;
-            } else {
-                AppGlobal.endpointDomain = AppGlobal.endpointDomainVrchat;
-                AppGlobal.websocketDomain = AppGlobal.websocketDomainVrchat;
-            }
-            authRequest
-                .getConfig()
-                .catch((err) => {
-                    state.loginForm.loading = false;
-                    throw err;
-                })
-                .then((args) => {
-                    if (
-                        state.loginForm.saveCredentials &&
-                        advancedSettingsStore.enablePrimaryPassword
-                    ) {
-                        $app.$prompt(
-                            t('prompt.primary_password.description'),
-                            t('prompt.primary_password.header'),
-                            {
-                                inputType: 'password',
-                                inputPattern: /[\s\S]{1,32}/
-                            }
-                        )
-                            .then(({ value }) => {
-                                const saveCredential =
-                                    state.loginForm.savedCredentials[
-                                        Object.keys(
-                                            state.loginForm.savedCredentials
-                                        )[0]
-                                    ];
-                                security
-                                    .decrypt(
-                                        saveCredential.loginParmas.password,
-                                        value
-                                    )
-                                    .then(() => {
-                                        security
-                                            .encrypt(
-                                                state.loginForm.password,
-                                                value
-                                            )
-                                            .then((pwd) => {
-                                                authLogin({
-                                                    username:
-                                                        state.loginForm
-                                                            .username,
-                                                    password:
-                                                        state.loginForm
-                                                            .password,
-                                                    endpoint:
-                                                        state.loginForm
-                                                            .endpoint,
-                                                    websocket:
-                                                        state.loginForm
-                                                            .websocket,
-                                                    saveCredentials:
-                                                        state.loginForm
-                                                            .saveCredentials,
-                                                    cipher: pwd
-                                                });
-                                            });
-                                    });
-                            })
-                            .finally(() => {
-                                state.loginForm.loading = false;
-                            });
-                        return args;
-                    }
-                    authLogin({
-                        username: state.loginForm.username,
-                        password: state.loginForm.password,
-                        endpoint: state.loginForm.endpoint,
-                        websocket: state.loginForm.websocket,
-                        saveCredentials: state.loginForm.saveCredentials
-                    }).finally(() => {
-                        state.loginForm.loading = false;
-                    });
-                    return args;
-                });
-        }
-    }
-
-    function promptTOTP() {
-        if (state.twoFactorAuthDialogVisible) {
-            return;
-        }
-        AppApi.FlashWindow();
-        state.twoFactorAuthDialogVisible = true;
-        $app.$prompt(t('prompt.totp.description'), t('prompt.totp.header'), {
-            distinguishCancelAndClose: true,
-            cancelButtonText: t('prompt.totp.use_otp'),
-            confirmButtonText: t('prompt.totp.verify'),
-            inputPlaceholder: t('prompt.totp.input_placeholder'),
-            inputPattern: /^[0-9]{6}$/,
-            inputErrorMessage: t('prompt.totp.input_error'),
-            callback: (action, instance) => {
-                if (action === 'confirm') {
-                    authRequest
-                        .verifyTOTP({
-                            code: instance.inputValue.trim()
-                        })
-                        .catch((err) => {
-                            clearCookiesTryLogin();
-                            throw err;
-                        })
-                        .then((args) => {
-                            userStore.getCurrentUser();
-                            return args;
-                        });
-                } else if (action === 'cancel') {
-                    promptOTP();
-                }
-            },
-            beforeClose: (action, instance, done) => {
-                state.twoFactorAuthDialogVisible = false;
-                done();
-            }
-        });
-    }
-
-    function promptOTP() {
-        if (state.twoFactorAuthDialogVisible) {
-            return;
-        }
-        state.twoFactorAuthDialogVisible = true;
-        $app.$prompt(t('prompt.otp.description'), t('prompt.otp.header'), {
-            distinguishCancelAndClose: true,
-            cancelButtonText: t('prompt.otp.use_totp'),
-            confirmButtonText: t('prompt.otp.verify'),
-            inputPlaceholder: t('prompt.otp.input_placeholder'),
-            inputPattern: /^[a-z0-9]{4}-[a-z0-9]{4}$/,
-            inputErrorMessage: t('prompt.otp.input_error'),
-            callback: (action, instance) => {
-                if (action === 'confirm') {
-                    authRequest
-                        .verifyOTP({
-                            code: instance.inputValue.trim()
-                        })
-                        .catch((err) => {
-                            clearCookiesTryLogin();
-                            throw err;
-                        })
-                        .then((args) => {
-                            userStore.getCurrentUser();
-                            return args;
-                        });
-                } else if (action === 'cancel') {
-                    promptTOTP();
-                }
-            },
-            beforeClose: (action, instance, done) => {
-                state.twoFactorAuthDialogVisible = false;
-                done();
-            }
-        });
-    }
-
-    function promptEmailOTP() {
-        if (state.twoFactorAuthDialogVisible) {
-            return;
-        }
-        AppApi.FlashWindow();
-        state.twoFactorAuthDialogVisible = true;
-        $app.$prompt(
-            t('prompt.email_otp.description'),
-            t('prompt.email_otp.header'),
-            {
-                distinguishCancelAndClose: true,
-                cancelButtonText: t('prompt.email_otp.resend'),
-                confirmButtonText: t('prompt.email_otp.verify'),
-                inputPlaceholder: t('prompt.email_otp.input_placeholder'),
-                inputPattern: /^[0-9]{6}$/,
-                inputErrorMessage: t('prompt.email_otp.input_error'),
-                callback: (action, instance) => {
-                    if (action === 'confirm') {
-                        authRequest
-                            .verifyEmailOTP({
-                                code: instance.inputValue.trim()
-                            })
-                            .catch((err) => {
-                                promptEmailOTP();
-                                throw err;
-                            })
-                            .then((args) => {
-                                userStore.getCurrentUser();
-                                return args;
-                            });
-                    } else if (action === 'cancel') {
-                        resendEmail2fa();
-                    }
-                },
-                beforeClose: (action, instance, done) => {
-                    state.twoFactorAuthDialogVisible = false;
-                    done();
-                }
-            }
+        await configRepository.setString(
+            'savedCredentials',
+            JSON.stringify(savedCredentials)
         );
+        toast.success(t('message.auth.account_removed'));
     }
 
     /**
-     * @param {{ username: string, password: string, saveCredentials: any, cipher: string }} params credential to login
+     *
+     */
+    async function login() {
+        // TODO: remove/refactor saveCredentials & primaryPassword (security)
+        await webApiService.clearCookies();
+        if (!loginForm.value.loading) {
+            loginForm.value.loading = true;
+            resetLoginNetworkIssueHintStateIfCredentialsChanged({
+                username: loginForm.value.username,
+                password: loginForm.value.password,
+                endpoint: loginForm.value.endpoint,
+                websocket: loginForm.value.websocket
+            });
+            if (loginForm.value.endpoint) {
+                AppDebug.endpointDomain = loginForm.value.endpoint;
+                AppDebug.websocketDomain = loginForm.value.websocket;
+            } else {
+                AppDebug.endpointDomain = AppDebug.endpointDomainVrchat;
+                AppDebug.websocketDomain = AppDebug.websocketDomainVrchat;
+            }
+            try {
+                await authRequest.getConfig();
+                if (
+                    loginForm.value.saveCredentials &&
+                    advancedSettingsStore.enablePrimaryPassword
+                ) {
+                    try {
+                        const { ok, value } = await modalStore.prompt({
+                            title: t('prompt.primary_password.header'),
+                            description: t(
+                                'prompt.primary_password.description'
+                            ),
+                            inputType: 'password',
+                            pattern: /[\s\S]{1,32}/
+                        });
+                        if (ok) {
+                            const savedCredentials = JSON.parse(
+                                await configRepository.getString(
+                                    'savedCredentials'
+                                )
+                            );
+                            const saveCredential =
+                                savedCredentials[
+                                    Object.keys(savedCredentials)[0]
+                                ];
+                            await security.decrypt(
+                                saveCredential.loginParams.password,
+                                value
+                            );
+                            const pwd = await security.encrypt(
+                                loginForm.value.password,
+                                value
+                            );
+                            try {
+                                await authLogin({
+                                    username: loginForm.value.username,
+                                    password: loginForm.value.password,
+                                    endpoint: loginForm.value.endpoint,
+                                    websocket: loginForm.value.websocket,
+                                    saveCredentials:
+                                        loginForm.value.saveCredentials,
+                                    cipher: pwd
+                                });
+                            } catch (err) {
+                                if (
+                                    shouldCountLoginFailureForNetworkHint(err)
+                                ) {
+                                    maybeShowLoginNetworkIssueHint();
+                                }
+                                throw err;
+                            }
+                        }
+                    } catch {
+                        // prompt cancelled or crypto failed
+                    }
+                } else {
+                    try {
+                        await authLogin({
+                            username: loginForm.value.username,
+                            password: loginForm.value.password,
+                            endpoint: loginForm.value.endpoint,
+                            websocket: loginForm.value.websocket,
+                            saveCredentials: loginForm.value.saveCredentials
+                        });
+                    } catch (err) {
+                        if (shouldCountLoginFailureForNetworkHint(err)) {
+                            maybeShowLoginNetworkIssueHint();
+                        }
+                        throw err;
+                    }
+                }
+            } finally {
+                loginForm.value.loading = false;
+            }
+        }
+    }
+
+    /**
+     *
+     */
+    function promptTOTP() {
+        if (twoFactorAuthDialogVisible.value) {
+            return;
+        }
+        AppApi.FlashWindow();
+        twoFactorAuthDialogVisible.value = true;
+        modalStore
+            .otpPrompt({
+                title: t('prompt.totp.header'),
+                description: t('prompt.totp.description'),
+                mode: 'totp',
+                cancelText: t('prompt.totp.use_otp'),
+                confirmText: t('prompt.totp.verify')
+            })
+            .then(({ ok, reason, value }) => {
+                twoFactorAuthDialogVisible.value = false;
+
+                if (reason === 'cancel') {
+                    promptOTP();
+                    return;
+                }
+                if (!ok) return;
+
+                authRequest
+                    .verifyTOTP({
+                        code: value.trim()
+                    })
+                    .catch((err) => {
+                        console.error(err);
+                        clearCookiesTryLogin();
+                    })
+                    .then(() => {
+                        getCurrentUser();
+                    });
+            })
+            .catch(() => {
+                twoFactorAuthDialogVisible.value = false;
+            });
+    }
+
+    /**
+     *
+     */
+    function promptOTP() {
+        if (twoFactorAuthDialogVisible.value) {
+            return;
+        }
+        twoFactorAuthDialogVisible.value = true;
+        modalStore
+            .otpPrompt({
+                title: t('prompt.otp.header'),
+                description: t('prompt.otp.description'),
+                mode: 'otp',
+                cancelText: t('prompt.otp.use_totp'),
+                confirmText: t('prompt.otp.verify')
+            })
+            .then(({ ok, reason, value }) => {
+                twoFactorAuthDialogVisible.value = false;
+
+                if (reason === 'cancel') {
+                    promptTOTP();
+                    return;
+                }
+                if (!ok) return;
+
+                authRequest
+                    .verifyOTP({
+                        code: `${value.slice(0, 4)}-${value.slice(4)}`
+                    })
+                    .catch((err) => {
+                        console.error(err);
+                        clearCookiesTryLogin();
+                    })
+                    .then(() => {
+                        getCurrentUser();
+                    });
+            })
+            .catch(() => {
+                twoFactorAuthDialogVisible.value = false;
+            });
+    }
+
+    /**
+     *
+     */
+    function promptEmailOTP() {
+        if (twoFactorAuthDialogVisible.value) {
+            return;
+        }
+        AppApi.FlashWindow();
+        twoFactorAuthDialogVisible.value = true;
+        modalStore
+            .otpPrompt({
+                title: t('prompt.email_otp.header'),
+                description: t('prompt.email_otp.description'),
+                mode: 'emailOtp',
+                cancelText: t('prompt.email_otp.resend'),
+                confirmText: t('prompt.email_otp.verify')
+            })
+            .then(({ ok, reason, value }) => {
+                twoFactorAuthDialogVisible.value = false;
+
+                if (reason === 'cancel') {
+                    resendEmail2fa();
+                    return;
+                }
+                if (!ok) return;
+
+                authRequest
+                    .verifyEmailOTP({
+                        code: value.trim()
+                    })
+                    .catch((err) => {
+                        console.error(err);
+                        promptEmailOTP();
+                    })
+                    .then(() => {
+                        getCurrentUser();
+                    });
+            })
+            .catch(() => {
+                twoFactorAuthDialogVisible.value = false;
+            });
+    }
+
+    /**
+     * @param {{ username: string, password: string, endpoint: string, websocket: string, saveCredentials?: any, cipher?: string }} params credential to login
      * @returns {Promise<{origin: boolean, json: any}>}
      */
     function authLogin(params) {
-        let { username, password, saveCredentials, cipher } = params;
-        username = encodeURIComponent(username);
-        password = encodeURIComponent(password);
-        const auth = btoa(`${username}:${password}`);
+        let {
+            username,
+            password,
+            endpoint,
+            websocket,
+            saveCredentials,
+            cipher
+        } = params;
+        const auth = btoa(
+            `${encodeURIComponent(username)}:${encodeURIComponent(password)}`
+        );
         if (saveCredentials) {
-            delete params.saveCredentials;
+            params.saveCredentials = false;
             if (cipher) {
-                params.password = cipher;
-                delete params.cipher;
+                password = cipher;
             }
-            state.saveCredentials = params;
+            credentialsToSave.value = {
+                username,
+                password,
+                endpoint,
+                websocket
+            };
         }
         return request('auth/user', {
             method: 'GET',
@@ -792,6 +942,10 @@ export const useAuthStore = defineStore('Auth', () => {
         });
     }
 
+    /**
+     *
+     * @param json
+     */
     function handleCurrentUserUpdate(json) {
         if (
             json.requiresTwoFactorAuth &&
@@ -801,87 +955,92 @@ export const useAuthStore = defineStore('Auth', () => {
         } else if (json.requiresTwoFactorAuth) {
             promptTOTP();
         } else {
-            updateLoopStore.nextCurrentUserRefresh = 420; // 7mins
-            userStore.applyCurrentUser(json);
-            initWebsocket();
+            runLoginSuccessFlow(json);
         }
     }
 
-    function handleAutoLogin() {
-        if (state.attemptingAutoLogin) {
-            return;
-        }
-        state.attemptingAutoLogin = true;
-        const user =
-            state.loginForm.savedCredentials[state.loginForm.lastUserLoggedIn];
-        if (typeof user === 'undefined') {
-            state.attemptingAutoLogin = false;
-            return;
-        }
-        if (advancedSettingsStore.enablePrimaryPassword) {
-            console.error(
-                'Primary password is enabled, this disables auto login.'
+    /**
+     *
+     */
+    async function handleAutoLogin() {
+        const canAutoLogin = await vrcxStore.waitForDatabaseInit();
+        if (!canAutoLogin) {
+            console.warn(
+                'Skipping auto-login because database initialization did not complete successfully.'
             );
-            state.attemptingAutoLogin = false;
-            handleLogoutEvent();
             return;
         }
-        const attemptsInLastHour = Array.from(state.autoLoginAttempts).filter(
-            (timestamp) => timestamp > new Date().getTime() - 3600000
-        ).length;
-        if (attemptsInLastHour >= 3) {
-            console.error(
-                'More than 3 auto login attempts within the past hour, logging out instead of attempting auto login.'
+        await runHandleAutoLoginFlow();
+    }
+
+    /**
+     *
+     */
+    async function applyAutoLoginDelay() {
+        if (!generalSettingsStore.autoLoginDelayEnabled) {
+            return;
+        }
+        const seconds = generalSettingsStore.autoLoginDelaySeconds;
+        if (!seconds || seconds <= 0) {
+            return;
+        }
+        let toastId = null;
+        for (let remaining = seconds; remaining > 0; remaining--) {
+            if (toastId) {
+                toast.dismiss(toastId);
+            }
+            toastId = toast.info(
+                t('message.auto_login_delay_countdown', {
+                    seconds: remaining
+                }),
+                { duration: Infinity }
             );
-            state.attemptingAutoLogin = false;
-            handleLogoutEvent();
-            return;
-        }
-        state.autoLoginAttempts.add(new Date().getTime());
-        relogin(user)
-            .then(() => {
-                if (AppGlobal.errorNoty) {
-                    AppGlobal.errorNoty.close();
-                }
-                AppGlobal.errorNoty = new Noty({
-                    type: 'success',
-                    text: 'Automatically logged in.'
-                }).show();
-                console.log('Automatically logged in.');
-            })
-            .catch((err) => {
-                if (AppGlobal.errorNoty) {
-                    AppGlobal.errorNoty.close();
-                }
-                AppGlobal.errorNoty = new Noty({
-                    type: 'error',
-                    text: 'Failed to login automatically.'
-                }).show();
-                console.error('Failed to login automatically.', err);
-            })
-            .finally(() => {
-                if (!navigator.onLine) {
-                    AppGlobal.errorNoty = new Noty({
-                        type: 'error',
-                        text: `You're offline.`
-                    }).show();
-                    console.error(`You're offline.`);
-                }
+            await new Promise((resolve) => {
+                workerTimers.setTimeout(resolve, 1000);
             });
+        }
+        if (toastId) {
+            toast.dismiss(toastId);
+        }
     }
 
+    /**
+     *
+     */
     async function loginComplete() {
+        if (!userStore.currentUser?.id) {
+            console.error(
+                'No current user after login complete, aborting post-login flow.'
+            );
+            return;
+        }
         await database.initUserTables(userStore.currentUser.id);
+        advancedSettingsStore.runAvatarAutoCleanup(userStore.currentUser.id);
         watchState.isLoggedIn = true;
         AppApi.CheckGameRunning(); // restore state from hot-reload
-        vrcxStore.updateDatabaseVersion();
+
+        activityStore.startFullCacheBuild(userStore.currentUser.id);
+    }
+
+    /**
+     * @param {object} value Latest config payload.
+     */
+    function setCachedConfig(value) {
+        cachedConfig.value = value;
+    }
+
+    /**
+     * @param {boolean} value Auto-login attempt flag.
+     */
+    function setAttemptingAutoLogin(value) {
+        attemptingAutoLogin.value = value;
     }
 
     return {
-        state,
+        autoLoginAttempts,
         loginForm,
         enablePrimaryPasswordDialog,
-        saveCredentials,
+        credentialsToSave,
         twoFactorAuthDialogVisible,
         cachedConfig,
         enableCustomEndpoint,
@@ -903,6 +1062,10 @@ export const useAuthStore = defineStore('Auth', () => {
         handleAutoLogin,
         handleLogoutEvent,
         handleCurrentUserUpdate,
-        loginComplete
+        loginComplete,
+        getAllSavedCredentials,
+        getSavedCredentials,
+        setCachedConfig,
+        setAttemptingAutoLogin
     };
 });

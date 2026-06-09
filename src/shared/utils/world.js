@@ -1,6 +1,7 @@
-import { worldRequest } from '../../api';
 import { parseLocation } from './location';
+import { queryRequest } from '../../api';
 import { rpcWorlds } from '../constants';
+
 /**
  *
  * @param {string} location
@@ -11,10 +12,14 @@ async function getWorldName(location) {
 
     const L = parseLocation(location);
     if (L.isRealInstance && L.worldId) {
-        const args = await worldRequest.getCachedWorld({
-            worldId: L.worldId
-        });
-        worldName = args.ref.name;
+        try {
+            const args = await queryRequest.fetch('world.dialog', {
+                worldId: L.worldId
+            });
+            worldName = args.ref.name;
+        } catch (e) {
+            console.error('getWorldName failed location', location, e);
+        }
     }
 
     return worldName;

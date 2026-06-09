@@ -1,29 +1,39 @@
 <template>
     <div style="width: 100%">
-        <div style="height: 25px; margin-top: 60px">
+        <div class="mt-15" style="height: 25px">
             <transition name="el-fade-in-linear">
                 <Location
                     v-show="!isLoading"
-                    class="location"
+                    class="flex items-center justify-center"
                     :location="activityDetailData[0]?.location"
                     is-open-previous-instance-info-dialog />
             </transition>
         </div>
 
-        <div ref="activityDetailChartRef"></div>
+        <div v-if="hasChartData" ref="activityDetailChartRef"></div>
+        <div v-else style="display: flex; justify-content: center; align-items: center; min-height: 160px; width: 100%">
+            <DataTableEmpty type="nodata" />
+        </div>
     </div>
 </template>
 
 <script setup>
-    import { ref, watch, computed, onDeactivated, onMounted } from 'vue';
-    import dayjs from 'dayjs';
+    import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+    import { DataTableEmpty } from '@/components/ui/data-table';
     import { storeToRefs } from 'pinia';
 
-    import { loadEcharts, timeToText } from '../../../shared/utils';
-    import { useUserStore, useAppearanceSettingsStore } from '../../../stores';
+    import dayjs from 'dayjs';
+
+    import { useAppearanceSettingsStore, useUserStore } from '../../../stores';
+    import { timeToText } from '../../../shared/utils';
+
+    import * as echarts from 'echarts';
+    import { showUserDialog } from '../../../coordinators/userCoordinator';
+    import InstanceActivityTooltip from './InstanceActivityTooltip.jsx';
+    import { renderToHtml } from '@/lib/utils';
 
     const { isDarkMode, dtHour12 } = storeToRefs(useAppearanceSettingsStore());
-    const { showUserDialog } = useUserStore();
+
     const { currentUser } = storeToRefs(useUserStore());
 
     const props = defineProps({
@@ -40,11 +50,11 @@
 
     const activityDetailChartRef = ref(null);
 
-    const echarts = ref(null);
     const isLoading = ref(true);
-    const echartsInstance = ref(null);
+    let echartsInstance = null;
     const usersFirstActivity = ref(null);
     const resizeObserver = ref(null);
+    const hasChartData = computed(() => (props.activityDetailData || []).length > 0);
 
     const startTimeStamp = computed(() => {
         return props.activityDetailData.find((item) => item.user_id === currentUser.value.id)?.joinTime.valueOf();
@@ -57,9 +67,9 @@
     watch(
         () => isDarkMode.value,
         () => {
-            if (echartsInstance.value) {
-                echartsInstance.value.dispose();
-                echartsInstance.value = null;
+            if (echartsInstance) {
+                echartsInstance.dispose();
+                echartsInstance = null;
                 initEcharts();
             }
         }
@@ -68,7 +78,7 @@
     watch(
         () => dtHour12.value,
         () => {
-            if (echartsInstance.value) {
+            if (echartsInstance) {
                 initEcharts();
             }
         }
@@ -76,58 +86,116 @@
 
     initResizeObserver();
 
-    onMounted(() => {
-        initEcharts(true);
+    onMounted(async () => {
+        await nextTick();
+        initEcharts();
     });
 
-    onDeactivated(() => {
-        // prevent switch tab play resize animation
-        resizeObserver.value.disconnect();
+    // onDeactivated(() => {
+    //     // prevent switch tab play resize animation
+    //     if (resizeObserver.value) {
+    //         resizeObserver.value.disconnect();
+    //     }
+    // });
+
+    onBeforeUnmount(() => {
+        if (resizeObserver.value) {
+            resizeObserver.value.disconnect();
+            resizeObserver.value = null;
+        }
+        if (echartsInstance.value) {
+            echartsInstance.value.dispose();
+            echartsInstance.value = null;
+        }
     });
 
+    /**
+     *
+     */
     function initResizeObserver() {
         resizeObserver.value = new ResizeObserver((entries) => {
+            if (!echartsInstance) {
+                return;
+            }
             for (const entry of entries) {
-                echartsInstance.value.resize({
-                    width: entry.contentRect.width,
-                    animation: {
-                        duration: 300
-                    }
-                });
+                try {
+                    echartsInstance.resize({
+                        width: entry.contentRect.width,
+                        animation: {
+                            duration: 300
+                        }
+                    });
+                } catch (error) {
+                    console.warn('Error resizing chart:', error);
+                }
             }
         });
     }
 
-    async function initEcharts(isFirstLoad = false) {
-        if (!echarts.value) {
-            echarts.value = await loadEcharts();
+    /**
+     *
+     */
+    async function initEcharts() {
+        if (!activityDetailChartRef.value || !props.activityDetailData || props.activityDetailData.length === 0) {
+            isLoading.value = false;
+            return;
         }
 
         const chartsHeight = props.activityDetailData.length * (props.barWidth + 10) + 200;
         const chartDom = activityDetailChartRef.value;
-        if (!echartsInstance.value) {
-            echartsInstance.value = echarts.value.init(chartDom, `${isDarkMode.value ? 'dark' : null}`, {
-                height: chartsHeight,
-                useDirtyRect: props.activityDetailData.length > 80
-            });
-            resizeObserver.value.observe(chartDom);
-        }
 
-        echartsInstance.value.resize({
-            height: chartsHeight,
-            animation: {
-                duration: 300
+        const afterInit = () => {
+            if (!echartsInstance) {
+                console.error('ECharts instance not initialized');
+                isLoading.value = false;
+                return;
             }
-        });
 
-        echartsInstance.value.setOption(isFirstLoad ? {} : getNewOption(), { lazyUpdate: true });
-        echartsInstance.value.on('click', 'yAxis', handleClickYAxisLabel);
+            try {
+                echartsInstance.resize({
+                    height: chartsHeight,
+                    animation: {
+                        duration: 300
+                    }
+                });
 
-        setTimeout(() => {
+                echartsInstance.off('click');
+
+                const options = getNewOption();
+                if (options && options.series && options.series.length > 0) {
+                    echartsInstance.clear();
+                    echartsInstance.setOption(options, { notMerge: true });
+                    echartsInstance.on('click', 'yAxis', handleClickYAxisLabel);
+                } else {
+                    echartsInstance.clear();
+                }
+            } catch (error) {
+                console.error('Error in afterInit:', error);
+            }
+
             isLoading.value = false;
-        }, 200);
+        };
+
+        const initEchartsInstance = () => {
+            if (!echartsInstance) {
+                echartsInstance = echarts.init(chartDom, `${isDarkMode.value ? 'dark' : null}`, {
+                    height: chartsHeight,
+                    useDirtyRect: props.activityDetailData.length > 80
+                });
+                if (resizeObserver.value) {
+                    resizeObserver.value.observe(chartDom);
+                }
+            }
+        };
+
+        initEchartsInstance();
+        setTimeout(afterInit, 50);
     }
 
+    /**
+     *
+     * @param params
+     */
     function handleClickYAxisLabel(params) {
         const userData = usersFirstActivity.value[params.dataIndex];
         if (userData?.user_id) {
@@ -135,12 +203,37 @@
         }
     }
 
+    /**
+     *
+     */
     function getNewOption() {
+        if (!props.activityDetailData || props.activityDetailData.length === 0) {
+            return {
+                title: {
+                    text: 'No data',
+                    left: 'center',
+                    top: 'middle'
+                }
+            };
+        }
+
+        if (!startTimeStamp.value || !endTimeStamp.value) {
+            return {
+                title: {
+                    text: 'Invalid timestamp data',
+                    left: 'center',
+                    top: 'middle'
+                }
+            };
+        }
+
         // grouping player activity entries by user_id and calculate below:
         // 1. offset: the time from startTimeStamp or the previous entry's tail to the current entry's joinTime
         // 2. time: the time the user spent in the instance
         // 3. tail: the time from startTimeStamp to the current entry's leaveTime
         // 4. entry: the original activity detail entry
+
+        // FIXME(kube): why are there not types here?
         const userGroupedEntries = new Map();
         // uniqueUserEntries has each user's first entry and used to keep the order of the users calculated in InstanceActivity.vue
         const uniqueUserEntries = [];
@@ -242,40 +335,30 @@
             return '';
         };
 
+        // FIXME(kube): this is a bandaid to make the formater shut up
+        // this should be looked at by someone with more experience
         const getTooltip = (params) => {
-            const activityDetailData = props.activityDetailData;
-            const param = params;
-            const userData = uniqueUserEntries[param.dataIndex];
             const isTimeSeries = params.seriesIndex % 2 === 1;
-            if (!isTimeSeries) {
-                return '';
-            }
+            if (!isTimeSeries) return '';
+
+            const userData = uniqueUserEntries[params.dataIndex];
             const targetEntryIndex = Math.floor(params.seriesIndex / 2);
-
-            if (!activityDetailData || !userData) {
-                return '';
-            }
-
             // first, find the user's entries, then get the focused entry
-            const instanceData = userGroupedEntries.get(userData.user_id)[targetEntryIndex].entry;
+            const instanceData = userGroupedEntries.get(userData?.user_id)?.[targetEntryIndex]?.entry;
+
+            if (!instanceData) return '';
 
             const format = dtHour12.value ? 'hh:mm:ss A' : 'HH:mm:ss';
-            const formattedLeftDateTime = dayjs(instanceData.leaveTime).format(format);
-            const formattedJoinDateTime = dayjs(instanceData.joinTime).format(format);
-
-            const timeString = timeToText(instanceData.time, true);
-            const color = param.color;
-
-            return `
-                    <div style="display: flex; align-items: center;">
-                        <div style="width: 10px; height: 55px; background-color: ${color}; margin-right: 5px;"></div>
-                        <div>
-                            <div>${instanceData.display_name} ${friendOrFavIcon(instanceData.display_name)}</div>
-                            <div>${formattedJoinDateTime} - ${formattedLeftDateTime}</div>
-                            <div>${timeString}</div>
-                        </div>
-                    </div>
-                    `;
+            return renderToHtml(
+                InstanceActivityTooltip({
+                    color: params.color,
+                    displayName: instanceData.display_name,
+                    icon: friendOrFavIcon(instanceData.display_name),
+                    joinTime: dayjs(instanceData.joinTime).format(format),
+                    leaveTime: dayjs(instanceData.leaveTime).format(format),
+                    duration: timeToText(instanceData.time, true)
+                })
+            );
         };
 
         const format = dtHour12.value ? 'hh:mm A' : 'HH:mm';
@@ -318,7 +401,7 @@
                 splitLine: { lineStyle: { type: 'dashed' } }
             },
             series: generateSeries(),
-            backgroundColor: 'rgba(0, 0, 0, 0)'
+            backgroundColor: 'transparent'
         };
 
         return echartsOption;
@@ -329,11 +412,3 @@
         initEcharts
     });
 </script>
-
-<style scoped>
-    .location {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-</style>

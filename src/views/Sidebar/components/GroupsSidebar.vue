@@ -1,65 +1,125 @@
 <template>
-    <div class="x-friend-list" style="padding: 10px 5px">
-        <template v-for="(group, index) in groupedGroupInstances">
-            <div
-                :key="getGroupId(group)"
-                class="x-friend-group x-link"
-                :style="{ paddingTop: index === 0 ? '0px' : '10px' }">
-                <div @click="toggleGroupSidebarCollapse(getGroupId(group))" style="display: flex; align-items: center">
-                    <i
-                        class="el-icon-arrow-right"
-                        :style="{
-                            transform: groupInstancesCfg[getGroupId(group)].isCollapsed ? '' : 'rotate(90deg)',
-                            transition: 'transform 0.3s'
-                        }"></i>
-                    <span style="margin-left: 5px">{{ group[0].group.name }} – {{ group.length }}</span>
-                </div>
-            </div>
+    <div ref="scrollRootRef" class="relative h-full">
+        <div ref="scrollViewportRef" class="h-full w-full overflow-auto">
+            <div class="px-1.5 py-2.5">
+                <div v-if="virtualRows.length" class="relative w-full box-border" :style="virtualContainerStyle">
+                    <template v-for="item in virtualItems" :key="String(item.virtualItem.key)">
+                        <div
+                            v-if="item.row"
+                            class="absolute left-0 top-0 w-full box-border"
+                            :data-index="item.virtualItem.index"
+                            :ref="virtualizer.measureElement"
+                            :style="rowStyle(item)">
+                            <template v-if="item.row.type === 'group-header'">
+                                <div
+                                    class="cursor-pointer pt-4 pb-1.5 text-xs"
+                                    :style="
+                                        item.row.headerPaddingTop
+                                            ? { paddingTop: item.row.headerPaddingTop }
+                                            : undefined
+                                    ">
+                                    <div
+                                        @click="toggleGroupSidebarCollapse(item.row.groupId)"
+                                        class="flex items-center">
+                                        <ChevronDown
+                                            class="transition-transform duration-200 ease-in-out"
+                                            :class="{ '-rotate-90': item.row.isCollapsed }" />
+                                        <span class="ml-1.5"> {{ item.row.label }} – {{ item.row.count }} </span>
+                                    </div>
+                                </div>
+                            </template>
 
-            <template v-if="!groupInstancesCfg[getGroupId(group)].isCollapsed">
-                <div
-                    v-for="ref in group"
-                    :key="ref.instance.id"
-                    class="x-friend-item"
-                    @click="showGroupDialog(ref.instance.ownerId)">
-                    <template v-if="isAgeGatedInstancesVisible || !(ref.ageGate || ref.location?.includes('~ageGate'))">
-                        <div class="avatar">
-                            <img v-lazy="getSmallGroupIconUrl(ref.group.iconUrl)" />
-                        </div>
-                        <div class="detail">
-                            <span class="name">
-                                <span v-text="ref.group.name"></span>
-                                <span style="font-weight: normal; margin-left: 5px"
-                                    >({{ ref.instance.userCount }}/{{ ref.instance.capacity }})</span
-                                >
-                            </span>
-                            <Location class="extra" :location="ref.instance.location" :link="false" />
+                            <template v-else-if="item.row.type === 'group-item'">
+                                <ContextMenu>
+                                    <ContextMenuTrigger as-child>
+                                        <div
+                                            class="box-border flex items-center p-1.5 text-[13px] cursor-pointer hover:bg-muted/50 hover:rounded-lg"
+                                            @click="showGroupDialog(item.row.ownerId)">
+                                            <template v-if="item.row.isVisible">
+                                                <div class="relative inline-block flex-none size-9 mr-2.5">
+                                                    <Avatar class="size-9">
+                                                        <AvatarImage
+                                                            :src="getSmallGroupIconUrl(item.row.iconUrl)"
+                                                            class="object-cover" />
+                                                        <AvatarFallback>
+                                                            <Users class="size-4 text-muted-foreground" />
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                </div>
+                                                <div class="flex-1 overflow-hidden">
+                                                    <span class="block truncate font-medium leading-[18px]">
+                                                        <span v-text="item.row.name"></span>
+                                                        <span class="ml-1.5 font-normal">
+                                                            ({{ item.row.userCount }}/{{ item.row.capacity }})
+                                                        </span>
+                                                    </span>
+                                                    <Location
+                                                        class="text-xs"
+                                                        :location="item.row.location"
+                                                        :link="false" />
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </ContextMenuTrigger>
+                                    <ContextMenuContent>
+                                        <ContextMenuItem
+                                            :disabled="!checkCanInviteSelf(item.row.location)"
+                                            @click="groupInstanceLaunch(item.row.location)">
+                                            {{ t('dialog.user.info.launch_invite_tooltip') }}
+                                        </ContextMenuItem>
+                                        <ContextMenuItem
+                                            :disabled="!checkCanInviteSelf(item.row.location)"
+                                            @click="groupInstanceSelfInvite(item.row.location)">
+                                            {{ t('dialog.user.info.self_invite_tooltip') }}
+                                        </ContextMenuItem>
+                                    </ContextMenuContent>
+                                </ContextMenu>
+                            </template>
                         </div>
                     </template>
                 </div>
-            </template>
-        </template>
+            </div>
+        </div>
+        <BackToTop :virtualizer="virtualizer" :target="scrollViewportRef" :tooltip="false" />
     </div>
 </template>
 
 <script setup>
+    import { computed, nextTick, onMounted, ref, watch } from 'vue';
+    import { ChevronDown, Users } from 'lucide-vue-next';
+    import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
     import { storeToRefs } from 'pinia';
-    import { computed, ref } from 'vue';
-    import { convertFileUrlToImageUrl } from '../../../shared/utils';
-    import { useAppearanceSettingsStore, useGroupStore } from '../../../stores';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+    import { useVirtualizer } from '@tanstack/vue-virtual';
 
+    import {
+        ContextMenu,
+        ContextMenuContent,
+        ContextMenuItem,
+        ContextMenuTrigger
+    } from '../../../components/ui/context-menu';
+    import { buildGroupHeaderRow, buildGroupItemRow, estimateGroupRowSize, getGroupId } from '../groupsSidebarUtils';
+    import { convertFileUrlToImageUrl, parseLocation } from '../../../shared/utils';
+    import { useInviteChecks } from '../../../composables/useInviteChecks';
+    import { useAppearanceSettingsStore, useGroupStore, useLaunchStore } from '../../../stores';
+    import { showGroupDialog } from '../../../coordinators/groupCoordinator';
+    import { instanceRequest } from '../../../api';
+
+    import BackToTop from '../../../components/BackToTop.vue';
+    import Location from '../../../components/Location.vue';
+
+    const { t } = useI18n();
+
+    const launchStore = useLaunchStore();
     const { isAgeGatedInstancesVisible } = storeToRefs(useAppearanceSettingsStore());
-    const { showGroupDialog, sortGroupInstancesByInGame } = useGroupStore();
+    const { sortGroupInstancesByInGame } = useGroupStore();
     const { groupInstances } = storeToRefs(useGroupStore());
-
-    defineProps({
-        groupOrder: {
-            type: Array,
-            default: () => []
-        }
-    });
+    const { checkCanInviteSelf } = useInviteChecks();
 
     const groupInstancesCfg = ref({});
+    const scrollViewportRef = ref(null);
+    const scrollRootRef = ref(null);
 
     const groupedGroupInstances = computed(() => {
         const groupMap = new Map();
@@ -83,24 +143,105 @@
         return Array.from(groupMap.values()).sort(sortGroupInstancesByInGame);
     });
 
+    const buildGroupHeaderRowLocal = (group, index) => buildGroupHeaderRow(group, index, groupInstancesCfg.value);
+
+    const buildGroupItemRowLocal = (ref, index, groupId) =>
+        buildGroupItemRow(ref, index, groupId, isAgeGatedInstancesVisible.value);
+
+    const virtualRows = computed(() => {
+        const rows = [];
+        groupedGroupInstances.value.forEach((group, index) => {
+            if (!group?.length) return;
+            const groupId = getGroupId(group);
+            rows.push(buildGroupHeaderRowLocal(group, index));
+            if (!groupInstancesCfg.value[groupId]?.isCollapsed) {
+                group.forEach((ref, idx) => {
+                    rows.push(buildGroupItemRowLocal(ref, idx, groupId));
+                });
+            }
+        });
+        return rows;
+    });
+
+    const estimateRowSize = (row) => estimateGroupRowSize(row);
+
+    const virtualizer = useVirtualizer(
+        computed(() => ({
+            count: virtualRows.value.length,
+            getScrollElement: () => scrollViewportRef.value,
+            estimateSize: (index) => estimateRowSize(virtualRows.value[index]),
+            getItemKey: (index) => virtualRows.value[index]?.key ?? index,
+            overscan: 6
+        }))
+    );
+
+    const virtualItems = computed(() => {
+        const items = virtualizer.value?.getVirtualItems?.() ?? [];
+        return items.map((virtualItem) => ({
+            virtualItem,
+            row: virtualRows.value[virtualItem.index]
+        }));
+    });
+
+    const virtualContainerStyle = computed(() => ({
+        height: `${virtualizer.value?.getTotalSize?.() ?? 0}px`,
+        width: '100%'
+    }));
+
+    const rowStyle = (item) => ({
+        transform: `translateY(${item.virtualItem.start}px)`
+    });
+
+    /**
+     *
+     * @param url
+     */
     function getSmallGroupIconUrl(url) {
         return convertFileUrlToImageUrl(url);
     }
 
+    /**
+     *
+     * @param groupId
+     */
     function toggleGroupSidebarCollapse(groupId) {
         groupInstancesCfg.value[groupId].isCollapsed = !groupInstancesCfg.value[groupId].isCollapsed;
     }
 
-    function getGroupId(group) {
-        return group[0]?.group?.groupId || '';
+    /**
+     * @param {string} location - Instance location tag
+     */
+    function groupInstanceLaunch(location) {
+        if (!location) return;
+        launchStore.showLaunchDialog(location);
     }
-</script>
 
-<style scoped>
-    .x-link:hover {
-        text-decoration: none;
+    /**
+     * @param {string} location - Instance location tag
+     */
+    function groupInstanceSelfInvite(location) {
+        if (!location) return;
+        const L = parseLocation(location);
+        if (!L.isRealInstance) return;
+        instanceRequest
+            .selfInvite({
+                instanceId: L.instanceId,
+                worldId: L.worldId
+            })
+            .then(() => {
+                toast.success(t('message.invite.self_sent'));
+            });
     }
-    .x-link:hover span {
-        text-decoration: underline;
-    }
-</style>
+
+    onMounted(() => {
+        nextTick(() => {
+            virtualizer.value?.measure?.();
+        });
+    });
+
+    watch(virtualRows, () => {
+        nextTick(() => {
+            virtualizer.value?.measure?.();
+        });
+    });
+</script>

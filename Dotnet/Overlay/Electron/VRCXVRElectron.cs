@@ -1,20 +1,14 @@
-// Copyright(c) 2019-2025 pypy, Natsumi and individual contributors.
-// All rights reserved.
-//
-// This work is licensed under the terms of the MIT license.
-// For a copy, see <https://opensource.org/licenses/MIT>.
-
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.MemoryMappedFiles;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using NLog;
 using Valve.VR;
-using System.Numerics;
-using System.IO.MemoryMappedFiles;
 
 namespace VRCX
 {
@@ -31,10 +25,10 @@ namespace VRCX
         private readonly List<string[]> _deviceList;
         private readonly ReaderWriterLockSlim _deviceListLock;
         private bool _active;
+        private bool _isOverlayStarted;
         private bool _menuButton;
         private int _overlayHand;
-        private GLTextureWriter _wristOverlayTextureWriter;
-        private GLTextureWriter _hmdOverlayTextureWriter;
+        private GLTextureWriter _overlayTextureWriter;
         private Thread _thread;
         private DateTime _nextOverlayUpdate;
 
@@ -46,22 +40,22 @@ namespace VRCX
         private bool _wristOverlayActive;
         private bool _wristOverlayWasActive;
 
-        private const string WRIST_OVERLAY_SHM_PATH = "/dev/shm/vrcx_wrist_overlay";
-        private const string HMD_OVERLAY_SHM_PATH = "/dev/shm/vrcx_hmd_overlay";
+        private const string OVERLAY_SHM_PATH = "/dev/shm/vrcx_overlay";
         private const int WRIST_FRAME_WIDTH = 512;
         private const int WRIST_FRAME_HEIGHT = 512;
         private const int WRIST_FRAME_SIZE = WRIST_FRAME_WIDTH * WRIST_FRAME_HEIGHT * 4; // RGBA
-        private byte[] wristFrameBuffer = new byte[WRIST_FRAME_SIZE];
         private const int HMD_FRAME_WIDTH = 1024;
         private const int HMD_FRAME_HEIGHT = 1024;
         private const int HMD_FRAME_SIZE = HMD_FRAME_WIDTH * HMD_FRAME_HEIGHT * 4; // RGBA
-        private byte[] hmdFrameBuffer = new byte[HMD_FRAME_SIZE];
-        private MemoryMappedFile _wristOverlayMMF;
-        private MemoryMappedViewAccessor _wristOverlayAccessor;
-        private MemoryMappedFile _hmdOverlayMMF;
-        private MemoryMappedViewAccessor _hmdOverlayAccessor;
-        private readonly ConcurrentQueue<KeyValuePair<string, string>> _wristFeedFunctionQueue = new ConcurrentQueue<KeyValuePair<string, string>>();
-        private readonly ConcurrentQueue<KeyValuePair<string, string>> _hmdFeedFunctionQueue = new ConcurrentQueue<KeyValuePair<string, string>>();
+
+        private const int SHARED_FRAME_SIZE = SHARED_FRAME_WIDTH * SHARED_FRAME_HEIGHT * 4;
+        private const int SHARED_FRAME_WIDTH = 1024;
+        private const int SHARED_FRAME_HEIGHT = WRIST_FRAME_HEIGHT + HMD_FRAME_HEIGHT;
+        private byte[] frameBuffer = new byte[SHARED_FRAME_SIZE];
+
+        private MemoryMappedFile _overlayMMF;
+        private MemoryMappedViewAccessor _overlayAccessor;
+        private readonly ConcurrentQueue<KeyValuePair<string, string>> _overlayFunctionQueue = new ConcurrentQueue<KeyValuePair<string, string>>();
 
         static VRCXVRElectron()
         {
@@ -92,15 +86,10 @@ namespace VRCX
             thread?.Interrupt();
             thread?.Join();
 
-            _wristOverlayAccessor?.Dispose();
-            _wristOverlayAccessor = null;
-            _wristOverlayMMF?.Dispose();
-            _wristOverlayMMF = null;
-
-            _hmdOverlayAccessor?.Dispose();
-            _hmdOverlayAccessor = null;
-            _hmdOverlayMMF?.Dispose();
-            _hmdOverlayMMF = null;
+            _overlayAccessor?.Dispose();
+            _overlayAccessor = null;
+            _overlayMMF?.Dispose();
+            _overlayMMF = null;
 
             GLContextX11.Cleanup();
             GLContextWayland.Cleanup();
@@ -111,6 +100,7 @@ namespace VRCX
             Exit();
             Instance = new VRCXVRElectron();
             Instance.Init();
+            Program.VRCXVRInstance = Instance;
             //MainForm.Instance.Browser.ExecuteScriptAsync("console.log('VRCXVR Restarted');");
         }
 
@@ -140,11 +130,8 @@ namespace VRCX
                 throw new Exception("Failed to initialise OpenGL context");
             }
 
-            _wristOverlayTextureWriter = new GLTextureWriter(512, 512);
-            _wristOverlayTextureWriter.UpdateTexture();
-
-            _hmdOverlayTextureWriter = new GLTextureWriter(1024, 1024);
-            _hmdOverlayTextureWriter.UpdateTexture();
+            _overlayTextureWriter = new GLTextureWriter(SHARED_FRAME_WIDTH, SHARED_FRAME_HEIGHT);
+            _overlayTextureWriter.UpdateTexture();
         }
 
         private void UpgradeDevice()
@@ -152,33 +139,20 @@ namespace VRCX
 
         }
 
-        public byte[] GetLatestWristOverlayFrame()
+        public byte[] GetLatestOverlayFrame()
         {
-            if (_wristOverlayAccessor == null) return null;
-            byte ready = _wristOverlayAccessor.ReadByte(0);
+            if (_overlayAccessor == null) return null;
+            byte ready = _overlayAccessor.ReadByte(0);
             if (ready == 1)
             {
-                _wristOverlayAccessor.ReadArray(1, wristFrameBuffer, 0, WRIST_FRAME_SIZE);
-                _wristOverlayAccessor.Write(0, (byte)0); // reset flag
-                return wristFrameBuffer;
+                _overlayAccessor.ReadArray(1, frameBuffer, 0, SHARED_FRAME_SIZE);
+                _overlayAccessor.Write(0, (byte)0); // reset flag
+                return frameBuffer;
             }
             return null;
         }
 
-        public byte[] GetLatestHmdOverlayFrame()
-        {
-            if (_hmdOverlayAccessor == null) return null;
-            byte ready = _hmdOverlayAccessor.ReadByte(0);
-            if (ready == 1)
-            {
-                _hmdOverlayAccessor.ReadArray(1, hmdFrameBuffer, 0, HMD_FRAME_SIZE);
-                _hmdOverlayAccessor.Write(0, (byte)0); // reset flag
-                return hmdFrameBuffer;
-            }
-            return null;
-        }
-
-        void FlipImageVertically(byte[] imageData, int width, int height)
+        private static void FlipImageVertically(ref byte[] imageData, int width, int height)
         {
             int stride = width * 4; // 4 bytes per pixel (RGBA)
             byte[] tempRow = new byte[stride];
@@ -240,6 +214,7 @@ namespace VRCX
 
                         active = true;
                         SetupTextures();
+                        _isOverlayStarted = true;
                     }
 
                     while (system.PollNextEvent(ref e, (uint)Marshal.SizeOf(e)))
@@ -247,6 +222,7 @@ namespace VRCX
                         var type = (EVREventType)e.eventType;
                         if (type == EVREventType.VREvent_Quit)
                         {
+                            _isOverlayStarted = false;
                             active = false;
                             IsHmdAfk = false;
                             OpenVR.Shutdown();
@@ -317,6 +293,7 @@ namespace VRCX
                 else if (active)
                 {
                     active = false;
+                    _isOverlayStarted = false;
                     IsHmdAfk = false;
                     OpenVR.Shutdown();
                     _deviceListLock.EnterWriteLock();
@@ -331,15 +308,10 @@ namespace VRCX
                 }
             }
 
-            _wristOverlayAccessor?.Dispose();
-            _wristOverlayAccessor = null;
-            _wristOverlayMMF?.Dispose();
-            _wristOverlayMMF = null;
-
-            _hmdOverlayAccessor?.Dispose();
-            _hmdOverlayAccessor = null;
-            _hmdOverlayMMF?.Dispose();
-            _hmdOverlayMMF = null;
+            _overlayAccessor?.Dispose();
+            _overlayAccessor = null;
+            _overlayMMF?.Dispose();
+            _overlayMMF = null;
 
             GLContextX11.Cleanup();
             GLContextWayland.Cleanup();
@@ -357,33 +329,30 @@ namespace VRCX
             {
                 OpenVR.Overlay.DestroyOverlay(_hmdOverlayHandle);
                 _hmdOverlayHandle = 0;
-
-                _hmdOverlayAccessor?.Dispose();
-                _hmdOverlayAccessor = null;
-                _hmdOverlayMMF?.Dispose();
-                _hmdOverlayMMF = null;
             }
-
             _hmdOverlayWasActive = _hmdOverlayActive;
 
             if (_wristOverlayActive != _wristOverlayWasActive && _wristOverlayHandle != 0)
             {
                 OpenVR.Overlay.DestroyOverlay(_wristOverlayHandle);
                 _wristOverlayHandle = 0;
-
-                _wristOverlayAccessor?.Dispose();
-                _wristOverlayAccessor = null;
-                _wristOverlayMMF?.Dispose();
-                _wristOverlayMMF = null;
             }
-
             _wristOverlayWasActive = _wristOverlayActive;
 
-            if (!_active)
+            if (!_active || (!_hmdOverlayActive && !_wristOverlayActive))
             {
+                _overlayAccessor?.Dispose();
+                _overlayAccessor = null;
+                _overlayMMF?.Dispose();
+                _overlayMMF = null;
                 GLContextX11.Cleanup();
                 GLContextWayland.Cleanup();
             }
+        }
+
+        public override bool IsActive()
+        {
+            return _active;
         }
 
         public override void Refresh()
@@ -431,13 +400,8 @@ namespace VRCX
                         if (!success)
                             break; // this fails while SteamVR overlay is open
 
-                        var prox = state.ulButtonPressed & (1UL << ((int)EVRButtonId.k_EButton_ProximitySensor));
-                        var isHmdAfk = prox == 0;
-                        if (isHmdAfk != IsHmdAfk)
-                        {
-                            IsHmdAfk = isHmdAfk;
-                            Program.AppApiInstance.CheckGameRunning();
-                        }
+                        // var prox = state.ulButtonPressed & (1UL << ((int)EVRButtonId.k_EButton_ProximitySensor));
+                        // var isHmdAfk = prox == 0;
 
                         var headsetErr = ETrackedPropertyError.TrackedProp_Success;
                         var headsetBatteryPercentage = system.GetFloatTrackedDeviceProperty(i, ETrackedDeviceProperty.Prop_DeviceBatteryPercentage_Float, ref headsetErr);
@@ -616,31 +580,6 @@ namespace VRCX
                 }
             }
 
-            var e = new VREvent_t();
-
-            while (overlay.PollNextOverlayEvent(dashboardHandle, ref e, (uint)Marshal.SizeOf(e)))
-            {
-                var type = (EVREventType)e.eventType;
-                if (type == EVREventType.VREvent_MouseMove)
-                {
-                    var m = e.data.mouse;
-                    //var s = _wristOverlay.Size;
-                    //_wristOverlay.GetBrowserHost().SendMouseMoveEvent((int)(m.x * s.Width), s.Height - (int)(m.y * s.Height), false, CefEventFlags.None);
-                }
-                else if (type == EVREventType.VREvent_MouseButtonDown)
-                {
-                    var m = e.data.mouse;
-                    //var s = _wristOverlay.Size;
-                    //_wristOverlay.GetBrowserHost().SendMouseClickEvent((int)(m.x * s.Width), s.Height - (int)(m.y * s.Height), MouseButtonType.Left, false, 1, CefEventFlags.LeftMouseButton);
-                }
-                else if (type == EVREventType.VREvent_MouseButtonUp)
-                {
-                    var m = e.data.mouse;
-                    //var s = _wristOverlay.Size;
-                    //_wristOverlay.GetBrowserHost().SendMouseClickEvent((int)(m.x * s.Width), s.Height - (int)(m.y * s.Height), MouseButtonType.Left, true, 1, CefEventFlags.None);
-                }
-            }
-
             if (dashboardVisible)
             {
                 //var texture = new Texture_t
@@ -696,8 +635,8 @@ namespace VRCX
                         return err;
                     }
 
-                    _wristOverlayMMF = MemoryMappedFile.CreateFromFile(WRIST_OVERLAY_SHM_PATH, FileMode.Open, null, WRIST_FRAME_SIZE + 1);
-                    _wristOverlayAccessor = _wristOverlayMMF.CreateViewAccessor();
+                    _overlayMMF = MemoryMappedFile.CreateFromFile(OVERLAY_SHM_PATH, FileMode.Open, null, SHARED_FRAME_SIZE + 1);
+                    _overlayAccessor = _overlayMMF.CreateViewAccessor();
                 }
             }
 
@@ -735,16 +674,24 @@ namespace VRCX
             if (!dashboardVisible &&
                 DateTime.UtcNow.CompareTo(_nextOverlayUpdate) <= 0)
             {
-                if (_wristOverlayTextureWriter != null)
+                if (_overlayTextureWriter != null)
                 {
-                    byte[] imageData = GetLatestWristOverlayFrame();
+                    byte[] imageData = GetLatestOverlayFrame();
                     if (imageData != null)
                     {
-                        FlipImageVertically(imageData, WRIST_FRAME_WIDTH, WRIST_FRAME_HEIGHT);
-                        _wristOverlayTextureWriter.WriteImageToBuffer(imageData);
-                        _wristOverlayTextureWriter.UpdateTexture();
+                        FlipImageVertically(ref imageData, SHARED_FRAME_WIDTH, SHARED_FRAME_HEIGHT);
+                        _overlayTextureWriter.WriteImageToBuffer(imageData);
+                        _overlayTextureWriter.UpdateTexture();
 
-                        Texture_t texture = _wristOverlayTextureWriter.AsTextureT();
+                        Texture_t texture = _overlayTextureWriter.AsTextureT();
+                        var bounds = new VRTextureBounds_t
+                        {
+                            uMin = 0f,
+                            uMax = 0.5f,
+                            vMin = 0f,
+                            vMax = (float)WRIST_FRAME_HEIGHT / SHARED_FRAME_HEIGHT
+                        };
+                        overlay.SetOverlayTextureBounds(overlayHandle, ref bounds);
                         err = OpenVR.Overlay.SetOverlayTexture(overlayHandle, ref texture);
                         if (err != EVROverlayError.None)
                         {
@@ -840,23 +787,31 @@ namespace VRCX
                         return err;
                     }
 
-                    _hmdOverlayMMF = MemoryMappedFile.CreateFromFile(HMD_OVERLAY_SHM_PATH, FileMode.Open, null, HMD_FRAME_SIZE + 1);
-                    _hmdOverlayAccessor = _hmdOverlayMMF.CreateViewAccessor();
+                    _overlayMMF = MemoryMappedFile.CreateFromFile(OVERLAY_SHM_PATH, FileMode.Open, null, SHARED_FRAME_SIZE + 1);
+                    _overlayAccessor = _overlayMMF.CreateViewAccessor();
                 }
             }
 
             if (!dashboardVisible)
             {
-                if (_hmdOverlayTextureWriter != null)
+                if (_overlayTextureWriter != null)
                 {
-                    byte[] imageData = GetLatestHmdOverlayFrame();
+                    byte[] imageData = GetLatestOverlayFrame();
                     if (imageData != null)
                     {
-                        FlipImageVertically(imageData, HMD_FRAME_WIDTH, HMD_FRAME_HEIGHT);
-                        _hmdOverlayTextureWriter.WriteImageToBuffer(imageData);
-                        _hmdOverlayTextureWriter.UpdateTexture();
+                        FlipImageVertically(ref imageData, SHARED_FRAME_WIDTH, SHARED_FRAME_HEIGHT);
+                        _overlayTextureWriter.WriteImageToBuffer(imageData);
+                        _overlayTextureWriter.UpdateTexture();
 
-                        Texture_t texture = _hmdOverlayTextureWriter.AsTextureT();
+                        Texture_t texture = _overlayTextureWriter.AsTextureT();
+                        var bounds = new VRTextureBounds_t
+                        {
+                            uMin = 0f,
+                            uMax = 1f,
+                            vMin = (float)(SHARED_FRAME_HEIGHT - HMD_FRAME_HEIGHT) / SHARED_FRAME_HEIGHT,
+                            vMax = 1f
+                        };
+                        overlay.SetOverlayTextureBounds(overlayHandle, ref bounds);
                         err = OpenVR.Overlay.SetOverlayTexture(overlayHandle, ref texture);
                         if (err != EVROverlayError.None)
                         {
@@ -890,32 +845,20 @@ namespace VRCX
             return err;
         }
 
-        public override ConcurrentQueue<KeyValuePair<string, string>> GetExecuteVrFeedFunctionQueue()
-        {
-            return _wristFeedFunctionQueue;
-        }
-
-        public override void ExecuteVrFeedFunction(string function, string json)
-        {
-            //if (_hmdOverlaySocket == null || !_hmdOverlaySocket.Connected) return;
-            // if (_wristOverlay.IsLoading)
-            //     Restart();
-
-            _wristFeedFunctionQueue.Enqueue(new KeyValuePair<string, string>(function, json));
-        }
-
         public override ConcurrentQueue<KeyValuePair<string, string>> GetExecuteVrOverlayFunctionQueue()
         {
-            return _hmdFeedFunctionQueue;
+            return _overlayFunctionQueue;
         }
 
         public override void ExecuteVrOverlayFunction(string function, string json)
         {
-            //if (_hmdOverlaySocket == null || !_hmdOverlaySocket.Connected) return;
-            // if (_hmdOverlay.IsLoading)
-            //     Restart();
+            if (!_isOverlayStarted)
+            {
+                _overlayFunctionQueue.Clear();
+                return;
+            }
 
-            _hmdFeedFunctionQueue.Enqueue(new KeyValuePair<string, string>(function, json));
+            _overlayFunctionQueue.Enqueue(new KeyValuePair<string, string>(function, json));
         }
     }
 }

@@ -1,85 +1,131 @@
+import { reactive, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
-import { computed, reactive, watch } from 'vue';
-import { $app } from '../../app';
-import { t } from '../../plugin';
-import configRepository from '../../service/config';
-import { database } from '../../service/database';
-import webApiService from '../../service/webapi';
-import { watchState } from '../../service/watchState';
+import { toast } from 'vue-sonner';
+import { useI18n } from 'vue-i18n';
+
+import { logWebRequest } from '../../services/appConfig';
+import { database } from '../../services/database';
+import { languageCodes } from '../../localization';
 import { useGameStore } from '../game';
+import { useModalStore } from '../modal';
+import { useUpdateLoopStore } from '../updateLoop';
+import { useVRCXUpdaterStore } from '../vrcxUpdater';
 import { useVrcxStore } from '../vrcx';
-import { AppGlobal } from '../../service/appConfig';
+import { watchState } from '../../services/watchState';
+
+import configRepository from '../../services/config';
+import webApiService from '../../services/webapi';
 
 export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
     const gameStore = useGameStore();
     const vrcxStore = useVrcxStore();
+    const VRCXUpdaterStore = useVRCXUpdaterStore();
+    const modalStore = useModalStore();
+    const updateLoopStore = useUpdateLoopStore();
+
+    const { t } = useI18n();
 
     const state = reactive({
-        enablePrimaryPassword: false,
-        relaunchVRChatAfterCrash: false,
-        vrcQuitFix: true,
-        autoSweepVRChatCache: false,
-        saveInstancePrints: false,
-        cropInstancePrints: false,
-        saveInstanceStickers: false,
-        avatarRemoteDatabase: true,
-        enableAppLauncher: true,
-        enableAppLauncherAutoClose: true,
-        enableAppLauncherRunProcessOnce: true,
-        screenshotHelper: true,
-        screenshotHelperModifyFilename: false,
-        screenshotHelperCopyToClipboard: false,
-        youTubeApi: false,
-        youTubeApiKey: '',
-        progressPie: false,
-        progressPieFilter: true,
-        showConfirmationOnSwitchAvatar: false,
-        gameLogDisabled: false,
-        sqliteTableSizes: {},
-        ugcFolderPath: '',
-        currentUserInventory: new Map(),
-        autoDeleteOldPrints: false,
-        notificationOpacity: 100,
-        folderSelectorDialogVisible: false,
-        isVRChatConfigDialogVisible: false,
-        saveInstanceEmoji: false,
-        vrcRegistryAutoBackup: true,
-        vrcRegistryAskRestore: true
+        folderSelectorDialogVisible: false
     });
+
+    const enablePrimaryPassword = ref(false);
+    const bioLanguage = ref('en');
+    const relaunchVRChatAfterCrash = ref(false);
+    const vrcQuitFix = ref(true);
+    const autoSweepVRChatCache = ref(false);
+    const selfInviteOverride = ref(false);
+    const saveInstancePrints = ref(false);
+    const cropInstancePrints = ref(false);
+    const saveInstanceStickers = ref(false);
+    const avatarRemoteDatabase = ref(true);
+    const enableAppLauncher = ref(true);
+    const enableAppLauncherAutoClose = ref(true);
+    const enableAppLauncherRunProcessOnce = ref(true);
+    const screenshotHelper = ref(true);
+    const screenshotHelperModifyFilename = ref(false);
+    const screenshotHelperCopyToClipboard = ref(false);
+    const youTubeApi = ref(false);
+    const youTubeApiKey = ref('');
+    const translationApi = ref(false);
+    const translationApiKey = ref('');
+    const translationApiType = ref('google'); // 'google' | 'openai'
+    const translationApiEndpoint = ref(
+        'https://api.openai.com/v1/chat/completions'
+    );
+    const translationApiModel = ref('gpt-4o-mini');
+    const translationApiPrompt = ref('');
+    const progressPie = ref(false);
+    const progressPieFilter = ref(true);
+    const showConfirmationOnSwitchAvatar = ref(false);
+    const gameLogDisabled = ref(false);
+    const sqliteTableSizes = ref({});
+    const avatarAutoCleanup = ref('Off');
+    const purgeInProgress = ref(false);
+    const ugcFolderPath = ref('');
+    const autoDeleteOldPrints = ref(false);
+    const notificationOpacity = ref(100);
+    const currentUserInventory = reactive(new Map());
+    const isVRChatConfigDialogVisible = ref(false);
+    const saveInstanceEmoji = ref(false);
+    const vrcRegistryAutoBackup = ref(true);
+    const vrcRegistryAskRestore = ref(true);
+    const sentryErrorReporting = ref(false);
+
+    watch(
+        () => watchState.isLoggedIn,
+        () => {
+            currentUserInventory.clear();
+            isVRChatConfigDialogVisible.value = false;
+        },
+        { flush: 'sync' }
+    );
 
     async function initAdvancedSettings() {
         const [
-            enablePrimaryPassword,
-            relaunchVRChatAfterCrash,
-            vrcQuitFix,
-            autoSweepVRChatCache,
-            saveInstancePrints,
-            cropInstancePrints,
-            saveInstanceStickers,
-            avatarRemoteDatabase,
-            enableAppLauncher,
-            enableAppLauncherAutoClose,
-            enableAppLauncherRunProcessOnce,
-            screenshotHelper,
-            screenshotHelperModifyFilename,
-            screenshotHelperCopyToClipboard,
-            youTubeApi,
-            youTubeApiKey,
-            progressPie,
-            progressPieFilter,
-            showConfirmationOnSwitchAvatar,
-            gameLogDisabled,
-            ugcFolderPath,
-            autoDeleteOldPrints,
-            notificationOpacity,
-            saveInstanceEmoji,
-            vrcRegistryAutoBackup,
-            vrcRegistryAskRestore
+            enablePrimaryPasswordConfig,
+            bioLanguageConfig,
+            relaunchVRChatAfterCrashConfig,
+            vrcQuitFixConfig,
+            autoSweepVRChatCacheConfig,
+            selfInviteOverrideConfig,
+            saveInstancePrintsConfig,
+            cropInstancePrintsConfig,
+            saveInstanceStickersConfig,
+            avatarRemoteDatabaseConfig,
+            enableAppLauncherConfig,
+            enableAppLauncherAutoCloseConfig,
+            enableAppLauncherRunProcessOnceConfig,
+            screenshotHelperConfig,
+            screenshotHelperModifyFilenameConfig,
+            screenshotHelperCopyToClipboardConfig,
+            youTubeApiConfig,
+            youTubeApiKeyConfig,
+            translationApiConfig,
+            translationApiKeyConfig,
+            translationApiTypeConfig,
+            translationApiEndpointConfig,
+            translationApiModelConfig,
+            translationApiPromptConfig,
+            progressPieConfig,
+            progressPieFilterConfig,
+            showConfirmationOnSwitchAvatarConfig,
+            gameLogDisabledConfig,
+            avatarAutoCleanupConfig,
+            ugcFolderPathConfig,
+            autoDeleteOldPrintsConfig,
+            notificationOpacityConfig,
+            saveInstanceEmojiConfig,
+            vrcRegistryAutoBackupConfig,
+            vrcRegistryAskRestoreConfig,
+            sentryErrorReportingConfig
         ] = await Promise.all([
             configRepository.getBool('enablePrimaryPassword', false),
+            configRepository.getString('VRCX_bioLanguage'),
             configRepository.getBool('VRCX_relaunchVRChatAfterCrash', false),
             configRepository.getBool('VRCX_vrcQuitFix', true),
             configRepository.getBool('VRCX_autoSweepVRChatCache', false),
+            configRepository.getBool('VRCX_selfInviteOverride', false),
             configRepository.getBool('VRCX_saveInstancePrints', false),
             configRepository.getBool('VRCX_cropInstancePrints', false),
             configRepository.getBool('VRCX_saveInstanceStickers', false),
@@ -101,6 +147,12 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
             ),
             configRepository.getBool('VRCX_youtubeAPI', false),
             configRepository.getString('VRCX_youtubeAPIKey', ''),
+            configRepository.getBool('VRCX_translationAPI', false),
+            configRepository.getString('VRCX_translationAPIKey', ''),
+            configRepository.getString('VRCX_translationAPIType', 'google'),
+            configRepository.getString('VRCX_translationAPIEndpoint', ''),
+            configRepository.getString('VRCX_translationAPIModel', ''),
+            configRepository.getString('VRCX_translationAPIPrompt', ''),
             configRepository.getBool('VRCX_progressPie', false),
             configRepository.getBool('VRCX_progressPieFilter', true),
             configRepository.getBool(
@@ -108,116 +160,75 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
                 false
             ),
             configRepository.getBool('VRCX_gameLogDisabled', false),
+            configRepository.getString('VRCX_avatarAutoCleanup', 'Off'),
             configRepository.getString('VRCX_userGeneratedContentPath', ''),
             configRepository.getBool('VRCX_autoDeleteOldPrints', false),
             configRepository.getFloat('VRCX_notificationOpacity', 100),
             configRepository.getBool('VRCX_saveInstanceEmoji', false),
             configRepository.getBool('VRCX_vrcRegistryAutoBackup', true),
-            configRepository.getBool('VRCX_vrcRegistryAskRestore', true)
+            configRepository.getBool('VRCX_vrcRegistryAskRestore', true),
+            configRepository.getString('VRCX_SentryEnabled', '')
         ]);
 
-        state.enablePrimaryPassword = enablePrimaryPassword;
-        state.relaunchVRChatAfterCrash = relaunchVRChatAfterCrash;
-        state.vrcQuitFix = vrcQuitFix;
-        state.autoSweepVRChatCache = autoSweepVRChatCache;
-        state.saveInstancePrints = saveInstancePrints;
-        state.cropInstancePrints = cropInstancePrints;
-        state.saveInstanceStickers = saveInstanceStickers;
-        state.avatarRemoteDatabase = avatarRemoteDatabase;
-        state.enableAppLauncher = enableAppLauncher;
-        state.enableAppLauncherAutoClose = enableAppLauncherAutoClose;
-        state.enableAppLauncherRunProcessOnce = enableAppLauncherRunProcessOnce;
-        state.screenshotHelper = screenshotHelper;
-        state.screenshotHelperModifyFilename = screenshotHelperModifyFilename;
-        state.screenshotHelperCopyToClipboard = screenshotHelperCopyToClipboard;
-        state.youTubeApi = youTubeApi;
-        state.youTubeApiKey = youTubeApiKey;
-        state.progressPie = progressPie;
-        state.progressPieFilter = progressPieFilter;
-        state.showConfirmationOnSwitchAvatar = showConfirmationOnSwitchAvatar;
-        state.gameLogDisabled = gameLogDisabled;
-        state.ugcFolderPath = ugcFolderPath;
-        state.autoDeleteOldPrints = autoDeleteOldPrints;
-        state.notificationOpacity = notificationOpacity;
-        state.saveInstanceEmoji = saveInstanceEmoji;
-        state.vrcRegistryAutoBackup = vrcRegistryAutoBackup;
-        state.vrcRegistryAskRestore = vrcRegistryAskRestore;
+        if (!bioLanguageConfig || !languageCodes.includes(bioLanguageConfig)) {
+            bioLanguage.value = 'en';
+        } else {
+            bioLanguage.value = bioLanguageConfig;
+        }
+
+        enablePrimaryPassword.value = enablePrimaryPasswordConfig;
+        relaunchVRChatAfterCrash.value = relaunchVRChatAfterCrashConfig;
+        vrcQuitFix.value = vrcQuitFixConfig;
+        autoSweepVRChatCache.value = autoSweepVRChatCacheConfig;
+        selfInviteOverride.value = selfInviteOverrideConfig;
+        saveInstancePrints.value = saveInstancePrintsConfig;
+        cropInstancePrints.value = cropInstancePrintsConfig;
+        saveInstanceStickers.value = saveInstanceStickersConfig;
+        avatarRemoteDatabase.value = avatarRemoteDatabaseConfig;
+        enableAppLauncher.value = enableAppLauncherConfig;
+        enableAppLauncherAutoClose.value = enableAppLauncherAutoCloseConfig;
+        enableAppLauncherRunProcessOnce.value =
+            enableAppLauncherRunProcessOnceConfig;
+        screenshotHelper.value = screenshotHelperConfig;
+        screenshotHelperModifyFilename.value =
+            screenshotHelperModifyFilenameConfig;
+        screenshotHelperCopyToClipboard.value =
+            screenshotHelperCopyToClipboardConfig;
+        youTubeApi.value = youTubeApiConfig;
+        youTubeApiKey.value = youTubeApiKeyConfig;
+        translationApi.value = translationApiConfig;
+        translationApiKey.value = translationApiKeyConfig;
+        translationApiType.value = translationApiTypeConfig;
+        translationApiEndpoint.value = translationApiEndpointConfig;
+        translationApiModel.value = translationApiModelConfig;
+        translationApiPrompt.value = translationApiPromptConfig;
+        progressPie.value = progressPieConfig;
+        progressPieFilter.value = progressPieFilterConfig;
+        showConfirmationOnSwitchAvatar.value =
+            showConfirmationOnSwitchAvatarConfig;
+        gameLogDisabled.value = gameLogDisabledConfig;
+        avatarAutoCleanup.value = avatarAutoCleanupConfig;
+        ugcFolderPath.value = ugcFolderPathConfig;
+        autoDeleteOldPrints.value = autoDeleteOldPrintsConfig;
+        notificationOpacity.value = notificationOpacityConfig;
+        saveInstanceEmoji.value = saveInstanceEmojiConfig;
+        vrcRegistryAutoBackup.value = vrcRegistryAutoBackupConfig;
+        vrcRegistryAskRestore.value = vrcRegistryAskRestoreConfig;
+        sentryErrorReporting.value = sentryErrorReportingConfig === 'true';
 
         handleSetAppLauncherSettings();
+
+        setTimeout(() => {
+            if (
+                VRCXUpdaterStore.branch === 'Nightly' &&
+                sentryErrorReportingConfig === ''
+            ) {
+                checkSentryConsent();
+            }
+        }, 2000);
     }
 
     initAdvancedSettings();
-
-    watch(
-        () => watchState.isLoggedIn,
-        () => {
-            state.currentUserInventory.clear();
-            state.isVRChatConfigDialogVisible = false;
-        },
-        { flush: 'sync' }
-    );
-
-    const enablePrimaryPassword = computed({
-        get: () => state.enablePrimaryPassword,
-        set: (value) => (state.enablePrimaryPassword = value)
-    });
-    const relaunchVRChatAfterCrash = computed(
-        () => state.relaunchVRChatAfterCrash
-    );
-    const vrcQuitFix = computed(() => state.vrcQuitFix);
-    const autoSweepVRChatCache = computed(() => state.autoSweepVRChatCache);
-    const saveInstancePrints = computed(() => state.saveInstancePrints);
-    const cropInstancePrints = computed(() => state.cropInstancePrints);
-    const saveInstanceStickers = computed(() => state.saveInstanceStickers);
-    const avatarRemoteDatabase = computed(() => state.avatarRemoteDatabase);
-    const enableAppLauncher = computed(() => state.enableAppLauncher);
-    const enableAppLauncherAutoClose = computed(
-        () => state.enableAppLauncherAutoClose
-    );
-    const enableAppLauncherRunProcessOnce = computed(
-        () => state.enableAppLauncherRunProcessOnce
-    );
-    const screenshotHelper = computed(() => state.screenshotHelper);
-    ``;
-    const screenshotHelperModifyFilename = computed(
-        () => state.screenshotHelperModifyFilename
-    );
-    const screenshotHelperCopyToClipboard = computed(
-        () => state.screenshotHelperCopyToClipboard
-    );
-    const youTubeApi = computed(() => state.youTubeApi);
-    const youTubeApiKey = computed({
-        get: () => state.youTubeApiKey,
-        set: (value) => (state.youTubeApiKey = value)
-    });
-    const progressPie = computed(() => state.progressPie);
-    const progressPieFilter = computed(() => state.progressPieFilter);
-    const showConfirmationOnSwitchAvatar = computed(
-        () => state.showConfirmationOnSwitchAvatar
-    );
-    const gameLogDisabled = computed(() => state.gameLogDisabled);
-    const sqliteTableSizes = computed(() => state.sqliteTableSizes);
-    const ugcFolderPath = computed(() => state.ugcFolderPath);
-    const autoDeleteOldPrints = computed(() => state.autoDeleteOldPrints);
-    const notificationOpacity = computed(() => state.notificationOpacity);
-
-    const currentUserInventory = computed({
-        get: () => state.currentUserInventory,
-        set: (value) => {
-            state.currentUserInventory = value;
-        }
-    });
-    const isVRChatConfigDialogVisible = computed({
-        get: () => state.isVRChatConfigDialogVisible,
-        set: (value) => (state.isVRChatConfigDialogVisible = value)
-    });
-
-    const saveInstanceEmoji = computed({
-        get: () => state.saveInstanceEmoji,
-        set: (value) => (state.saveInstanceEmoji = value)
-    });
-    const vrcRegistryAutoBackup = computed(() => state.vrcRegistryAutoBackup);
-    const vrcRegistryAskRestore = computed(() => state.vrcRegistryAskRestore);
 
     /**
      * @param {boolean} value
@@ -225,149 +236,396 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
     function setEnablePrimaryPasswordConfigRepository(value) {
         configRepository.setBool('enablePrimaryPassword', value);
     }
+
+    /**
+     * @param {boolean} value
+     */
+    function setEnablePrimaryPassword(value) {
+        enablePrimaryPassword.value = value;
+    }
     function setRelaunchVRChatAfterCrash() {
-        state.relaunchVRChatAfterCrash = !state.relaunchVRChatAfterCrash;
+        relaunchVRChatAfterCrash.value = !relaunchVRChatAfterCrash.value;
         configRepository.setBool(
             'VRCX_relaunchVRChatAfterCrash',
-            state.relaunchVRChatAfterCrash
+            relaunchVRChatAfterCrash.value
         );
     }
     function setVrcQuitFix() {
-        state.vrcQuitFix = !state.vrcQuitFix;
-        configRepository.setBool('VRCX_vrcQuitFix', state.vrcQuitFix);
+        vrcQuitFix.value = !vrcQuitFix.value;
+        configRepository.setBool('VRCX_vrcQuitFix', vrcQuitFix.value);
     }
     function setAutoSweepVRChatCache() {
-        state.autoSweepVRChatCache = !state.autoSweepVRChatCache;
+        autoSweepVRChatCache.value = !autoSweepVRChatCache.value;
         configRepository.setBool(
             'VRCX_autoSweepVRChatCache',
-            state.autoSweepVRChatCache
+            autoSweepVRChatCache.value
+        );
+    }
+    function setSelfInviteOverride() {
+        selfInviteOverride.value = !selfInviteOverride.value;
+        configRepository.setBool(
+            'VRCX_selfInviteOverride',
+            selfInviteOverride.value
         );
     }
     function setSaveInstancePrints() {
-        state.saveInstancePrints = !state.saveInstancePrints;
+        saveInstancePrints.value = !saveInstancePrints.value;
         configRepository.setBool(
             'VRCX_saveInstancePrints',
-            state.saveInstancePrints
+            saveInstancePrints.value
         );
     }
     function setCropInstancePrints() {
-        state.cropInstancePrints = !state.cropInstancePrints;
+        cropInstancePrints.value = !cropInstancePrints.value;
         configRepository.setBool(
             'VRCX_cropInstancePrints',
-            state.cropInstancePrints
+            cropInstancePrints.value
         );
+        cropPrintsChanged();
     }
     function setSaveInstanceStickers() {
-        state.saveInstanceStickers = !state.saveInstanceStickers;
+        saveInstanceStickers.value = !saveInstanceStickers.value;
         configRepository.setBool(
             'VRCX_saveInstanceStickers',
-            state.saveInstanceStickers
+            saveInstanceStickers.value
         );
     }
     /**
      * @param {boolean} value
      */
     function setAvatarRemoteDatabase(value) {
-        state.avatarRemoteDatabase = value;
+        avatarRemoteDatabase.value = value;
         configRepository.setBool(
             'VRCX_avatarRemoteDatabase',
-            state.avatarRemoteDatabase
+            avatarRemoteDatabase.value
         );
     }
     async function setEnableAppLauncher() {
-        state.enableAppLauncher = !state.enableAppLauncher;
+        enableAppLauncher.value = !enableAppLauncher.value;
         await configRepository.setBool(
             'VRCX_enableAppLauncher',
-            state.enableAppLauncher
+            enableAppLauncher.value
         );
         handleSetAppLauncherSettings();
     }
     async function setEnableAppLauncherAutoClose() {
-        state.enableAppLauncherAutoClose = !state.enableAppLauncherAutoClose;
+        enableAppLauncherAutoClose.value = !enableAppLauncherAutoClose.value;
         await configRepository.setBool(
             'VRCX_enableAppLauncherAutoClose',
-            state.enableAppLauncherAutoClose
+            enableAppLauncherAutoClose.value
         );
         handleSetAppLauncherSettings();
     }
     async function setEnableAppLauncherRunProcessOnce() {
-        state.enableAppLauncherRunProcessOnce =
-            !state.enableAppLauncherRunProcessOnce;
+        enableAppLauncherRunProcessOnce.value =
+            !enableAppLauncherRunProcessOnce.value;
         await configRepository.setBool(
             'VRCX_enableAppLauncherRunProcessOnce',
-            state.enableAppLauncherRunProcessOnce
+            enableAppLauncherRunProcessOnce.value
         );
         handleSetAppLauncherSettings();
     }
     async function setScreenshotHelper() {
-        state.screenshotHelper = !state.screenshotHelper;
+        screenshotHelper.value = !screenshotHelper.value;
         await configRepository.setBool(
             'VRCX_screenshotHelper',
-            state.screenshotHelper
+            screenshotHelper.value
         );
     }
     async function setScreenshotHelperModifyFilename() {
-        state.screenshotHelperModifyFilename =
-            !state.screenshotHelperModifyFilename;
+        screenshotHelperModifyFilename.value =
+            !screenshotHelperModifyFilename.value;
         await configRepository.setBool(
             'VRCX_screenshotHelperModifyFilename',
-            state.screenshotHelperModifyFilename
+            screenshotHelperModifyFilename.value
         );
     }
     async function setScreenshotHelperCopyToClipboard() {
-        state.screenshotHelperCopyToClipboard =
-            !state.screenshotHelperCopyToClipboard;
+        screenshotHelperCopyToClipboard.value =
+            !screenshotHelperCopyToClipboard.value;
         await configRepository.setBool(
             'VRCX_screenshotHelperCopyToClipboard',
-            state.screenshotHelperCopyToClipboard
+            screenshotHelperCopyToClipboard.value
         );
     }
     async function setYouTubeApi() {
-        state.youTubeApi = !state.youTubeApi;
-        await configRepository.setBool('VRCX_youtubeAPI', state.youTubeApi);
+        youTubeApi.value = !youTubeApi.value;
+        await configRepository.setBool('VRCX_youtubeAPI', youTubeApi.value);
+    }
+    async function setTranslationApi() {
+        translationApi.value = !translationApi.value;
+        await configRepository.setBool(
+            'VRCX_translationAPI',
+            translationApi.value
+        );
     }
     /**
      * @param {string} value
      */
     async function setYouTubeApiKey(value) {
-        state.youTubeApiKey = value;
+        youTubeApiKey.value = value;
         await configRepository.setString(
             'VRCX_youtubeAPIKey',
-            state.youTubeApiKey
+            youTubeApiKey.value
         );
     }
-    async function setProgressPie() {
-        state.progressPie = !state.progressPie;
-        await configRepository.setBool('VRCX_progressPie', state.progressPie);
-    }
-    async function setProgressPieFilter() {
-        state.progressPieFilter = !state.progressPieFilter;
-        await configRepository.setBool(
-            'VRCX_progressPieFilter',
-            state.progressPieFilter
+    async function setTranslationApiKey(value) {
+        translationApiKey.value = value;
+        await configRepository.setString(
+            'VRCX_translationAPIKey',
+            translationApiKey.value
         );
     }
-    async function setShowConfirmationOnSwitchAvatar() {
-        state.showConfirmationOnSwitchAvatar =
-            !state.showConfirmationOnSwitchAvatar;
-        await configRepository.setBool(
-            'VRCX_showConfirmationOnSwitchAvatar',
-            state.showConfirmationOnSwitchAvatar
+    async function setTranslationApiType(value) {
+        translationApiType.value = value || 'google';
+        await configRepository.setString(
+            'VRCX_translationAPIType',
+            translationApiType.value
         );
     }
-    async function setGameLogDisabled() {
-        state.gameLogDisabled = !state.gameLogDisabled;
-        await configRepository.setBool(
-            'VRCX_gameLogDisabled',
-            state.gameLogDisabled
+    async function setTranslationApiEndpoint(value) {
+        translationApiEndpoint.value = value;
+        await configRepository.setString(
+            'VRCX_translationAPIEndpoint',
+            translationApiEndpoint.value
+        );
+    }
+    async function setTranslationApiModel(value) {
+        translationApiModel.value = value;
+        await configRepository.setString(
+            'VRCX_translationAPIModel',
+            translationApiModel.value
+        );
+    }
+    async function setTranslationApiPrompt(value) {
+        translationApiPrompt.value = value;
+        await configRepository.setString(
+            'VRCX_translationAPIPrompt',
+            translationApiPrompt.value
         );
     }
 
+    async function fetchAvailableModels(overrides = {}) {
+        const baseURL = overrides.endpoint || translationApiEndpoint.value;
+
+        if (!baseURL) {
+            toast.warning('Translation endpoint not configured');
+            return [];
+        }
+
+        let modelsURL = '';
+        try {
+            const url = new URL(baseURL);
+            const basePath = url.pathname.replace(/\/+$/, '');
+
+            if (basePath.endsWith('/chat/completions')) {
+                url.pathname = basePath.replace(
+                    /\/chat\/completions$/,
+                    '/models'
+                );
+            } else if (basePath.endsWith('/models')) {
+                url.pathname = basePath;
+            } else {
+                url.pathname = `${basePath}/models`;
+            }
+
+            url.search = '';
+            url.hash = '';
+            modelsURL = url.toString();
+        } catch {
+            const normalizedBaseURL = baseURL.endsWith('/')
+                ? baseURL.slice(0, -1)
+                : baseURL;
+
+            if (normalizedBaseURL.includes('/chat/completions')) {
+                modelsURL = normalizedBaseURL.replace(
+                    /\/chat\/completions$/,
+                    '/models'
+                );
+            } else if (normalizedBaseURL.endsWith('/models')) {
+                modelsURL = normalizedBaseURL;
+            } else {
+                modelsURL = `${normalizedBaseURL}/models`;
+            }
+        }
+
+        const headers = {};
+        const keyToUse = overrides.key ?? translationApiKey.value;
+        if (keyToUse) {
+            headers.Authorization = `Bearer ${keyToUse}`;
+        }
+
+        try {
+            const response = await webApiService.execute({
+                url: modelsURL,
+                method: 'GET',
+                headers
+            });
+
+            if (response.status !== 200) {
+                throw new Error(
+                    `Failed to fetch models: ${response.status} - ${response.data}`
+                );
+            }
+
+            const data = JSON.parse(response.data);
+            logWebRequest(
+                '[EXTERNAL GET]',
+                modelsURL,
+                `(${response.status})`,
+                data
+            );
+
+            if (data.data && Array.isArray(data.data)) {
+                return data.data
+                    .map((model) => model.id)
+                    .filter((id) => id && typeof id === 'string')
+                    .sort();
+            }
+
+            if (Array.isArray(data)) {
+                return data
+                    .map((model) => model.id || model.name)
+                    .filter((id) => id && typeof id === 'string')
+                    .sort();
+            }
+
+            throw new Error('Unexpected API response format');
+        } catch (error) {
+            console.error('Failed to fetch models:', error);
+            toast.error(`Failed to fetch models: ${error.message}`);
+            return [];
+        }
+    }
+
+    function setBioLanguage(language) {
+        bioLanguage.value = language;
+        configRepository.setString('VRCX_bioLanguage', language);
+    }
+    async function setProgressPie() {
+        progressPie.value = !progressPie.value;
+        await configRepository.setBool('VRCX_progressPie', progressPie.value);
+    }
+    async function setProgressPieFilter() {
+        progressPieFilter.value = !progressPieFilter.value;
+        await configRepository.setBool(
+            'VRCX_progressPieFilter',
+            progressPieFilter.value
+        );
+    }
+    async function setShowConfirmationOnSwitchAvatar() {
+        showConfirmationOnSwitchAvatar.value =
+            !showConfirmationOnSwitchAvatar.value;
+        await configRepository.setBool(
+            'VRCX_showConfirmationOnSwitchAvatar',
+            showConfirmationOnSwitchAvatar.value
+        );
+    }
+    async function setGameLogDisabled() {
+        gameLogDisabled.value = !gameLogDisabled.value;
+        await configRepository.setBool(
+            'VRCX_gameLogDisabled',
+            gameLogDisabled.value
+        );
+    }
+
+    async function setAvatarAutoCleanup(value) {
+        avatarAutoCleanup.value = value;
+        await configRepository.setString('VRCX_avatarAutoCleanup', value);
+    }
+
+    /**
+     * @param {number|null} days - Number of days to keep. Null means delete all.
+     */
+    async function purgeAvatarFeedData(days) {
+        let cutoffDate = null;
+        if (days !== null) {
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            cutoffDate = cutoff.toJSON();
+        }
+
+        purgeInProgress.value = true;
+        const msgBox = toast.warning(
+            t(
+                'view.settings.advanced.advanced.database_cleanup.purge_in_progress'
+            ),
+            { duration: Infinity }
+        );
+
+        try {
+            await database.purgeAvatarFeedData(cutoffDate);
+            await database.vacuum();
+            toast.dismiss(msgBox);
+            toast.success(
+                t(
+                    'view.settings.advanced.advanced.database_cleanup.purge_complete'
+                )
+            );
+            // Brief delay before restart to show success message
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            VRCXUpdaterStore.restartVRCX(false);
+        } catch (err) {
+            console.error(err);
+            toast.dismiss(msgBox);
+            toast.error(
+                t(
+                    'view.settings.advanced.advanced.database_cleanup.purge_failed',
+                    { error: err }
+                )
+            );
+        } finally {
+            purgeInProgress.value = false;
+        }
+    }
+
+    /**
+     * Run auto-cleanup on startup if configured and enough time has passed.
+     * Reads config directly from configRepository to avoid race condition
+     * with initAdvancedSettings not having completed yet.
+     * @param {string} userId - Current user ID for per-user cleanup tracking.
+     */
+    async function runAvatarAutoCleanup(userId) {
+        const cleanupSetting = await configRepository.getString(
+            'VRCX_avatarAutoCleanup',
+            'Off'
+        );
+        if (cleanupSetting === 'Off') return;
+
+        const configKey = `VRCX_lastAvatarCleanupDate_${userId}`;
+        const lastCleanupStr = await configRepository.getString(configKey, '');
+        const now = new Date();
+
+        if (lastCleanupStr) {
+            const lastCleanup = new Date(lastCleanupStr);
+            const daysSinceLastCleanup =
+                (now - lastCleanup) / (1000 * 60 * 60 * 24);
+            if (daysSinceLastCleanup < 7) return;
+        }
+
+        const days = parseInt(cleanupSetting, 10);
+        if (isNaN(days) || days <= 0) return;
+
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        const cutoffDate = cutoff.toJSON();
+
+        try {
+            await database.purgeAvatarFeedData(cutoffDate);
+            await configRepository.setString(configKey, now.toJSON());
+            console.log(
+                `Auto-cleaned avatar feed data older than ${days} days`
+            );
+        } catch (err) {
+            console.error('Avatar auto-cleanup failed:', err);
+        }
+    }
+
     async function setSaveInstanceEmoji() {
-        state.saveInstanceEmoji = !state.saveInstanceEmoji;
+        saveInstanceEmoji.value = !saveInstanceEmoji.value;
         await configRepository.setBool(
             'VRCX_saveInstanceEmoji',
-            state.saveInstanceEmoji
+            saveInstanceEmoji.value
         );
     }
 
@@ -375,37 +633,93 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
         if (typeof path !== 'string') {
             path = '';
         }
-        state.ugcFolderPath = path;
+        ugcFolderPath.value = path;
         await configRepository.setString('VRCX_userGeneratedContentPath', path);
     }
 
     async function setAutoDeleteOldPrints() {
-        state.autoDeleteOldPrints = !state.autoDeleteOldPrints;
+        autoDeleteOldPrints.value = !autoDeleteOldPrints.value;
         await configRepository.setBool(
             'VRCX_autoDeleteOldPrints',
-            state.autoDeleteOldPrints
+            autoDeleteOldPrints.value
         );
     }
 
     async function setNotificationOpacity(value) {
-        state.notificationOpacity = value;
+        notificationOpacity.value = value;
         await configRepository.setInt('VRCX_notificationOpacity', value);
     }
 
     async function setVrcRegistryAutoBackup() {
-        state.vrcRegistryAutoBackup = !state.vrcRegistryAutoBackup;
+        vrcRegistryAutoBackup.value = !vrcRegistryAutoBackup.value;
         await configRepository.setBool(
             'VRCX_vrcRegistryAutoBackup',
-            state.vrcRegistryAutoBackup
+            vrcRegistryAutoBackup.value
         );
     }
 
     async function setVrcRegistryAskRestore() {
-        state.vrcRegistryAskRestore = !state.vrcRegistryAskRestore;
+        vrcRegistryAskRestore.value = !vrcRegistryAskRestore.value;
         await configRepository.setBool(
             'VRCX_vrcRegistryAskRestore',
-            state.vrcRegistryAskRestore
+            vrcRegistryAskRestore.value
         );
+    }
+
+    async function checkSentryConsent() {
+        modalStore
+            .confirm({
+                description: t(
+                    'view.settings.advanced.advanced.anonymous_error_reporting.consent_description'
+                ),
+                title: t(
+                    'view.settings.advanced.advanced.anonymous_error_reporting.consent_title'
+                )
+            })
+            .then(async ({ ok }) => {
+                if (!ok) return;
+                modalStore
+                    .confirm({
+                        description: t(
+                            'view.settings.advanced.advanced.anonymous_error_reporting.enabled_restart_description'
+                        ),
+                        title: t('confirm.restart_required_title'),
+                        confirmText: t('confirm.restart_now'),
+                        cancelText: t('confirm.restart_later')
+                    })
+                    .then(async ({ ok }) => {
+                        if (!ok) return;
+
+                        sentryErrorReporting.value = true;
+                        configRepository.setBool('VRCX_SentryEnabled', true);
+
+                        VRCXUpdaterStore.restartVRCX(false);
+                    });
+            });
+    }
+
+    async function setSentryErrorReporting() {
+        if (VRCXUpdaterStore.branch !== 'Nightly') return;
+
+        modalStore
+            .confirm({
+                description: t(
+                    'view.settings.advanced.advanced.anonymous_error_reporting.disabled_restart_description'
+                ),
+                title: t('confirm.restart_required_title'),
+                confirmText: t('confirm.restart_now'),
+                cancelText: t('confirm.restart_later')
+            })
+            .then(async ({ ok }) => {
+                if (!ok) return;
+
+                sentryErrorReporting.value = !sentryErrorReporting.value;
+                await configRepository.setBool(
+                    'VRCX_SentryEnabled',
+                    sentryErrorReporting.value
+                );
+                VRCXUpdaterStore.restartVRCX(false);
+            });
     }
 
     async function getSqliteTableSizes() {
@@ -439,7 +753,7 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
             database.getExternalTableSize()
         ]);
 
-        state.sqliteTableSizes = {
+        sqliteTableSizes.value = {
             gps,
             status,
             bio,
@@ -458,9 +772,9 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
 
     function handleSetAppLauncherSettings() {
         AppApi.SetAppLauncherSettings(
-            state.enableAppLauncher,
-            state.enableAppLauncherAutoClose,
-            state.enableAppLauncherRunProcessOnce
+            enableAppLauncher.value,
+            enableAppLauncherAutoClose.value,
+            enableAppLauncherRunProcessOnce.value
         );
     }
 
@@ -468,29 +782,28 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
      * @param {string} videoId
      */
     async function lookupYouTubeVideo(videoId) {
-        if (!state.youTubeApi) {
+        if (!youTubeApiKey.value) {
             console.warn('no Youtube API key configured');
             return null;
         }
         let data = null;
         let apiKey = '';
-        if (state.youTubeApiKey) {
-            apiKey = state.youTubeApiKey;
+        if (youTubeApiKey.value) {
+            apiKey = youTubeApiKey.value;
         }
         try {
+            const url = `https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(
+                videoId
+            )}&part=snippet,contentDetails&key=${apiKey}`;
             const response = await webApiService.execute({
-                url: `https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(
-                    videoId
-                )}&part=snippet,contentDetails&key=${apiKey}`,
+                url,
                 method: 'GET',
                 headers: {
                     Referer: 'https://vrcx.app'
                 }
             });
             const json = JSON.parse(response.data);
-            if (AppGlobal.debugWebRequests) {
-                console.log(json, response);
-            }
+            logWebRequest('[EXTERNAL GET]', url, `(${response.status})`, json);
             if (response.status === 200) {
                 data = json;
             } else {
@@ -502,112 +815,210 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
         return data;
     }
 
+    async function translateText(text, targetLang, overrides) {
+        if (!translationApi.value) {
+            toast.warning('Translation API disabled');
+            return null;
+        }
+
+        const provider =
+            overrides?.type || translationApiType.value || 'google';
+
+        if (provider === 'google') {
+            const keyToUse = overrides?.key ?? translationApiKey.value;
+            if (!keyToUse) {
+                toast.warning('No Translation API key configured');
+                return null;
+            }
+            try {
+                const url = `https://translation.googleapis.com/language/translate/v2?key=${keyToUse}`;
+                const response = await webApiService.execute({
+                    url,
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Referer: 'https://vrcx.app'
+                    },
+                    body: JSON.stringify({
+                        q: text,
+                        target: targetLang,
+                        format: 'text'
+                    })
+                });
+                if (response.status !== 200) {
+                    throw new Error(
+                        `Translation API error: ${response.status} - ${response.data}`
+                    );
+                }
+                const data = JSON.parse(response.data);
+                logWebRequest(
+                    '[EXTERNAL POST]',
+                    url,
+                    `(${response.status})`,
+                    data
+                );
+                return data.data.translations[0].translatedText;
+            } catch (err) {
+                toast.error(`Translation failed: ${err.message}`);
+                return null;
+            }
+        }
+
+        const endpoint =
+            overrides?.endpoint ||
+            translationApiEndpoint.value ||
+            'https://api.openai.com/v1/chat/completions';
+        const model =
+            overrides?.model || translationApiModel.value || 'gpt-5.1';
+        const prompt =
+            overrides?.prompt ||
+            translationApiPrompt.value ||
+            `You are a translation assistant. Translate the user message into ${targetLang}. Only return the translated text.`;
+
+        if (!endpoint || !model) {
+            toast.warning('Translation endpoint/model missing');
+            return null;
+        }
+
+        const headers = {
+            'Content-Type': 'application/json',
+            Referer: 'https://vrcx.app',
+            'HTTP-Referer': 'https://vrcx.app',
+            'X-Title': 'VRCX'
+        };
+        const keyToUse = overrides?.key ?? translationApiKey.value;
+        if (keyToUse) {
+            headers.Authorization = `Bearer ${keyToUse}`;
+        }
+
+        try {
+            const response = await webApiService.execute({
+                url: endpoint,
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    model,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: prompt
+                        },
+                        {
+                            role: 'user',
+                            content: text
+                        }
+                    ]
+                })
+            });
+
+            if (response.status !== 200) {
+                throw new Error(
+                    `Translation API error: ${response.status} - ${response.data}`
+                );
+            }
+
+            const data = JSON.parse(response.data);
+            logWebRequest(
+                '[EXTERNAL POST]',
+                endpoint,
+                `(${response.status})`,
+                data
+            );
+
+            const translated = data?.choices?.[0]?.message?.content;
+            return typeof translated === 'string' ? translated.trim() : null;
+        } catch (err) {
+            toast.error(`Translation failed`);
+            return null;
+        }
+    }
+
     function cropPrintsChanged() {
-        if (!state.cropInstancePrints) return;
-        $app.$confirm(
-            t(
-                'view.settings.advanced.advanced.save_instance_prints_to_file.crop_convert_old'
-            ),
-            {
-                confirmButtonText: t(
+        if (!cropInstancePrints.value) return;
+        modalStore
+            .confirm({
+                description: t(
+                    'view.settings.advanced.advanced.save_instance_prints_to_file.crop_convert_old'
+                ),
+                title: '',
+                confirmText: t(
                     'view.settings.advanced.advanced.save_instance_prints_to_file.crop_convert_old_confirm'
                 ),
-                cancelButtonText: t(
+                cancelText: t(
                     'view.settings.advanced.advanced.save_instance_prints_to_file.crop_convert_old_cancel'
-                ),
-                type: 'info',
-                showInput: false,
-                callback: async (action) => {
-                    if (action === 'confirm') {
-                        const msgBox = $app.$message({
-                            message: 'Batch print cropping in progress...',
-                            type: 'warning',
-                            duration: 0
-                        });
-                        try {
-                            await AppApi.CropAllPrints(state.ugcFolderPath);
-                            $app.$message({
-                                message: 'Batch print cropping complete',
-                                type: 'success'
-                            });
-                        } catch (err) {
-                            console.error(err);
-                            $app.$message({
-                                message: `Batch print cropping failed: ${err}`,
-                                type: 'error'
-                            });
-                        } finally {
-                            msgBox.close();
-                        }
-                    }
+                )
+            })
+            .then(async ({ ok }) => {
+                if (!ok) return;
+                const msgBox = toast.warning(
+                    'Batch print cropping in progress...',
+                    { duration: Infinity, position: 'bottom-right' }
+                );
+                try {
+                    await AppApi.CropAllPrints(ugcFolderPath.value);
+                    toast.success('Batch print cropping complete');
+                } catch (err) {
+                    console.error(err);
+                    toast.error(`Batch print cropping failed: ${err}`);
+                } finally {
+                    toast.dismiss(msgBox);
                 }
-            }
-        );
+            })
+            .catch(() => {});
     }
 
     function askDeleteAllScreenshotMetadata() {
-        $app.$confirm(
-            t(
-                'view.settings.advanced.advanced.delete_all_screenshot_metadata.ask'
-            ),
-            {
-                confirmButtonText: t(
+        modalStore
+            .confirm({
+                description: t(
+                    'view.settings.advanced.advanced.delete_all_screenshot_metadata.ask'
+                ),
+                title: '',
+                confirmText: t(
                     'view.settings.advanced.advanced.delete_all_screenshot_metadata.confirm_yes'
                 ),
-                cancelButtonText: t(
+                cancelText: t(
                     'view.settings.advanced.advanced.delete_all_screenshot_metadata.confirm_no'
-                ),
-                type: 'warning',
-                showInput: false,
-                callback: async (action) => {
-                    if (action === 'confirm') {
-                        deleteAllScreenshotMetadata();
-                    }
-                }
-            }
-        );
+                )
+            })
+            .then(({ ok }) => {
+                if (!ok) return;
+                deleteAllScreenshotMetadata();
+            })
+            .catch(() => {});
     }
 
     function deleteAllScreenshotMetadata() {
-        $app.$confirm(
-            t(
-                'view.settings.advanced.advanced.delete_all_screenshot_metadata.confirm'
-            ),
-            {
-                confirmButtonText: t(
+        modalStore
+            .confirm({
+                description: t(
+                    'view.settings.advanced.advanced.delete_all_screenshot_metadata.confirm'
+                ),
+                title: '',
+                confirmText: t(
                     'view.settings.advanced.advanced.save_instance_prints_to_file.crop_convert_old_confirm'
                 ),
-                cancelButtonText: t(
+                cancelText: t(
                     'view.settings.advanced.advanced.save_instance_prints_to_file.crop_convert_old_cancel'
-                ),
-                type: 'warning',
-                showInput: false,
-                callback: async (action) => {
-                    if (action === 'confirm') {
-                        const msgBox = $app.$message({
-                            message: 'Batch metadata removal in progress...',
-                            type: 'warning',
-                            duration: 0
-                        });
-                        try {
-                            await AppApi.DeleteAllScreenshotMetadata();
-                            $app.$message({
-                                message: 'Batch metadata removal complete',
-                                type: 'success'
-                            });
-                        } catch (err) {
-                            console.error(err);
-                            $app.$message({
-                                message: `Batch metadata removal failed: ${err}`,
-                                type: 'error'
-                            });
-                        } finally {
-                            msgBox.close();
-                        }
-                    }
+                )
+            })
+            .then(async ({ ok }) => {
+                if (!ok) return;
+                const msgBox = toast.warning(
+                    'Batch metadata removal in progress...',
+                    { duration: Infinity, position: 'bottom-right' }
+                );
+                try {
+                    await AppApi.DeleteAllScreenshotMetadata();
+                    toast.success('Batch metadata removal complete');
+                } catch (err) {
+                    console.error(err);
+                    toast.error(`Batch metadata removal failed: ${err}`);
+                } finally {
+                    toast.dismiss(msgBox);
                 }
-            }
-        );
+            })
+            .catch(() => {});
     }
 
     function resetUGCFolder() {
@@ -615,10 +1026,10 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
     }
 
     async function openUGCFolder() {
-        if (LINUX && state.ugcFolderPath == null) {
+        if (LINUX && ugcFolderPath.value == null) {
             resetUGCFolder();
         }
-        await AppApi.OpenUGCPhotosFolder(state.ugcFolderPath);
+        await AppApi.OpenUGCPhotosFolder(ugcFolderPath.value);
     }
 
     async function folderSelectorDialog(oldPath) {
@@ -640,58 +1051,59 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
     }
 
     async function openUGCFolderSelector() {
-        const path = await folderSelectorDialog(state.ugcFolderPath);
+        const path = await folderSelectorDialog(ugcFolderPath.value);
         await setUGCFolderPath(path);
     }
 
     async function showVRChatConfig() {
-        state.isVRChatConfigDialogVisible = true;
+        isVRChatConfigDialogVisible.value = true;
         if (!gameStore.VRChatUsedCacheSize) {
             gameStore.getVRChatCacheSize();
         }
     }
 
     function promptAutoClearVRCXCacheFrequency() {
-        $app.$prompt(
-            t('prompt.auto_clear_cache.description'),
-            t('prompt.auto_clear_cache.header'),
-            {
-                distinguishCancelAndClose: true,
-                confirmButtonText: t('prompt.auto_clear_cache.ok'),
-                cancelButtonText: t('prompt.auto_clear_cache.cancel'),
+        modalStore
+            .prompt({
+                title: t('prompt.auto_clear_cache.header'),
+                description: t('prompt.auto_clear_cache.description'),
+                confirmText: t('prompt.auto_clear_cache.ok'),
+                cancelText: t('prompt.auto_clear_cache.cancel'),
                 inputValue: (
                     vrcxStore.clearVRCXCacheFrequency /
                     3600 /
                     2
                 ).toString(),
-                inputPattern: /\d+$/,
-                inputErrorMessage: t('prompt.auto_clear_cache.input_error'),
-                callback: async (action, instance) => {
-                    if (
-                        action === 'confirm' &&
-                        instance.inputValue &&
-                        !isNaN(parseInt(instance.inputValue, 10))
-                    ) {
-                        vrcxStore.clearVRCXCacheFrequency = Math.trunc(
-                            parseInt(instance.inputValue, 10) * 3600 * 2
-                        );
-                        await configRepository.setString(
-                            'VRCX_clearVRCXCacheFrequency',
-                            vrcxStore.clearVRCXCacheFrequency.toString()
-                        );
-                    }
+                pattern: /\d+$/,
+                errorMessage: t('prompt.auto_clear_cache.input_error')
+            })
+            .then(async ({ ok, value }) => {
+                if (!ok) return;
+                if (value && !isNaN(parseInt(value, 10))) {
+                    vrcxStore.setClearVRCXCacheFrequency(
+                        parseInt(value, 10) * 3600 * 2
+                    );
+                    updateLoopStore.setNextClearVRCXCacheCheck(
+                        vrcxStore.clearVRCXCacheFrequency / 2
+                    );
+                    await configRepository.setString(
+                        'VRCX_clearVRCXCacheFrequency',
+                        vrcxStore.clearVRCXCacheFrequency.toString()
+                    );
                 }
-            }
-        );
+            })
+            .catch(() => {});
     }
 
     return {
         state,
 
+        bioLanguage,
         enablePrimaryPassword,
         relaunchVRChatAfterCrash,
         vrcQuitFix,
         autoSweepVRChatCache,
+        selfInviteOverride,
         saveInstancePrints,
         cropInstancePrints,
         saveInstanceStickers,
@@ -703,12 +1115,20 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
         screenshotHelperModifyFilename,
         screenshotHelperCopyToClipboard,
         youTubeApi,
+        translationApi,
         youTubeApiKey,
+        translationApiKey,
+        translationApiType,
+        translationApiEndpoint,
+        translationApiModel,
+        translationApiPrompt,
         progressPie,
         progressPieFilter,
         showConfirmationOnSwitchAvatar,
         gameLogDisabled,
         sqliteTableSizes,
+        avatarAutoCleanup,
+        purgeInProgress,
         ugcFolderPath,
         currentUserInventory,
         autoDeleteOldPrints,
@@ -717,11 +1137,15 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
         saveInstanceEmoji,
         vrcRegistryAutoBackup,
         vrcRegistryAskRestore,
+        sentryErrorReporting,
 
+        setEnablePrimaryPassword,
         setEnablePrimaryPasswordConfigRepository,
+        setBioLanguage,
         setRelaunchVRChatAfterCrash,
         setVrcQuitFix,
         setAutoSweepVRChatCache,
+        setSelfInviteOverride,
         setSaveInstancePrints,
         setCropInstancePrints,
         setSaveInstanceStickers,
@@ -733,11 +1157,20 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
         setScreenshotHelperModifyFilename,
         setScreenshotHelperCopyToClipboard,
         setYouTubeApi,
+        setTranslationApi,
         setYouTubeApiKey,
+        setTranslationApiKey,
+        setTranslationApiType,
+        setTranslationApiEndpoint,
+        setTranslationApiModel,
+        setTranslationApiPrompt,
         setProgressPie,
         setProgressPieFilter,
         setShowConfirmationOnSwitchAvatar,
         setGameLogDisabled,
+        setAvatarAutoCleanup,
+        purgeAvatarFeedData,
+        runAvatarAutoCleanup,
         setUGCFolderPath,
         cropPrintsChanged,
         setAutoDeleteOldPrints,
@@ -745,6 +1178,8 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
         getSqliteTableSizes,
         handleSetAppLauncherSettings,
         lookupYouTubeVideo,
+        translateText,
+        fetchAvailableModels,
         resetUGCFolder,
         openUGCFolder,
         openUGCFolderSelector,
@@ -754,6 +1189,8 @@ export const useAdvancedSettingsStore = defineStore('AdvancedSettings', () => {
         setSaveInstanceEmoji,
         setVrcRegistryAutoBackup,
         setVrcRegistryAskRestore,
+        setSentryErrorReporting,
+        checkSentryConsent,
         askDeleteAllScreenshotMetadata
     };
 });

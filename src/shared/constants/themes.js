@@ -1,51 +1,70 @@
 export const THEME_CONFIG = {
     system: {
-        cssFile: '',
-        requiresDarkBase: false,
         isDark: 'system',
         name: 'System'
     },
     light: {
-        cssFile: '',
-        requiresDarkBase: false,
         isDark: false,
         name: 'Light'
     },
-    dark: { cssFile: '', requiresDarkBase: true, isDark: true, name: 'Dark' },
-    darkblue: {
-        cssFile: 'theme.darkblue.css',
-        requiresDarkBase: true,
+    dark: {
         isDark: true,
-        name: 'Dark Blue'
+        name: 'Dark'
     },
-    amoled: {
-        cssFile: 'theme.amoled.css',
-        requiresDarkBase: true,
+    midnight: {
         isDark: true,
-        name: 'Amoled'
-    },
-    darkvanillaold: {
-        cssFile: 'theme.darkvanillaold.css',
-        requiresDarkBase: true,
-        isDark: true,
-        name: 'Dark Vanilla Old'
-    },
-    darkvanilla: {
-        cssFile: 'theme.darkvanilla.css',
-        requiresDarkBase: true,
-        isDark: true,
-        name: 'Dark Vanilla'
-    },
-    pink: {
-        cssFile: 'theme.pink.css',
-        requiresDarkBase: true,
-        isDark: true,
-        name: 'Pink'
-    },
-    material3: {
-        cssFile: 'theme.material3.css',
-        requiresDarkBase: true,
-        isDark: true,
-        name: 'Material 3'
+        name: 'Midnight',
+        file: 'midnight.css'
     }
 };
+
+export const THEME_COLORS = [
+    {
+        key: 'default',
+        label: 'Zinc',
+        swatch: 'oklch(0.27 0 0)',
+        file: null
+    },
+    {
+        key: 'blue',
+        label: 'Blue',
+        swatch: 'oklch(0.488 0.243 264.376)',
+        file: 'blue.css'
+    },
+    {
+        key: 'green',
+        label: 'Green',
+        swatch: 'oklch(0.648 0.2 131.684)',
+        file: 'green.css'
+    },
+    {
+        key: 'orange',
+        label: 'Orange',
+        swatch: 'oklch(0.646 0.222 41.116)',
+        file: 'orange.css'
+    },
+    {
+        key: 'red',
+        label: 'Red',
+        swatch: 'oklch(0.577 0.245 27.325)',
+        file: 'red.css'
+    },
+    {
+        key: 'rose',
+        label: 'Rose',
+        swatch: 'oklch(0.586 0.253 17.585)',
+        file: 'rose.css'
+    },
+    {
+        key: 'violet',
+        label: 'Violet',
+        swatch: 'oklch(0.541 0.281 293.009)',
+        file: 'violet.css'
+    },
+    {
+        key: 'yellow',
+        label: 'Yellow',
+        swatch: 'oklch(0.852 0.199 91.936)',
+        file: 'yellow.css'
+    }
+];

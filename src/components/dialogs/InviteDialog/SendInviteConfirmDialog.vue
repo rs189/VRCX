@@ -1,45 +1,52 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="visible"
-        :title="t('dialog.invite_message.header')"
-        width="400px"
-        append-to-body
-        @close="cancelInviteConfirm">
-        <div style="font-size: 12px">
-            <span>{{ t('dialog.invite_message.confirmation') }}</span>
-        </div>
+    <Dialog
+        :open="isSendInviteConfirmDialogVisible"
+        @update:open="
+            (open) => {
+                if (!open) cancelInviteConfirm();
+            }
+        ">
+        <DialogContent class="x-dialog sm:max-w-100">
+            <DialogHeader>
+                <DialogTitle>{{ t(`dialog.${i18nPrefix}.header`) }}</DialogTitle>
+            </DialogHeader>
 
-        <template #footer>
-            <el-button type="small" @click="cancelInviteConfirm">
-                {{ t('dialog.invite_message.cancel') }}
-            </el-button>
-            <el-button type="primary" size="small" @click="sendInviteConfirm">
-                {{ t('dialog.invite_message.confirm') }}
-            </el-button>
-        </template>
-    </safe-dialog>
+            <div class="text-xs">
+                <span>{{ t(`dialog.${i18nPrefix}.confirmation`) }}</span>
+            </div>
+
+            <DialogFooter>
+                <Button variant="secondary" @click="cancelInviteConfirm">
+                    {{ t(`dialog.${i18nPrefix}.cancel`) }}
+                </Button>
+                <Button @click="sendInviteConfirm">
+                    {{ t('common.actions.confirm') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { computed } from 'vue';
     import { storeToRefs } from 'pinia';
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
     import { instanceRequest, notificationRequest } from '../../../api';
-    import { parseLocation } from '../../../shared/utils';
     import { useGalleryStore, useUserStore } from '../../../stores';
+    import { parseLocation } from '../../../shared/utils';
 
     const { t } = useI18n();
-
-    const instance = getCurrentInstance();
-    const $message = instance.proxy.$message;
 
     const { uploadImage } = storeToRefs(useGalleryStore());
     const { clearInviteImageUpload } = useGalleryStore();
     const { currentUser } = storeToRefs(useUserStore());
 
     const props = defineProps({
-        visible: {
+        isSendInviteConfirmDialogVisible: {
             type: Boolean,
             required: true
         },
@@ -54,10 +61,15 @@
         }
     });
 
-    const emit = defineEmits(['update:visible', 'closeInviteDialog']);
+    const emit = defineEmits(['update:isSendInviteConfirmDialogVisible', 'closeInviteDialog']);
+
+    const i18nPrefix = computed(() => {
+        const messageType = props.sendInviteDialog?.messageSlot?.messageType;
+        return messageType === 'request' ? 'invite_request_message' : 'invite_message';
+    });
 
     function cancelInviteConfirm() {
-        emit('update:visible', false);
+        emit('update:isSendInviteConfirmDialogVisible', false);
     }
 
     function sendInviteConfirm() {
@@ -106,14 +118,12 @@
                 } else {
                     J.loading = false;
                     J.visible = false;
-                    $message({
-                        message: 'Invite message sent',
-                        type: 'success'
-                    });
+                    toast.success('Invite message sent');
                 }
             };
             inviteLoop();
-        } else if (messageType === 'invite') {
+        } else if (messageType === 'message') {
+            // invite message
             D.params.messageSlot = slot;
             if (uploadImage.value) {
                 notificationRequest
@@ -122,10 +132,7 @@
                         throw err;
                     })
                     .then((args) => {
-                        $message({
-                            message: 'Invite photo message sent',
-                            type: 'success'
-                        });
+                        toast.success('Invite photo message sent');
                         return args;
                     });
             } else {
@@ -135,10 +142,7 @@
                         throw err;
                     })
                     .then((args) => {
-                        $message({
-                            message: 'Invite message sent',
-                            type: 'success'
-                        });
+                        toast.success('Invite message sent');
                         return args;
                     });
             }
@@ -152,10 +156,7 @@
                         throw err;
                     })
                     .then((args) => {
-                        $message({
-                            message: 'Request invite photo message sent',
-                            type: 'success'
-                        });
+                        toast.success('Request invite photo message sent');
                         return args;
                     });
             } else {
@@ -165,10 +166,7 @@
                         throw err;
                     })
                     .then((args) => {
-                        $message({
-                            message: 'Request invite message sent',
-                            type: 'success'
-                        });
+                        toast.success('Request invite message sent');
                         return args;
                     });
             }

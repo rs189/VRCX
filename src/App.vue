@@ -1,107 +1,77 @@
-<script>
-    // @ts-ignore
-    import template from './app.pug';
-    import Vue, { onMounted } from 'vue';
+<template>
+    <TooltipProvider>
+        <MacOSTitleBar></MacOSTitleBar>
 
+        <div
+            id="x-app"
+            class="flex w-screen h-screen overflow-hidden cursor-default [&>.x-container]:pt-[15px]"
+            :class="{ 'pt-7': isMacOS }">
+            <RouterView></RouterView>
+            <Toaster position="top-center" :theme="theme"></Toaster>
+
+            <AlertDialogModal></AlertDialogModal>
+            <PromptDialogModal></PromptDialogModal>
+            <OtpDialogModal></OtpDialogModal>
+            <DatabaseUpgradeDialog></DatabaseUpgradeDialog>
+
+            <VRCXUpdateDialog></VRCXUpdateDialog>
+        </div>
+        <div id="x-dialog-portal" class="x-dialog-portal"></div>
+    </TooltipProvider>
+</template>
+
+<script setup>
+    import { computed, onBeforeMount, onMounted } from 'vue';
+
+    import { addGameLogEvent, getGameLogTable } from './coordinators/gameLogCoordinator';
+    import {
+        runCheckVRChatDebugLoggingFlow,
+        runUpdateIsGameRunningFlow,
+        runUpdateIsHmdAfkFlow
+    } from './coordinators/gameCoordinator';
+    import { Toaster } from './components/ui/sonner';
+    import { TooltipProvider } from './components/ui/tooltip';
     import { createGlobalStores } from './stores';
-    import { watchState } from './service/watchState';
+    import { initNoty } from './plugins/noty';
 
-    import Login from './views/Login/Login.vue';
-    import NavMenu from './components/NavMenu.vue';
-    import Sidebar from './views/Sidebar/Sidebar.vue';
-    import Feed from './views/Feed/Feed.vue';
-    import GameLog from './views/GameLog/GameLog.vue';
-    import PlayerList from './views/PlayerList/PlayerList.vue';
-    import Search from './views/Search/Search.vue';
-    import Favorites from './views/Favorites/Favorites.vue';
-    import FriendLog from './views/FriendLog/FriendLog.vue';
-    import Moderation from './views/Moderation/Moderation.vue';
-    import Notification from './views/Notifications/Notification.vue';
-    import FriendList from './views/FriendList/FriendList.vue';
-    import Charts from './views/Charts/Charts.vue';
-    import Tools from './views/Tools/Tools.vue';
-    import Profile from './views/Profile/Profile.vue';
-    import Settings from './views/Settings/Settings.vue';
-
-    import UserDialog from './components/dialogs/UserDialog/UserDialog.vue';
-    import WorldDialog from './components/dialogs/WorldDialog/WorldDialog.vue';
-    import AvatarDialog from './components/dialogs/AvatarDialog/AvatarDialog.vue';
-    import GroupDialog from './components/dialogs/GroupDialog/GroupDialog.vue';
-    import GroupMemberModerationDialog from './components/dialogs/GroupDialog/GroupMemberModerationDialog.vue';
-    import GalleryDialog from './components/dialogs/GalleryDialog.vue';
-    import FullscreenImageDialog from './components/dialogs/FullscreenImageDialog.vue';
-    import PreviousInstancesInfoDialog from './components/dialogs/PreviousInstancesDialog/PreviousInstancesInfoDialog.vue';
-    import LaunchDialog from './components/dialogs/LaunchDialog.vue';
-    import LaunchOptionsDialog from './views/Settings/dialogs/LaunchOptionsDialog.vue';
-    import FriendImportDialog from './views/Favorites/dialogs/FriendImportDialog.vue';
-    import WorldImportDialog from './views/Favorites/dialogs/WorldImportDialog.vue';
-    import AvatarImportDialog from './views/Favorites/dialogs/AvatarImportDialog.vue';
-    import ChooseFavoriteGroupDialog from './components/dialogs/ChooseFavoriteGroupDialog.vue';
-    import EditInviteMessageDialog from './views/Profile/dialogs/EditInviteMessageDialog.vue';
+    import AlertDialogModal from './components/ui/alert-dialog/AlertDialogModal.vue';
+    import DatabaseUpgradeDialog from './components/dialogs/DatabaseUpgradeDialog.vue';
+    import MacOSTitleBar from './components/MacOSTitleBar.vue';
+    import OtpDialogModal from './components/ui/dialog/OtpDialogModal.vue';
+    import PromptDialogModal from './components/ui/dialog/PromptDialogModal.vue';
     import VRCXUpdateDialog from './components/dialogs/VRCXUpdateDialog.vue';
-    import VRChatConfigDialog from './views/Settings/dialogs/VRChatConfigDialog.vue';
-    import PrimaryPasswordDialog from './views/Settings/dialogs/PrimaryPasswordDialog.vue';
 
-    import { utils } from './shared/utils/_utils';
+    import '@/styles/globals.css';
 
-    export default {
-        template,
-        components: {
-            Login,
-            NavMenu,
-            Sidebar,
-            Feed,
-            GameLog,
-            PlayerList,
-            Search,
-            Favorites,
-            FriendLog,
-            Moderation,
-            Notification,
-            FriendList,
-            Charts,
-            Tools,
-            Profile,
-            Settings,
+    console.log(`isLinux: ${LINUX}`);
 
-            UserDialog,
-            WorldDialog,
-            AvatarDialog,
-            GroupDialog,
-            GroupMemberModerationDialog,
-            GalleryDialog,
-            FullscreenImageDialog,
-            PreviousInstancesInfoDialog,
-            LaunchDialog,
-            LaunchOptionsDialog,
-            FriendImportDialog,
-            WorldImportDialog,
-            AvatarImportDialog,
-            ChooseFavoriteGroupDialog,
-            EditInviteMessageDialog,
-            VRCXUpdateDialog,
-            VRChatConfigDialog,
-            PrimaryPasswordDialog
-        },
-        setup() {
-            const store = createGlobalStores();
-            Vue.prototype.store = store;
-            Vue.prototype.utils = utils;
+    const isMacOS = computed(() => navigator.platform.includes('Mac'));
 
-            store.updateLoop.updateLoop();
+    const theme = computed(() => {
+        return store.appearanceSettings.isDarkMode ? 'dark' : 'light';
+    });
 
-            onMounted(async () => {
-                store.gameLog.getGameLogTable();
-                await store.auth.migrateStoredUsers();
-                store.auth.autoLoginAfterMounted();
-                store.vrcx.checkAutoBackupRestoreVrcRegistry();
-                store.game.checkVRChatDebugLogging();
-            });
+    initNoty();
 
-            return {
-                store,
-                watchState
-            };
-        }
-    };
+    const store = createGlobalStores();
+
+    if (typeof window !== 'undefined') {
+        window.$pinia = store;
+        // Bridge: attach coordinator functions to store for C# IPC callbacks
+        store.game.updateIsGameRunning = runUpdateIsGameRunningFlow;
+        store.game.updateIsHmdAfk = runUpdateIsHmdAfkFlow;
+        store.gameLog.addGameLogEvent = addGameLogEvent;
+    }
+
+    onBeforeMount(() => {
+        store.updateLoop.updateLoop();
+    });
+
+    onMounted(async () => {
+        getGameLogTable();
+        await store.auth.migrateStoredUsers();
+        store.auth.autoLoginAfterMounted();
+        store.vrcx.checkAutoBackupRestoreVrcRegistry();
+        runCheckVRChatDebugLoggingFlow();
+    });
 </script>

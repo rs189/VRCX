@@ -1,6 +1,6 @@
 /**
  *
- * @param {array} array
+ * @param {Array} array
  * @param {*} item
  * @returns {boolean}
  */
@@ -17,8 +17,8 @@ function removeFromArray(array, item) {
 
 /**
  *
- * @param {array} a
- * @param {array} b
+ * @param {Array} a
+ * @param {Array} b
  * @returns {boolean}
  */
 function arraysMatch(a, b) {
@@ -36,7 +36,7 @@ function arraysMatch(a, b) {
 
 /**
  *
- * @param {array} array
+ * @param {Array} array
  * @param {number} fromIndex
  * @param {number} toIndex
  * @returns {void}
@@ -56,4 +56,16 @@ function moveArrayItem(array, fromIndex, toIndex) {
     array.splice(toIndex, 0, item);
 }
 
-export { removeFromArray, arraysMatch, moveArrayItem };
+function replaceReactiveObject(target, source) {
+    for (const key in target) {
+        if (Object.prototype.hasOwnProperty.call(target, key)) {
+            delete target[key];
+        }
+    }
+
+    for (const key in source) {
+        target[key] = source[key];
+    }
+}
+
+export { removeFromArray, arraysMatch, moveArrayItem, replaceReactiveObject };

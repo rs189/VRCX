@@ -1,78 +1,95 @@
 <template>
-    <safe-dialog
-        ref="setAvatarStylesDialog"
-        class="x-dialog"
-        :visible.sync="setAvatarStylesDialog.visible"
-        :title="t('dialog.set_avatar_styles.header')"
-        width="400px"
-        append-to-body>
-        <template v-if="setAvatarStylesDialog.visible">
-            <div>
-                <span>{{ t('dialog.set_avatar_styles.primary_style') }}</span>
-                <el-select
-                    v-model="setAvatarStylesDialog.primaryStyle"
-                    :placeholder="t('dialog.set_avatar_styles.select_style')"
-                    size="small"
-                    clearable
-                    style="display: inline-block">
-                    <el-option
-                        v-for="(style, index) in setAvatarStylesDialog.availableAvatarStyles"
-                        :key="index"
-                        :label="style"
-                        :value="style"></el-option>
-                </el-select>
-            </div>
-            <br />
-            <div>
-                <span>{{ t('dialog.set_avatar_styles.secondary_style') }}</span>
-                <el-select
-                    v-model="setAvatarStylesDialog.secondaryStyle"
-                    :placeholder="t('dialog.set_avatar_styles.select_style')"
-                    size="small"
-                    clearable
-                    style="display: inline-block">
-                    <el-option
-                        v-for="(style, index) in setAvatarStylesDialog.availableAvatarStyles"
-                        :key="index"
-                        :label="style"
-                        :value="style"></el-option>
-                </el-select>
-            </div>
-            <br />
-            <div style="font-size: 12px; margin-top: 10px">{{ $t('dialog.set_world_tags.author_tags') }}<br /></div>
-            <el-input
-                v-model="setAvatarStylesDialog.authorTags"
-                type="textarea"
-                size="mini"
-                show-word-limit
-                :autosize="{ minRows: 2, maxRows: 5 }"
-                placeholder=""
-                style="margin-top: 10px"></el-input>
-        </template>
-        <template #footer>
-            <el-button size="small" @click="setAvatarStylesDialog.visible = false">{{
-                t('dialog.set_avatar_styles.cancel')
-            }}</el-button>
-            <el-button type="primary" size="small" @click="saveSetAvatarStylesDialog">{{
-                t('dialog.set_avatar_styles.save')
-            }}</el-button>
-        </template>
-    </safe-dialog>
+    <Dialog
+        :open="setAvatarStylesDialog.visible"
+        @update:open="
+            (open) => {
+                if (!open) closeSetAvatarStylesDialog();
+            }
+        ">
+        <DialogContent class="x-dialog sm:max-w-100">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.set_avatar_styles.header') }}</DialogTitle>
+            </DialogHeader>
+
+            <template v-if="setAvatarStylesDialog.visible">
+                <div>
+                    <span>{{ t('dialog.set_avatar_styles.primary_style') }}</span>
+                    <br />
+                    <Select
+                        :model-value="setAvatarStylesDialog.primaryStyle"
+                        @update:modelValue="(v) => updateDialog({ primaryStyle: v === SELECT_CLEAR_VALUE ? '' : v })">
+                        <SelectTrigger size="sm" style="display: inline-flex">
+                            <SelectValue :placeholder="t('dialog.set_avatar_styles.select_style')" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem :value="SELECT_CLEAR_VALUE">{{ t('dialog.gallery_select.none') }}</SelectItem>
+                            <SelectItem
+                                v-for="(style, index) in setAvatarStylesDialog.availableAvatarStyles"
+                                :key="index"
+                                :value="style">
+                                {{ style }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div>
+                    <span>{{ t('dialog.set_avatar_styles.secondary_style') }}</span>
+                    <br />
+                    <Select
+                        :model-value="setAvatarStylesDialog.secondaryStyle"
+                        @update:modelValue="(v) => updateDialog({ secondaryStyle: v === SELECT_CLEAR_VALUE ? '' : v })">
+                        <SelectTrigger size="sm" style="display: inline-flex">
+                            <SelectValue :placeholder="t('dialog.set_avatar_styles.select_style')" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem :value="SELECT_CLEAR_VALUE">{{ t('dialog.gallery_select.none') }}</SelectItem>
+                            <SelectItem
+                                v-for="(style, index) in setAvatarStylesDialog.availableAvatarStyles"
+                                :key="index"
+                                :value="style">
+                                {{ style }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div class="text-xs">{{ t('dialog.set_world_tags.author_tags') }}</div>
+
+                <InputGroupTextareaField
+                    :model-value="setAvatarStylesDialog.authorTags"
+                    :autosize="{ minRows: 2, maxRows: 5 }"
+                    :rows="2"
+                    placeholder=""
+                    input-class="resize-none mt-2"
+                    @update:modelValue="(v) => updateDialog({ authorTags: v })" />
+            </template>
+
+            <DialogFooter>
+                <Button variant="secondary" class="mr-2" @click="closeSetAvatarStylesDialog">{{
+                    t('dialog.set_avatar_styles.cancel')
+                }}</Button>
+                <Button @click="saveSetAvatarStylesDialog">
+                    {{ t('dialog.set_avatar_styles.save') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { watch, getCurrentInstance } from 'vue';
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+    import { watch } from 'vue';
 
-    import { useI18n } from 'vue-i18n-bridge';
+    import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
+    import { avatarRequest, queryRequest } from '../../../api';
     import { arraysMatch } from '../../../shared/utils';
-    import { avatarRequest } from '../../../api';
     import { useAvatarStore } from '../../../stores';
-
-    const { t } = useI18n();
-    const instance = getCurrentInstance();
-    const $message = instance.proxy.$message;
-
-    const { applyAvatar } = useAvatarStore();
+    import { applyAvatar } from '../../../coordinators/avatarCoordinator';
 
     const props = defineProps({
         setAvatarStylesDialog: {
@@ -80,6 +97,12 @@
             required: true
         }
     });
+
+    const emit = defineEmits(['update:setAvatarStylesDialog']);
+
+    const { t } = useI18n();
+
+    const SELECT_CLEAR_VALUE = '__clear__';
 
     watch(
         () => props.setAvatarStylesDialog.visible,
@@ -90,36 +113,68 @@
         }
     );
 
-    async function getAvatarStyles() {
-        const ref = await avatarRequest.getAvailableAvatarStyles();
-        const styles = [];
-        const stylesMap = new Map();
-        for (const style of ref.json) {
-            styles.push(style.styleName);
-            stylesMap.set(style.styleName, style.id);
-        }
-        props.setAvatarStylesDialog.availableAvatarStyles = styles;
-        props.setAvatarStylesDialog.availableAvatarStylesMap = stylesMap;
+    /**
+     *
+     * @param patch
+     */
+    function updateDialog(patch) {
+        emit('update:setAvatarStylesDialog', {
+            ...props.setAvatarStylesDialog,
+            ...patch
+        });
     }
 
+    /**
+     *
+     */
+    async function getAvatarStyles() {
+        try {
+            const ref = await queryRequest.fetch('avatarStyles');
+            const styles = [];
+            const stylesMap = new Map();
+            for (const style of ref.json) {
+                styles.push(style.styleName);
+                stylesMap.set(style.styleName, style.id);
+            }
+
+            updateDialog({
+                availableAvatarStyles: styles,
+                availableAvatarStylesMap: stylesMap
+            });
+        } catch (error) {
+            console.error('Error loading avatar styles:', error);
+        }
+    }
+
+    /**
+     *
+     */
+    function closeSetAvatarStylesDialog() {
+        updateDialog({ visible: false });
+    }
+
+    /**
+     *
+     */
     function saveSetAvatarStylesDialog() {
         const primaryStyleId =
             props.setAvatarStylesDialog.availableAvatarStylesMap.get(props.setAvatarStylesDialog.primaryStyle) || '';
         const secondaryStyleId =
             props.setAvatarStylesDialog.availableAvatarStylesMap.get(props.setAvatarStylesDialog.secondaryStyle) || '';
 
-        let tags = [];
+        const tags = [];
         for (const tag of props.setAvatarStylesDialog.initialTags) {
             if (!tag.startsWith('author_tag_')) {
                 tags.push(tag);
             }
         }
+
         const authorTagsArray = props.setAvatarStylesDialog.authorTags.split(',');
         for (const tag of authorTagsArray) {
             if (!tag.trim()) {
                 continue;
             }
-            let tagName = `author_tag_${tag}`;
+            const tagName = `author_tag_${tag}`;
             if (!tags.includes(tagName)) {
                 tags.push(tagName);
             }
@@ -130,7 +185,7 @@
             props.setAvatarStylesDialog.initialSecondaryStyle === props.setAvatarStylesDialog.secondaryStyle &&
             arraysMatch(props.setAvatarStylesDialog.initialTags, tags)
         ) {
-            props.setAvatarStylesDialog.visible = false;
+            closeSetAvatarStylesDialog();
             return;
         }
 
@@ -140,18 +195,17 @@
             secondaryStyle: secondaryStyleId,
             tags
         };
+
         avatarRequest
             .saveAvatar(params)
             .then((args) => {
                 applyAvatar(args.json);
-                $message.success(t('dialog.set_avatar_styles.save_success'));
-                props.setAvatarStylesDialog.visible = false;
+                toast.success(t('dialog.set_avatar_styles.save_success'));
+                closeSetAvatarStylesDialog();
             })
             .catch((error) => {
-                $message.error(t('dialog.set_avatar_styles.save_failed'));
+                toast.error(t('dialog.set_avatar_styles.save_failed'));
                 console.error('Error saving avatar styles:', error);
             });
     }
 </script>
-
-<style scoped></style>

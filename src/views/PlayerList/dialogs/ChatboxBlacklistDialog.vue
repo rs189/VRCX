@@ -1,57 +1,76 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible.sync="chatboxBlacklistDialog.visible"
-        :title="t('dialog.chatbox_blacklist.header')"
-        width="600px">
-        <div v-if="chatboxBlacklistDialog.visible" v-loading="chatboxBlacklistDialog.loading">
-            <h2>{{ t('dialog.chatbox_blacklist.keyword_blacklist') }}</h2>
-            <el-input
-                v-for="(item, index) in chatboxBlacklist"
-                :key="index"
-                v-model="chatboxBlacklist[index]"
-                size="small"
-                style="margin-top: 5px"
-                @change="saveChatboxBlacklist">
-                <template #append>
-                    <el-button
-                        icon="el-icon-delete"
-                        @click="
-                            chatboxBlacklist.splice(index, 1);
-                            saveChatboxBlacklist();
-                        ">
-                    </el-button>
-                </template>
-            </el-input>
-            <el-button size="mini" style="margin-top: 5px" @click="chatboxBlacklist.push('')">
-                {{ t('dialog.chatbox_blacklist.add_item') }}
-            </el-button>
-            <br />
-            <h2>{{ t('dialog.chatbox_blacklist.user_blacklist') }}</h2>
-            <el-tag
-                v-for="user in chatboxUserBlacklist"
-                :key="user[0]"
-                type="info"
-                disable-transitions
-                style="margin-right: 5px; margin-top: 5px"
-                closable
-                @close="deleteChatboxUserBlacklist(user[0])">
-                <span>{{ user[1] }}</span>
-            </el-tag>
-        </div>
-    </safe-dialog>
+    <Dialog v-model:open="chatboxBlacklistDialog.visible">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.chatbox_blacklist.header') }}</DialogTitle>
+            </DialogHeader>
+            <div v-if="chatboxBlacklistDialog.visible">
+                <h2>{{ t('dialog.chatbox_blacklist.keyword_blacklist') }}</h2>
+                <InputGroupAction
+                    class="mt-1.5"
+                    v-for="(item, index) in chatboxBlacklist"
+                    :key="index"
+                    v-model="chatboxBlacklist[index]"
+                    size="sm"
+                    @change="saveChatboxBlacklist">
+                    <template #actions>
+                        <Button
+                            variant="outline"
+                            @click="
+                                chatboxBlacklist.splice(index, 1);
+                                saveChatboxBlacklist();
+                            ">
+                        </Button>
+                    </template>
+                </InputGroupAction>
+                <Button size="sm" variant="outline" style="margin-top: 6px" @click="chatboxBlacklist.push('')">
+                    {{ t('dialog.chatbox_blacklist.add_item') }}
+                </Button>
+                <br />
+                <h2>{{ t('dialog.chatbox_blacklist.user_blacklist') }}</h2>
+                <Badge
+                    v-for="user in chatboxUserBlacklist"
+                    :key="user[0]"
+                    variant="outline"
+                    style="margin-right: 6px; margin-top: 6px">
+                    <span>{{ user[1] }}</span>
+                    <button
+                        type="button"
+                        style="
+                            margin-left: 8px;
+                            border: none;
+                            background: transparent;
+                            padding: 0;
+                            display: inline-flex;
+                            align-items: center;
+                            color: inherit;
+                            cursor: pointer;
+                        "
+                        @click="deleteChatboxUserBlacklist(user[0])">
+                        <X class="h-3 w-3" style="line-height: 1" />
+                    </button>
+                </Badge>
+            </div>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { InputGroupAction } from '@/components/ui/input-group';
+    import { X } from 'lucide-vue-next';
     import { storeToRefs } from 'pinia';
-    import { ref } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import configRepository from '../../../service/config';
+    import { useI18n } from 'vue-i18n';
+
+    import { Badge } from '../../../components/ui/badge';
     import { usePhotonStore } from '../../../stores';
 
     const { t } = useI18n();
 
-    const { chatboxUserBlacklist } = storeToRefs(usePhotonStore());
+    const photonStore = usePhotonStore();
+    const { chatboxUserBlacklist, chatboxBlacklist } = storeToRefs(photonStore);
+    const { saveChatboxBlacklist } = photonStore;
 
     defineProps({
         chatboxBlacklistDialog: {
@@ -60,31 +79,12 @@
         }
     });
 
-    const chatboxBlacklist = ref([
-        'NP: ',
-        'Now Playing',
-        'Now playing',
-        "▶️ '",
-        '( ▶️ ',
-        "' - '",
-        "' by '",
-        '[Spotify] '
-    ]);
-
     const emit = defineEmits(['deleteChatboxUserBlacklist']);
 
-    initChatboxBlacklist();
-
-    async function initChatboxBlacklist() {
-        if (await configRepository.getString('VRCX_chatboxBlacklist')) {
-            chatboxBlacklist.value = JSON.parse(await configRepository.getString('VRCX_chatboxBlacklist'));
-        }
-    }
-
-    async function saveChatboxBlacklist() {
-        await configRepository.setString('VRCX_chatboxBlacklist', JSON.stringify(chatboxBlacklist.value));
-    }
-
+    /**
+     *
+     * @param userId
+     */
     function deleteChatboxUserBlacklist(userId) {
         emit('deleteChatboxUserBlacklist', userId);
     }

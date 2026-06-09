@@ -1,10 +1,5 @@
-// Copyright(c) 2019-2025 pypy, Natsumi and individual contributors.
-// All rights reserved.
-//
-// This work is licensed under the terms of the MIT license.
-// For a copy, see <https://opensource.org/licenses/MIT>.
-
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO.Pipes;
 using System.Threading.Tasks;
@@ -14,7 +9,7 @@ namespace VRCX
     public class IPCServer
     {
         public static readonly IPCServer Instance;
-        public static readonly List<IPCClient> Clients = new List<IPCClient>();
+        public static readonly ConcurrentDictionary<IPCClient, byte> Clients = new();
 
         static IPCServer()
         {
@@ -30,7 +25,7 @@ namespace VRCX
         {
             foreach (var client in Clients)
             {
-                client?.Send(ipcPacket);
+                client.Key?.Send(ipcPacket);
             }
         }
 
@@ -64,7 +59,7 @@ namespace VRCX
             }
 
             var ipcClient = new IPCClient(ipcServer);
-            Clients.Add(ipcClient);
+            Clients.TryAdd(ipcClient, 0);
             ipcClient.BeginRead();
             CreateIPCServer();
         }

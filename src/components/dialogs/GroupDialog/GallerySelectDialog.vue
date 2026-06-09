@@ -1,68 +1,79 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible.sync="gallerySelectDialog.visible"
-        :title="t('dialog.gallery_select.header')"
-        width="100%"
-        append-to-body>
-        <div>
-            <span>{{ t('dialog.gallery_select.gallery') }}</span>
-            <span style="color: #909399; font-size: 12px; margin-left: 5px">{{ galleryTable.length }}/64</span>
-            <br />
-            <input
-                id="GalleryUploadButton"
-                type="file"
-                accept="image/*"
-                style="display: none"
-                @change="onFileChangeGallery" />
-            <el-button-group>
-                <el-button type="default" size="small" icon="el-icon-close" @click="selectImageGallerySelect('', '')">{{
-                    t('dialog.gallery_select.none')
-                }}</el-button>
-                <el-button type="default" size="small" icon="el-icon-refresh" @click="refreshGalleryTable">{{
-                    t('dialog.gallery_select.refresh')
-                }}</el-button>
-                <el-button
-                    type="default"
-                    size="small"
-                    icon="el-icon-upload2"
-                    :disabled="!currentUser.$isVRCPlus"
-                    @click="displayGalleryUpload"
-                    >{{ t('dialog.gallery_select.upload') }}</el-button
-                >
-            </el-button-group>
-            <br />
-            <div
-                v-for="image in galleryTable"
-                :key="image.id"
-                class="x-friend-item"
-                style="display: inline-block; margin-top: 10px; width: unset; cursor: default">
-                <template v-if="image.versions && image.versions.length > 0">
-                    <div
-                        v-if="image.versions[image.versions.length - 1].file.url"
-                        class="vrcplus-icon"
-                        @click="selectImageGallerySelect(image.versions[image.versions.length - 1].file.url, image.id)">
-                        <img v-lazy="image.versions[image.versions.length - 1].file.url" class="avatar" /></div
-                ></template>
+    <Dialog v-model:open="gallerySelectDialog.visible">
+        <DialogContent class="x-dialog w-full sm:max-w-none">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.gallery_select.header') }}</DialogTitle>
+            </DialogHeader>
+
+            <div>
+                <span>{{ t('dialog.gallery_select.gallery') }}</span>
+                <span class="ml-1.5 text-muted-foreground text-xs">{{ galleryTable.length }}/64</span>
+                <br />
+                <input
+                    id="GalleryUploadButton"
+                    type="file"
+                    accept="image/*"
+                    style="display: none"
+                    @change="onFileChangeGallery" />
+                <ButtonGroup>
+                    <Button variant="outline" size="sm" @click="selectImageGallerySelect('', '')">
+                        <X />
+                        {{ t('dialog.gallery_select.none') }}
+                    </Button>
+                    <Button variant="outline" size="sm" @click="refreshGalleryTable">
+                        <RefreshCw />
+                        {{ t('dialog.gallery_select.refresh') }}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        :disabled="!isLocalUserVrcPlusSupporter"
+                        @click="displayGalleryUpload">
+                        <Upload />
+                        {{ t('dialog.gallery_select.upload') }}
+                    </Button>
+                </ButtonGroup>
+                <br />
+                <div
+                    v-for="image in galleryTable"
+                    :key="image.id"
+                    class="box-border inline-block mt-2.5 cursor-default">
+                    <template v-if="image.versions && image.versions.length > 0">
+                        <div
+                            v-if="image.versions[image.versions.length - 1].file.url"
+                            class="h-[200px] w-[200px] rounded-[20px] cursor-pointer overflow-hidden"
+                            @click="
+                                selectImageGallerySelect(image.versions[image.versions.length - 1].file.url, image.id)
+                            ">
+                            <img
+                                :src="image.versions[image.versions.length - 1].file.url"
+                                class="h-full w-full rounded-[15px] object-cover"
+                                loading="lazy" />
+                        </div>
+                    </template>
+                </div>
             </div>
-        </div>
-    </safe-dialog>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { RefreshCw, Upload, X } from 'lucide-vue-next';
+    import { Button } from '@/components/ui/button';
+    import { ButtonGroup } from '@/components/ui/button-group';
     import { storeToRefs } from 'pinia';
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
-    import { vrcPlusImageRequest } from '../../../api';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
     import { useGalleryStore, useUserStore } from '../../../stores';
+    import { vrcPlusImageRequest } from '../../../api';
 
     const { t } = useI18n();
 
-    const { proxy } = getCurrentInstance();
-    const { $message } = proxy;
     const { galleryTable } = storeToRefs(useGalleryStore());
     const { refreshGalleryTable, handleGalleryImageAdd } = useGalleryStore();
-    const { currentUser } = storeToRefs(useUserStore());
+    const { isLocalUserVrcPlusSupporter } = storeToRefs(useUserStore());
 
     const props = defineProps({
         gallerySelectDialog: {
@@ -71,6 +82,11 @@
         }
     });
 
+    /**
+     *
+     * @param imageUrl
+     * @param fileId
+     */
     function selectImageGallerySelect(imageUrl, fileId) {
         const D = props.gallerySelectDialog;
         D.selectedFileId = fileId;
@@ -78,10 +94,17 @@
         D.visible = false;
     }
 
+    /**
+     *
+     */
     function displayGalleryUpload() {
         document.getElementById('GalleryUploadButton').click();
     }
 
+    /**
+     *
+     * @param e
+     */
     function onFileChangeGallery(e) {
         const clearFile = function () {
             const fileInput = /** @type{HTMLInputElement} */ (document.querySelector('#GalleryUploadButton'));
@@ -95,18 +118,12 @@
         }
         if (files[0].size >= 100000000) {
             // 100MB
-            $message({
-                message: t('message.file.too_large'),
-                type: 'error'
-            });
+            toast.error(t('message.file.too_large'));
             clearFile();
             return;
         }
         if (!files[0].type.match(/image.*/)) {
-            $message({
-                message: t('message.file.not_image'),
-                type: 'error'
-            });
+            toast.error(t('message.file.not_image'));
             clearFile();
             return;
         }
@@ -115,10 +132,7 @@
             const base64Body = btoa(r.result.toString());
             vrcPlusImageRequest.uploadGalleryImage(base64Body).then((args) => {
                 handleGalleryImageAdd(args);
-                $message({
-                    message: t('message.gallery.uploaded'),
-                    type: 'success'
-                });
+                toast.success(t('message.gallery.uploaded'));
                 if (Object.keys(galleryTable.value).length !== 0) {
                     galleryTable.value.unshift(args.json);
                 }

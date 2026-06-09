@@ -1,48 +1,53 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="editAndSendInviteDialog.visible"
-        :title="t('dialog.edit_send_invite_message.header')"
-        width="400px"
-        append-to-body
-        @close="cancelEditAndSendInvite">
-        <div style="font-size: 12px">
-            <span>{{ t('dialog.edit_send_invite_message.description') }}</span>
-        </div>
+    <Dialog
+        :open="editAndSendInviteDialog.visible"
+        @update:open="
+            (open) => {
+                if (!open) cancelEditAndSendInvite();
+            }
+        ">
+        <DialogContent class="x-dialog sm:max-w-100">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.edit_send_invite_message.header') }}</DialogTitle>
+            </DialogHeader>
 
-        <el-input
-            v-model="editAndSendInviteDialog.newMessage"
-            type="textarea"
-            size="mini"
-            maxlength="64"
-            show-word-limit
-            :autosize="{ minRows: 2, maxRows: 5 }"
-            placeholder=""
-            style="margin-top: 10px"></el-input>
+            <div class="text-xs">
+                <span>{{ t('dialog.edit_send_invite_message.description') }}</span>
+            </div>
 
-        <template #footer>
-            <el-button type="small" @click="cancelEditAndSendInvite">
-                {{ t('dialog.edit_send_invite_message.cancel') }}
-            </el-button>
-            <el-button type="primary" size="small" @click="saveEditAndSendInvite">
-                {{ t('dialog.edit_send_invite_message.send') }}
-            </el-button>
-        </template>
-    </safe-dialog>
+            <InputGroupTextareaField
+                v-model="editAndSendInviteDialog.newMessage"
+                :maxlength="64"
+                :rows="2"
+                class="mt-2.5"
+                placeholder=""
+                show-count />
+
+            <DialogFooter>
+                <Button variant="secondary" class="mr-2" @click="cancelEditAndSendInvite">
+                    {{ t('dialog.edit_send_invite_message.cancel') }}
+                </Button>
+                <Button @click="saveEditAndSendInvite" :disabled="!editAndSendInviteDialog.newMessage">
+                    {{ t('dialog.edit_send_invite_message.send') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
     import { storeToRefs } from 'pinia';
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
     import { instanceRequest, inviteMessagesRequest, notificationRequest } from '../../../api';
-    import { parseLocation } from '../../../shared/utils';
     import { useGalleryStore, useUserStore } from '../../../stores';
+    import { parseLocation } from '../../../shared/utils';
 
     const { t } = useI18n();
-    const instance = getCurrentInstance();
-    const $message = instance.proxy.$message;
-
     const { uploadImage } = storeToRefs(useGalleryStore());
     const { clearInviteImageUpload } = useGalleryStore();
     const { currentUser } = storeToRefs(useUserStore());
@@ -86,13 +91,11 @@
                 })
                 .then((args) => {
                     if (args.json[slot].message === I.messageSlot.message) {
-                        $message({
-                            message: "VRChat API didn't update message, try again",
-                            type: 'error'
-                        });
-                        throw new Error("VRChat API didn't update message, try again");
+                        const errorMessage = t('message.invite.message_update_failed');
+                        toast.error(errorMessage);
+                        throw new Error(errorMessage);
                     } else {
-                        $message('Invite message updated');
+                        toast('Invite message updated');
                     }
                     return args;
                 });
@@ -139,10 +142,7 @@
                 } else {
                     J.loading = false;
                     J.visible = false;
-                    $message({
-                        message: 'Invite sent',
-                        type: 'success'
-                    });
+                    toast.success(t('message.invite.sent'));
                 }
             };
             inviteLoop();
@@ -155,10 +155,7 @@
                         throw err;
                     })
                     .then((args) => {
-                        $message({
-                            message: 'Invite photo message sent',
-                            type: 'success'
-                        });
+                        toast.success('Invite photo message sent');
                         return args;
                     });
             } else {
@@ -168,10 +165,7 @@
                         throw err;
                     })
                     .then((args) => {
-                        $message({
-                            message: 'Invite message sent',
-                            type: 'success'
-                        });
+                        toast.success('Invite message sent');
                         return args;
                     });
             }
@@ -185,10 +179,7 @@
                         throw err;
                     })
                     .then((args) => {
-                        $message({
-                            message: 'Request invite photo message sent',
-                            type: 'success'
-                        });
+                        toast.success('Request invite photo message sent');
                         return args;
                     });
             } else {
@@ -198,10 +189,7 @@
                         throw err;
                     })
                     .then((args) => {
-                        $message({
-                            message: 'Request invite message sent',
-                            type: 'success'
-                        });
+                        toast.success('Request invite message sent');
                         return args;
                     });
             }

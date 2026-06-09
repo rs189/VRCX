@@ -1,94 +1,104 @@
 <template>
-    <safe-dialog
-        :visible.sync="isVisible"
-        :title="t('dialog.set_world_tags.header')"
-        width="400px"
-        destroy-on-close
-        append-to-body>
-        <el-checkbox v-model="setWorldTagsDialog.avatarScalingDisabled">
-            {{ t('dialog.set_world_tags.avatar_scaling_disabled') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.focusViewDisabled">
-            {{ t('dialog.set_world_tags.focus_view_disabled') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.debugAllowed">
-            {{ t('dialog.set_world_tags.enable_debugging') }}
-        </el-checkbox>
-        <div style="font-size: 12px; margin-top: 10px">{{ t('dialog.set_world_tags.author_tags') }}<br /></div>
-        <el-input
-            v-model="setWorldTagsDialog.authorTags"
-            type="textarea"
-            size="mini"
-            show-word-limit
-            :autosize="{ minRows: 2, maxRows: 5 }"
-            placeholder=""
-            style="margin-top: 10px"></el-input>
-        <div style="font-size: 12px; margin-top: 10px">{{ t('dialog.set_world_tags.content_tags') }}<br /></div>
-        <el-checkbox v-model="setWorldTagsDialog.contentHorror">
-            {{ t('dialog.set_world_tags.content_horror') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.contentGore">
-            {{ t('dialog.set_world_tags.content_gore') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.contentViolence">
-            {{ t('dialog.set_world_tags.content_violence') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.contentAdult">
-            {{ t('dialog.set_world_tags.content_adult') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.contentSex">
-            {{ t('dialog.set_world_tags.content_sex') }}
-        </el-checkbox>
-        <div style="font-size: 12px; margin-top: 10px">
-            {{ t('dialog.set_world_tags.default_content_settings') }}<br />
-        </div>
-        <el-checkbox v-model="setWorldTagsDialog.emoji">
-            {{ t('dialog.new_instance.content_emoji') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.stickers">
-            {{ t('dialog.new_instance.content_stickers') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.pedestals">
-            {{ t('dialog.new_instance.content_pedestals') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.prints">
-            {{ t('dialog.new_instance.content_prints') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.drones">
-            {{ t('dialog.new_instance.content_drones') }}
-        </el-checkbox>
-        <br />
-        <el-checkbox v-model="setWorldTagsDialog.props">
-            {{ t('dialog.new_instance.content_items') }}
-        </el-checkbox>
-        <template #footer>
-            <div style="display: flex">
-                <el-button size="small" @click="isVisible = false">
-                    {{ t('dialog.set_world_tags.cancel') }}
-                </el-button>
-                <el-button type="primary" size="small" @click="saveSetWorldTagsDialog">
-                    {{ t('dialog.set_world_tags.save') }}
-                </el-button>
-            </div>
-        </template>
-    </safe-dialog>
+    <Dialog v-model:open="isVisible">
+        <DialogContent class="sm:max-w-100 gap-1">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.set_world_tags.header') }}</DialogTitle>
+            </DialogHeader>
+
+            <label class="inline-flex items-center gap-2 mt-2">
+                <Checkbox v-model="setWorldTagsDialog.avatarScalingDisabled" />
+                <span>{{ t('dialog.set_world_tags.avatar_scaling_disabled') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.focusViewDisabled" />
+                <span>{{ t('dialog.set_world_tags.focus_view_disabled') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.debugAllowed" />
+                <span>{{ t('dialog.set_world_tags.enable_debugging') }}</span>
+            </label>
+            <div class="mt-2 text-xs">{{ t('dialog.set_world_tags.author_tags') }}<br /></div>
+            <InputGroupTextareaField
+                v-model="setWorldTagsDialog.authorTags"
+                :rows="2"
+                placeholder=""
+                input-class="resize-none mt-2" />
+            <div class="mt-2 text-xs">{{ t('dialog.set_world_tags.content_tags') }}<br /></div>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.contentHorror" />
+                <span>{{ t('dialog.set_world_tags.content_horror') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.contentGore" />
+                <span>{{ t('dialog.set_world_tags.content_gore') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.contentViolence" />
+                <span>{{ t('dialog.set_world_tags.content_violence') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.contentAdult" />
+                <span>{{ t('dialog.set_world_tags.content_adult') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.contentSex" />
+                <span>{{ t('dialog.set_world_tags.content_sex') }}</span>
+            </label>
+            <div class="mt-2 text-xs">{{ t('dialog.set_world_tags.default_content_settings') }}<br /></div>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.emoji" />
+                <span>{{ t('dialog.new_instance.content_emoji') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.stickers" />
+                <span>{{ t('dialog.new_instance.content_stickers') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.pedestals" />
+                <span>{{ t('dialog.new_instance.content_pedestals') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.prints" />
+                <span>{{ t('dialog.new_instance.content_prints') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.drones" />
+                <span>{{ t('dialog.new_instance.content_drones') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.props" />
+                <span>{{ t('dialog.new_instance.content_items') }}</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+                <Checkbox v-model="setWorldTagsDialog.thirdPerson" />
+                <span>{{ t('dialog.new_instance.content_third_person') }}</span>
+            </label>
+
+            <DialogFooter>
+                <div class="flex gap-2">
+                    <Button variant="secondary" @click="isVisible = false">
+                        {{ t('dialog.set_world_tags.cancel') }}
+                    </Button>
+                    <Button @click="saveSetWorldTagsDialog">
+                        {{ t('dialog.set_world_tags.save') }}
+                    </Button>
+                </div>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { ref, computed, watch, getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, ref, watch } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { Checkbox } from '@/components/ui/checkbox';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
+    import { showWorldDialog } from '../../../coordinators/worldCoordinator';
     import { worldRequest } from '../../../api';
-    import { useWorldStore } from '../../../stores';
 
     const props = defineProps({
         oldTags: {
@@ -111,11 +121,7 @@
 
     const emit = defineEmits(['update:isSetWorldTagsDialogVisible']);
 
-    const { showWorldDialog } = useWorldStore();
-
     const { t } = useI18n();
-
-    const { proxy } = getCurrentInstance();
 
     const setWorldTagsDialog = ref({
         authorTags: '',
@@ -133,7 +139,8 @@
         pedestals: true,
         prints: true,
         drones: true,
-        props: true
+        props: true,
+        thirdPerson: true
     });
 
     const isVisible = computed({
@@ -154,6 +161,9 @@
         }
     );
 
+    /**
+     *
+     */
     function showSetWorldTagsDialog() {
         const D = setWorldTagsDialog.value;
 
@@ -217,12 +227,17 @@
                 case 'feature_props_disabled':
                     D.props = false;
                     break;
+                case 'feature_third_person_view_disabled':
+                    D.thirdPerson = false;
             }
         });
         D.authorTags = authorTags.toString();
         D.contentTags = contentTags.toString();
     }
 
+    /**
+     *
+     */
     function saveSetWorldTagsDialog() {
         const D = setWorldTagsDialog.value;
         const authorTags = D.authorTags.trim().split(',');
@@ -290,16 +305,16 @@
         if (!D.props) {
             tags.unshift('feature_props_disabled');
         }
+        if (!D.thirdPerson) {
+            tags.unshift('feature_third_person_view_disabled');
+        }
         worldRequest
             .saveWorld({
                 id: props.worldId,
                 tags
             })
             .then((args) => {
-                proxy.$message({
-                    message: 'Tags updated',
-                    type: 'success'
-                });
+                toast.success('Tags updated');
                 emit('update:isSetWorldTagsDialogVisible', false);
                 if (props.isWorldDialogVisible) {
                     showWorldDialog(args.json.id);

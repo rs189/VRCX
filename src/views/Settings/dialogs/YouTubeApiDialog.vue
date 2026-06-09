@@ -1,40 +1,39 @@
 <template>
-    <safe-dialog
-        class="x-dialog"
-        :visible="isYouTubeApiDialogVisible"
-        :title="t('dialog.youtube_api.header')"
-        width="400px"
-        @close="closeDialog">
-        <div style="font-size: 12px">{{ t('dialog.youtube_api.description') }} <br /></div>
+    <Dialog :open="isYouTubeApiDialogVisible" @update:open="(open) => (open ? null : closeDialog())">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.youtube_api.header') }}</DialogTitle>
+            </DialogHeader>
+            <div class="text-xs">{{ t('dialog.youtube_api.description') }} <br /></div>
 
-        <el-input
-            v-model="youTubeApiKey"
-            type="textarea"
-            :placeholder="t('dialog.youtube_api.placeholder')"
-            maxlength="39"
-            show-word-limit
-            style="display: block; margin-top: 10px">
-        </el-input>
+            <InputGroupTextareaField
+                v-model="youTubeApiKey"
+                :placeholder="t('dialog.youtube_api.placeholder')"
+                :maxlength="39"
+                :rows="2"
+                class="mt-2.5"
+                show-count />
 
-        <template #footer>
-            <div style="display: flex">
-                <el-button
-                    size="small"
-                    @click="openExternalLink('https://rapidapi.com/blog/how-to-get-youtube-api-key/')">
+            <DialogFooter>
+                <Button variant="outline" @click="openExternalLink('https://smashballoon.com/doc/youtube-api-key/')">
                     {{ t('dialog.youtube_api.guide') }}
-                </el-button>
-                <el-button type="primary" size="small" style="margin-left: auto" @click="testYouTubeApiKey">
+                </Button>
+                <Button @click="testYouTubeApiKey">
                     {{ t('dialog.youtube_api.save') }}
-                </el-button>
-            </div>
-        </template>
-    </safe-dialog>
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
+    import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
     import { storeToRefs } from 'pinia';
-    import { getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
     import { openExternalLink } from '../../../shared/utils';
     import { useAdvancedSettingsStore } from '../../../stores';
 
@@ -46,10 +45,7 @@
 
     const { t } = useI18n();
 
-    const instance = getCurrentInstance();
-    const $message = instance.proxy.$message;
-
-    const props = defineProps({
+    defineProps({
         isYouTubeApiDialogVisible: {
             type: Boolean,
             default: false
@@ -61,26 +57,17 @@
     async function testYouTubeApiKey() {
         const previousKey = youTubeApiKey.value;
         if (!youTubeApiKey.value) {
-            $message({
-                message: 'YouTube API key removed',
-                type: 'success'
-            });
+            toast.success('YouTube API key removed');
             closeDialog();
             return;
         }
         const data = await lookupYouTubeVideo('dQw4w9WgXcQ');
         if (!data) {
             setYouTubeApiKey(previousKey);
-            $message({
-                message: 'Invalid YouTube API key',
-                type: 'error'
-            });
+            toast.error('Invalid YouTube API key');
         } else {
             setYouTubeApiKey(youTubeApiKey.value);
-            $message({
-                message: 'YouTube API key valid!',
-                type: 'success'
-            });
+            toast.success('YouTube API key valid!');
             closeDialog();
         }
     }

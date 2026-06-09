@@ -4,12 +4,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Win32;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Microsoft.Win32;
-using System.Threading;
-using System.Windows.Forms;
-using System.Threading.Tasks;
 
 namespace VRCX
 {
@@ -30,17 +29,22 @@ namespace VRCX
             _steamPath = Path.Join(_homeDirectory, ".local/share/Steam");
 
             var flatpakSteamPath = Path.Join(_homeDirectory, ".var/app/com.valvesoftware.Steam/.local/share/Steam");
-            if (!Directory.Exists(_steamPath) && Directory.Exists(flatpakSteamPath))
+            if (!IsValidSteamPath(_steamPath) && IsValidSteamPath(flatpakSteamPath))
             {
                 logger.Info("Flatpak Steam detected.");
                 _steamPath = flatpakSteamPath;
             }
 
             var legacySteamPath = Path.Join(_homeDirectory, ".steam/steam");
-            if (!Directory.Exists(_steamPath) && Directory.Exists(legacySteamPath))
+            if (!IsValidSteamPath(_steamPath) && IsValidSteamPath(legacySteamPath))
             {
                 logger.Info("Legacy Steam path detected.");
                 _steamPath = legacySteamPath;
+            }
+
+            if (!IsValidSteamPath(_steamPath))
+            {
+                logger.Error("No valid Steam library found.");
             }
 
             var libraryFoldersVdfPath = Path.Join(_steamPath, "config/libraryfolders.vdf");
@@ -54,6 +58,11 @@ namespace VRCX
             _vrcPrefixPath = Path.Join(vrcLibraryPath, $"steamapps/compatdata/{vrchatAppid}/pfx");
             _vrcAppDataPath = Path.Join(_vrcPrefixPath, "drive_c/users/steamuser/AppData/LocalLow/VRChat/VRChat");
             _vrcCrashesPath = Path.Join(_vrcPrefixPath, "drive_c/users/steamuser/AppData/Local/Temp/VRChat/VRChat/Crashes");
+        }
+
+        private static bool IsValidSteamPath(string path)
+        {
+            return File.Exists(Path.Join(path, "config/libraryfolders.vdf"));
         }
 
         private static string? GetLibraryWithAppId(string libraryFoldersVdfPath, string appId)

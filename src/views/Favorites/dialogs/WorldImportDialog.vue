@@ -1,201 +1,149 @@
 <template>
-    <safe-dialog
-        ref="worldImportDialogRef"
-        :visible.sync="isVisible"
-        :title="t('dialog.world_import.header')"
-        width="650px"
-        class="x-dialog">
-        <div style="display: flex; align-items: center; justify-content: space-between">
-            <div style="font-size: 12px">{{ t('dialog.world_import.description') }}</div>
-            <div style="display: flex; align-items: center">
-                <div v-if="worldImportDialog.progress">
-                    {{ t('dialog.world_import.process_progress') }}
-                    {{ worldImportDialog.progress }} / {{ worldImportDialog.progressTotal }}
-                    <i class="el-icon-loading" style="margin: 0 5px"></i>
+    <Dialog v-model:open="isVisible">
+        <DialogContent class="sm:max-w-xl">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.world_import.header') }}</DialogTitle>
+            </DialogHeader>
+            <div style="display: flex; align-items: center; justify-content: space-between">
+                <div class="text-xs">{{ t('dialog.world_import.description') }}</div>
+                <div style="display: flex; align-items: center">
+                    <div v-if="worldImportDialog.progress">
+                        {{ t('dialog.world_import.process_progress') }}
+                        {{ worldImportDialog.progress }} / {{ worldImportDialog.progressTotal }}
+                        <Spinner class="inline-block ml-2 mr-2" />
+                    </div>
+                    <Button v-if="worldImportDialog.loading" size="sm" variant="outline" @click="cancelWorldImport">
+                        {{ t('dialog.world_import.cancel') }}
+                    </Button>
+                    <Button size="sm" v-else :disabled="!worldImportDialog.input" @click="processWorldImportList">
+                        {{ t('dialog.world_import.process_list') }}
+                    </Button>
                 </div>
-                <el-button v-if="worldImportDialog.loading" size="small" @click="cancelWorldImport">
-                    {{ t('dialog.world_import.cancel') }}
-                </el-button>
-                <el-button v-else size="small" :disabled="!worldImportDialog.input" @click="processWorldImportList">
-                    {{ t('dialog.world_import.process_list') }}
-                </el-button>
             </div>
-        </div>
-        <el-input
-            v-model="worldImportDialog.input"
-            type="textarea"
-            size="mini"
-            rows="10"
-            resize="none"
-            style="margin-top: 10px"></el-input>
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 5px">
+            <InputGroupTextareaField v-model="worldImportDialog.input" :rows="10" input-class="resize-none mt-2" />
             <div>
-                <el-dropdown trigger="click" size="small" style="margin-right: 5px" @click.native.stop>
-                    <el-button size="mini">
-                        <span v-if="worldImportDialog.worldImportFavoriteGroup">
-                            {{ worldImportDialog.worldImportFavoriteGroup.displayName }}
-                            ({{ worldImportDialog.worldImportFavoriteGroup.count }}/{{
-                                worldImportDialog.worldImportFavoriteGroup.capacity
-                            }})
-                            <i class="el-icon-arrow-down el-icon--right"></i>
-                        </span>
-                        <span v-else>
-                            {{ t('dialog.world_import.select_vrchat_group_placeholder') }}
-                            <i class="el-icon-arrow-down el-icon--right"></i>
-                        </span>
-                    </el-button>
-                    <el-dropdown-menu slot="dropdown">
-                        <template v-for="groupAPI in favoriteWorldGroups">
-                            <el-dropdown-item
-                                :key="groupAPI.name"
-                                style="display: block; margin: 10px 0"
-                                :disabled="groupAPI.count >= groupAPI.capacity"
-                                @click.native="selectWorldImportGroup(groupAPI)">
-                                {{ groupAPI.displayName }} ({{ groupAPI.count }}/{{ groupAPI.capacity }})
-                            </el-dropdown-item>
-                        </template>
-                    </el-dropdown-menu>
-                </el-dropdown>
-                <el-dropdown trigger="click" size="small" style="margin: 5px" @click.native.stop>
-                    <el-button size="mini">
-                        <span v-if="worldImportDialog.worldImportLocalFavoriteGroup">
-                            {{ worldImportDialog.worldImportLocalFavoriteGroup }}
-                            ({{ getLocalWorldFavoriteGroupLength(worldImportDialog.worldImportLocalFavoriteGroup) }})
-                            <i class="el-icon-arrow-down el-icon--right"></i>
-                        </span>
-                        <span v-else>
-                            {{ t('dialog.world_import.select_local_group_placeholder') }}
-                            <i class="el-icon-arrow-down el-icon--right"></i>
-                        </span>
-                    </el-button>
-                    <el-dropdown-menu slot="dropdown">
-                        <template v-for="group in localWorldFavoriteGroups">
-                            <el-dropdown-item
-                                :key="group"
-                                style="display: block; margin: 10px 0"
-                                @click.native="selectWorldImportLocalGroup(group)">
-                                {{ group }} ({{ getLocalWorldFavoriteGroupLength(group) }})
-                            </el-dropdown-item>
-                        </template>
-                    </el-dropdown-menu>
-                </el-dropdown>
-                <span v-if="worldImportDialog.worldImportFavoriteGroup" style="margin-left: 5px">
-                    {{ worldImportTable.data.length }} /
-                    {{
-                        worldImportDialog.worldImportFavoriteGroup.capacity -
-                        worldImportDialog.worldImportFavoriteGroup.count
-                    }}
-                </span>
+                <div class="mb-2">
+                    <div class="flex items-center gap-2">
+                        <Select
+                            :model-value="worldImportFavoriteGroupSelection"
+                            @update:modelValue="handleWorldImportGroupSelect">
+                            <SelectTrigger size="sm">
+                                <SelectValue :placeholder="t('dialog.world_import.select_vrchat_group_placeholder')" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectItem
+                                        v-for="groupAPI in favoriteWorldGroups"
+                                        :key="groupAPI.name"
+                                        :value="groupAPI.name"
+                                        :disabled="groupAPI.count >= groupAPI.capacity">
+                                        {{ groupAPI.displayName }} ({{ groupAPI.count }}/{{ groupAPI.capacity }})
+                                    </SelectItem>
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            class="ml-2"
+                            :model-value="worldImportLocalFavoriteGroupSelection"
+                            @update:modelValue="handleWorldImportLocalGroupSelect">
+                            <SelectTrigger size="sm">
+                                <SelectValue :placeholder="t('dialog.world_import.select_local_group_placeholder')" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectItem v-for="group in localWorldFavoriteGroups" :key="group" :value="group">
+                                        {{ group }} ({{ localWorldFavGroupLength(group) }})
+                                    </SelectItem>
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <span class="ml-1.5" v-if="worldImportDialog.worldImportFavoriteGroup">
+                        {{ worldImportTable.data.length }} /
+                        {{
+                            worldImportDialog.worldImportFavoriteGroup.capacity -
+                            worldImportDialog.worldImportFavoriteGroup.count
+                        }}
+                    </span>
+                </div>
+                <div>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        class="mr-2"
+                        :disabled="worldImportTable.data.length === 0"
+                        @click="clearWorldImportTable">
+                        {{ t('dialog.world_import.clear_table') }}
+                    </Button>
+                    <Button
+                        size="sm"
+                        :disabled="
+                            worldImportTable.data.length === 0 ||
+                            (!worldImportDialog.worldImportFavoriteGroup &&
+                                !worldImportDialog.worldImportLocalFavoriteGroup)
+                        "
+                        @click="importWorldImportTable">
+                        {{ t('dialog.world_import.import') }}
+                    </Button>
+                </div>
             </div>
-            <div>
-                <el-button size="small" :disabled="worldImportTable.data.length === 0" @click="clearWorldImportTable">
-                    {{ t('dialog.world_import.clear_table') }}
-                </el-button>
-                <el-button
-                    size="small"
-                    type="primary"
-                    style="margin: 5px"
-                    :disabled="
-                        worldImportTable.data.length === 0 ||
-                        (!worldImportDialog.worldImportFavoriteGroup &&
-                            !worldImportDialog.worldImportLocalFavoriteGroup)
-                    "
-                    @click="importWorldImportTable">
-                    {{ t('dialog.world_import.import') }}
-                </el-button>
-            </div>
-        </div>
-        <span v-if="worldImportDialog.importProgress" style="margin: 10px">
-            <i class="el-icon-loading" style="margin-right: 5px"></i>
-            {{ t('dialog.world_import.import_progress') }}
-            {{ worldImportDialog.importProgress }}/{{ worldImportDialog.importProgressTotal }}
-        </span>
-        <br />
-        <template v-if="worldImportDialog.errors">
-            <el-button size="small" @click="worldImportDialog.errors = ''">
-                {{ t('dialog.world_import.clear_errors') }}
-            </el-button>
-            <h2 style="font-weight: bold; margin: 5px 0">
-                {{ t('dialog.world_import.errors') }}
-            </h2>
-            <pre style="white-space: pre-wrap; font-size: 12px" v-text="worldImportDialog.errors"></pre>
-        </template>
-        <data-tables v-loading="worldImportDialog.loading" v-bind="worldImportTable" style="margin-top: 10px">
-            <el-table-column :label="t('table.import.image')" width="70" prop="thumbnailImageUrl">
-                <template slot-scope="scope">
-                    <el-popover placement="right" height="500px" trigger="hover">
-                        <img slot="reference" v-lazy="scope.row.thumbnailImageUrl" class="friends-list-avatar" />
-                        <img
-                            v-lazy="scope.row.imageUrl"
-                            class="friends-list-avatar"
-                            style="height: 500px; cursor: pointer"
-                            @click="showFullscreenImageDialog(scope.row.imageUrl)" />
-                    </el-popover>
-                </template>
-            </el-table-column>
-            <el-table-column :label="t('table.import.name')" prop="name">
-                <template slot-scope="scope">
-                    <span class="x-link" @click="showWorldDialog(scope.row.id)" v-text="scope.row.name"></span>
-                </template>
-            </el-table-column>
-            <el-table-column :label="t('table.import.author')" width="120" prop="authorName">
-                <template slot-scope="scope">
-                    <span
-                        class="x-link"
-                        @click="showUserDialog(scope.row.authorId)"
-                        v-text="scope.row.authorName"></span>
-                </template>
-            </el-table-column>
-            <el-table-column :label="t('table.import.status')" width="70" prop="releaseStatus">
-                <template slot-scope="scope">
-                    <span
-                        :style="{
-                            color:
-                                scope.row.releaseStatus === 'public'
-                                    ? '#67c23a'
-                                    : scope.row.releaseStatus === 'private'
-                                      ? '#f56c6c'
-                                      : undefined
-                        }"
-                        v-text="
-                            scope.row.releaseStatus.charAt(0).toUpperCase() + scope.row.releaseStatus.slice(1)
-                        "></span>
-                </template>
-            </el-table-column>
-            <el-table-column :label="t('table.import.action')" width="90" align="right">
-                <template slot-scope="scope">
-                    <el-button
-                        type="text"
-                        icon="el-icon-close"
-                        size="mini"
-                        @click="deleteItemWorldImport(scope.row)"></el-button>
-                </template>
-            </el-table-column>
-        </data-tables>
-    </safe-dialog>
+            <span class="m-2" v-if="worldImportDialog.importProgress">
+                <Spinner class="inline-block ml-2 mr-2" />
+                {{ t('dialog.world_import.import_progress') }}
+                {{ worldImportDialog.importProgress }}/{{ worldImportDialog.importProgressTotal }}
+            </span>
+            <br />
+            <template v-if="worldImportDialog.errors">
+                <Button size="sm" variant="secondary" @click="worldImportDialog.errors = ''">
+                    {{ t('dialog.world_import.clear_errors') }}
+                </Button>
+                <h2 class="my-1.5 mx-0" style="font-weight: bold">
+                    {{ t('dialog.world_import.errors') }}
+                </h2>
+                <pre class="whitespace-pre-wrap text-xs" v-text="worldImportDialog.errors"></pre>
+            </template>
+            <DataTableLayout
+                class="min-w-0 w-full"
+                :table="table"
+                :loading="worldImportDialog.loading"
+                :table-style="tableStyle"
+                :show-pagination="false"
+                style="margin-top: 8px" />
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { ref, watch, computed, getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, ref, watch } from 'vue';
+    import { Button } from '@/components/ui/button';
+    import { DataTableLayout } from '@/components/ui/data-table';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
+    import { Spinner } from '@/components/ui/spinner';
     import { storeToRefs } from 'pinia';
-    import { favoriteRequest, worldRequest } from '../../../api';
-    import { adjustDialogZ, removeFromArray } from '../../../shared/utils';
-    import { useFavoriteStore, useGalleryStore, useUserStore, useWorldStore } from '../../../stores';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
 
-    const { showUserDialog } = useUserStore();
+    import { useFavoriteStore, useGalleryStore, useUserStore, useWorldStore } from '../../../stores';
+    import { showWorldDialog } from '../../../coordinators/worldCoordinator';
+    import { addLocalWorldFavorite } from '../../../coordinators/favoriteCoordinator';
+    import { favoriteRequest, worldRequest } from '../../../api';
+    import { createColumns } from './worldImportColumns.jsx';
+    import { removeFromArray } from '../../../shared/utils';
+    import { useVrcxVueTable } from '../../../lib/table/useVrcxVueTable';
+    import { showUserDialog } from '../../../coordinators/userCoordinator';
+
     const { favoriteWorldGroups, worldImportDialogInput, worldImportDialogVisible, localWorldFavoriteGroups } =
         storeToRefs(useFavoriteStore());
-    const { getLocalWorldFavoriteGroupLength, addLocalWorldFavorite } = useFavoriteStore();
-    const { showWorldDialog } = useWorldStore();
+    const { localWorldFavGroupLength, getCachedFavoritesByObjectId } = useFavoriteStore();
+
     const { showFullscreenImageDialog } = useGalleryStore();
 
     const emit = defineEmits(['update:worldImportDialogInput']);
 
-    const { proxy } = getCurrentInstance();
     const { t } = useI18n();
-
-    const worldImportDialogRef = ref(null);
 
     const worldImportDialog = ref({
         loading: false,
@@ -210,13 +158,38 @@
         importProgressTotal: 0
     });
 
+    const worldImportFavoriteGroupSelection = ref('');
+    const worldImportLocalFavoriteGroupSelection = ref('');
+
     const worldImportTable = ref({
         data: [],
-        tableProps: {
-            stripe: true,
-            size: 'mini'
-        },
         layout: 'table'
+    });
+
+    const tableStyle = { maxHeight: '400px' };
+
+    const rows = computed(() =>
+        Array.isArray(worldImportTable.value?.data) ? worldImportTable.value.data.slice() : []
+    );
+
+    const columns = computed(() =>
+        createColumns({
+            onShowWorld: showWorldDialog,
+            onShowUser: showUserDialog,
+            onShowFullscreenImage: showFullscreenImageDialog,
+            onDelete: deleteItemWorldImport
+        })
+    );
+
+    const { table } = useVrcxVueTable({
+        persistKey: 'worldImportDialog',
+        get data() {
+            return rows.value;
+        },
+        columns: columns.value,
+        getRowId: (row) => String(row?.id ?? ''),
+        enablePagination: false,
+        enableSorting: false
     });
 
     const isVisible = computed({
@@ -232,7 +205,6 @@
         () => worldImportDialogVisible.value,
         (visible) => {
             if (visible) {
-                adjustDialogZ(worldImportDialogRef.value.$el);
                 clearWorldImportTable();
                 resetWorldImport();
                 if (worldImportDialogInput.value) {
@@ -244,11 +216,17 @@
         }
     );
 
+    /**
+     *
+     */
     function resetWorldImport() {
         worldImportDialog.value.input = '';
         worldImportDialog.value.errors = '';
     }
 
+    /**
+     *
+     */
     async function processWorldImportList() {
         const D = worldImportDialog.value;
         D.loading = true;
@@ -283,37 +261,80 @@
                 }
             }
             D.progress++;
-            if (D.progress === worldIdList.size) {
-                D.progress = 0;
-            }
         }
         D.loading = false;
+        D.progress = 0;
+        D.progressTotal = 0;
     }
 
+    /**
+     *
+     * @param ref
+     */
     function deleteItemWorldImport(ref) {
         removeFromArray(worldImportTable.value.data, ref);
         worldImportDialog.value.worldIdList.delete(ref.id);
     }
 
+    /**
+     *
+     */
     function clearWorldImportTable() {
         worldImportTable.value.data = [];
         worldImportDialog.value.worldIdList = new Set();
     }
 
+    /**
+     *
+     * @param group
+     */
     function selectWorldImportGroup(group) {
         worldImportDialog.value.worldImportLocalFavoriteGroup = null;
         worldImportDialog.value.worldImportFavoriteGroup = group;
+        worldImportFavoriteGroupSelection.value = group?.name ?? '';
+        worldImportLocalFavoriteGroupSelection.value = '';
     }
 
+    /**
+     *
+     * @param group
+     */
     function selectWorldImportLocalGroup(group) {
         worldImportDialog.value.worldImportFavoriteGroup = null;
         worldImportDialog.value.worldImportLocalFavoriteGroup = group;
+        worldImportFavoriteGroupSelection.value = '';
+        worldImportLocalFavoriteGroupSelection.value = group ?? '';
     }
 
+    /**
+     *
+     * @param value
+     */
+    function handleWorldImportGroupSelect(value) {
+        worldImportFavoriteGroupSelection.value = value;
+        const group = favoriteWorldGroups.value.find((g) => g.name === value) ?? null;
+        selectWorldImportGroup(group);
+    }
+
+    /**
+     *
+     * @param value
+     */
+    function handleWorldImportLocalGroupSelect(value) {
+        worldImportLocalFavoriteGroupSelection.value = value;
+        selectWorldImportLocalGroup(value || null);
+    }
+
+    /**
+     *
+     */
     function cancelWorldImport() {
         worldImportDialog.value.loading = false;
     }
 
+    /**
+     *
+     */
     async function importWorldImportTable() {
         const D = worldImportDialog.value;
         if (!D.worldImportFavoriteGroup && !D.worldImportLocalFavoriteGroup) {
@@ -330,6 +351,9 @@
                 }
                 ref = data[i];
                 if (D.worldImportFavoriteGroup) {
+                    if (getCachedFavoritesByObjectId(ref.id)) {
+                        throw new Error('World is already in favorites');
+                    }
                     await addFavoriteWorld(ref, D.worldImportFavoriteGroup, false);
                 } else if (D.worldImportLocalFavoriteGroup) {
                     addLocalWorldFavorite(ref.id, D.worldImportLocalFavoriteGroup);
@@ -347,19 +371,22 @@
         }
     }
 
+    /**
+     *
+     * @param ref
+     * @param group
+     * @param message
+     */
     function addFavoriteWorld(ref, group, message) {
         return favoriteRequest
             .addFavorite({
-                type: 'world',
+                type: group.type,
                 favoriteId: ref.id,
                 tags: group.name
             })
             .then((args) => {
                 if (message) {
-                    proxy.$message({
-                        message: 'World added to favorites',
-                        type: 'success'
-                    });
+                    toast.success('World added to favorites');
                 }
                 return args;
             });

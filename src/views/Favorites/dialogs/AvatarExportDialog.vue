@@ -1,92 +1,81 @@
 <template>
-    <safe-dialog :visible.sync="isDialogVisible" :title="t('dialog.avatar_export.header')" width="650px">
-        <el-checkbox-group
-            v-model="exportSelectedOptions"
-            style="margin-bottom: 10px"
-            @change="updateAvatarExportDialog()">
-            <template v-for="option in exportSelectOptions">
-                <el-checkbox :key="option.value" :label="option.label"></el-checkbox>
-            </template>
-        </el-checkbox-group>
+    <Dialog v-model:open="isDialogVisible">
+        <DialogContent class="sm:max-w-xl">
+            <DialogHeader>
+                <DialogTitle>{{ t('dialog.avatar_export.header') }}</DialogTitle>
+            </DialogHeader>
 
-        <el-dropdown trigger="click" size="small" @click.native.stop>
-            <el-button size="mini">
-                <span v-if="avatarExportFavoriteGroup">
-                    {{ avatarExportFavoriteGroup.displayName }} ({{ avatarExportFavoriteGroup.count }}/{{
-                        avatarExportFavoriteGroup.capacity
-                    }})
-                    <i class="el-icon-arrow-down el-icon--right"></i>
-                </span>
-                <span v-else>
-                    All Favorites
-                    <i class="el-icon-arrow-down el-icon--right"></i>
-                </span>
-            </el-button>
-            <el-dropdown-menu slot="dropdown">
-                <el-dropdown-item style="display: block; margin: 10px 0" @click.native="selectAvatarExportGroup(null)">
-                    All Favorites
-                </el-dropdown-item>
-                <template v-for="groupAPI in favoriteAvatarGroups">
-                    <el-dropdown-item
-                        :key="groupAPI.name"
-                        style="display: block; margin: 10px 0"
-                        @click.native="selectAvatarExportGroup(groupAPI)">
-                        {{ groupAPI.displayName }} ({{ groupAPI.count }}/{{ groupAPI.capacity }})
-                    </el-dropdown-item>
-                </template>
-            </el-dropdown-menu>
-        </el-dropdown>
+            <div class="flex flex-col gap-2 mb-2">
+                <label v-for="option in exportSelectOptions" :key="option.value" class="inline-flex items-center gap-2">
+                    <Checkbox
+                        :model-value="exportSelectedOptions.includes(option.label)"
+                        @update:modelValue="(val) => toggleAvatarExportOption(option.label, val)" />
+                    <span>{{ option.label }}</span>
+                </label>
+            </div>
 
-        <el-dropdown trigger="click" size="small" style="margin-left: 10px" @click.native.stop>
-            <el-button size="mini">
-                <span v-if="avatarExportLocalFavoriteGroup">
-                    {{ avatarExportLocalFavoriteGroup }} ({{
-                        getLocalAvatarFavoriteGroupLength(avatarExportLocalFavoriteGroup)
-                    }})
-                    <i class="el-icon-arrow-down el-icon--right"></i>
-                </span>
-                <span v-else>
-                    Select Group
-                    <i class="el-icon-arrow-down el-icon--right"></i>
-                </span>
-            </el-button>
-            <el-dropdown-menu slot="dropdown">
-                <el-dropdown-item
-                    style="display: block; margin: 10px 0"
-                    @click.native="selectAvatarExportLocalGroup(null)">
-                    None
-                </el-dropdown-item>
-                <template v-for="group in localAvatarFavoriteGroups">
-                    <el-dropdown-item
-                        :key="group"
-                        style="display: block; margin: 10px 0"
-                        @click.native="selectAvatarExportLocalGroup(group)">
-                        {{ group }} ({{ getLocalAvatarFavoriteGroupLength(group) }})
-                    </el-dropdown-item>
-                </template>
-            </el-dropdown-menu>
-        </el-dropdown>
-        <br />
-        <el-input
-            v-model="avatarExportContent"
-            type="textarea"
-            size="mini"
-            rows="15"
-            resize="none"
-            readonly
-            style="margin-top: 15px"
-            @click.native="handleCopyAvatarExportData"></el-input>
-    </safe-dialog>
+            <div class="flex items-center gap-2">
+                <Select
+                    :model-value="avatarExportFavoriteGroupSelection"
+                    @update:modelValue="handleAvatarExportFavoriteGroupSelect">
+                    <SelectTrigger size="sm">
+                        <SelectValue placeholder="All Favorites" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectGroup>
+                            <SelectItem :value="AVATAR_EXPORT_ALL_VALUE">All Favorites</SelectItem>
+                            <SelectItem
+                                v-for="groupAPI in favoriteAvatarGroups"
+                                :key="groupAPI.name"
+                                :value="groupAPI.name">
+                                {{ groupAPI.displayName }} ({{ groupAPI.count }}/{{ groupAPI.capacity }})
+                            </SelectItem>
+                        </SelectGroup>
+                    </SelectContent>
+                </Select>
+
+                <Select
+                    class="ml-2"
+                    :model-value="avatarExportLocalFavoriteGroupSelection"
+                    @update:modelValue="handleAvatarExportLocalFavoriteGroupSelect">
+                    <SelectTrigger size="sm">
+                        <SelectValue placeholder="Select Group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectGroup>
+                            <SelectItem :value="AVATAR_EXPORT_NONE_VALUE">None</SelectItem>
+                            <SelectItem v-for="group in localAvatarFavoriteGroups" :key="group" :value="group">
+                                {{ group }} ({{ localAvatarFavGroupLength(group) }})
+                            </SelectItem>
+                        </SelectGroup>
+                    </SelectContent>
+                </Select>
+            </div>
+            <br />
+            <InputGroupTextareaField
+                v-model="avatarExportContent"
+                :rows="15"
+                readonly
+                input-class="resize-none mt-4"
+                @click="handleCopyAvatarExportData" />
+        </DialogContent>
+    </Dialog>
 </template>
 
 <script setup>
-    import { ref, computed, watch, getCurrentInstance } from 'vue';
-    import { useI18n } from 'vue-i18n-bridge';
+    import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+    import { computed, ref, watch } from 'vue';
+    import { Checkbox } from '@/components/ui/checkbox';
+    import { InputGroupTextareaField } from '@/components/ui/input-group';
     import { storeToRefs } from 'pinia';
+    import { toast } from 'vue-sonner';
+    import { useI18n } from 'vue-i18n';
+
+    import { formatCsvField, formatCsvRow } from '../../../shared/utils';
     import { useAvatarStore, useFavoriteStore } from '../../../stores';
 
     const { t } = useI18n();
-    const { proxy } = getCurrentInstance();
 
     const props = defineProps({
         avatarExportDialogVisible: {
@@ -97,21 +86,25 @@
 
     const emit = defineEmits(['update:avatarExportDialogVisible']);
 
-    const favoriteStore = useFavoriteStore();
     const {
         favoriteAvatars,
         favoriteAvatarGroups,
         localAvatarFavorites,
         localAvatarFavoritesList,
         localAvatarFavoriteGroups
-    } = storeToRefs(favoriteStore);
-    const { getLocalAvatarFavoriteGroupLength } = favoriteStore;
-    const avatarStore = useAvatarStore();
-    const { cachedAvatars } = storeToRefs(avatarStore);
+    } = storeToRefs(useFavoriteStore());
+    const { localAvatarFavGroupLength } = useFavoriteStore();
+    const { cachedAvatars } = useAvatarStore();
 
     const avatarExportContent = ref('');
     const avatarExportFavoriteGroup = ref(null);
     const avatarExportLocalFavoriteGroup = ref(null);
+
+    const AVATAR_EXPORT_ALL_VALUE = '__all__';
+    const AVATAR_EXPORT_NONE_VALUE = '__none__';
+
+    const avatarExportFavoriteGroupSelection = ref(AVATAR_EXPORT_ALL_VALUE);
+    const avatarExportLocalFavoriteGroupSelection = ref(AVATAR_EXPORT_NONE_VALUE);
     const exportSelectedOptions = ref(['ID', 'Name']);
     const exportSelectOptions = ref([
         { label: 'ID', value: 'id' },
@@ -120,6 +113,22 @@
         { label: 'Author Name', value: 'authorName' },
         { label: 'Thumbnail', value: 'thumbnailImageUrl' }
     ]);
+
+    /**
+     *
+     * @param label
+     * @param checked
+     */
+    function toggleAvatarExportOption(label, checked) {
+        const selection = exportSelectedOptions.value;
+        const index = selection.indexOf(label);
+        if (checked && index === -1) {
+            selection.push(label);
+        } else if (!checked && index !== -1) {
+            selection.splice(index, 1);
+        }
+        updateAvatarExportDialog();
+    }
 
     const isDialogVisible = computed({
         get() {
@@ -139,11 +148,47 @@
         }
     );
 
+    /**
+     *
+     */
     function showAvatarExportDialog() {
         avatarExportFavoriteGroup.value = null;
         avatarExportLocalFavoriteGroup.value = null;
+        avatarExportFavoriteGroupSelection.value = AVATAR_EXPORT_ALL_VALUE;
+        avatarExportLocalFavoriteGroupSelection.value = AVATAR_EXPORT_NONE_VALUE;
         updateAvatarExportDialog();
     }
+
+    /**
+     *
+     * @param value
+     */
+    function handleAvatarExportFavoriteGroupSelect(value) {
+        avatarExportFavoriteGroupSelection.value = value;
+        if (value === AVATAR_EXPORT_ALL_VALUE) {
+            selectAvatarExportGroup(null);
+            return;
+        }
+        const group = favoriteAvatarGroups.value.find((g) => g.name === value) || null;
+        selectAvatarExportGroup(group);
+    }
+
+    /**
+     *
+     * @param value
+     */
+    function handleAvatarExportLocalFavoriteGroupSelect(value) {
+        avatarExportLocalFavoriteGroupSelection.value = value;
+        if (value === AVATAR_EXPORT_NONE_VALUE) {
+            selectAvatarExportLocalGroup(null);
+            return;
+        }
+        selectAvatarExportLocalGroup(value);
+    }
+    /**
+     *
+     * @param event
+     */
     function handleCopyAvatarExportData(event) {
         if (event.target.tagName === 'TEXTAREA') {
             event.target.select();
@@ -151,35 +196,20 @@
         navigator.clipboard
             .writeText(avatarExportContent.value)
             .then(() => {
-                proxy.$message({
-                    message: 'Copied successfully!',
-                    type: 'success',
-                    duration: 2000
-                });
+                toast.success('Copied successfully!', { duration: 2000 });
             })
             .catch((err) => {
                 console.error('Copy failed:', err);
-                proxy.$message.error('Copy failed!');
+                toast.error('Copy failed!');
             });
     }
+    /**
+     *
+     */
     function updateAvatarExportDialog() {
-        const formatter = function (str) {
-            if (/[\x00-\x1f,"]/.test(str) === true) {
-                return `"${str.replace(/"/g, '""')}"`;
-            }
-            return str;
-        };
         const propsForQuery = exportSelectOptions.value
             .filter((option) => exportSelectedOptions.value.includes(option.label))
             .map((option) => option.value);
-
-        function resText(ref) {
-            let resArr = [];
-            propsForQuery.forEach((e) => {
-                resArr.push(formatter(ref?.[e]));
-            });
-            return resArr.join(',');
-        }
 
         const lines = [exportSelectedOptions.value.join(',')];
 
@@ -188,7 +218,7 @@
                 if (!avatarExportFavoriteGroup.value || avatarExportFavoriteGroup.value === group) {
                     favoriteAvatars.value.forEach((ref) => {
                         if (group.key === ref.groupKey) {
-                            lines.push(resText(ref.ref));
+                            lines.push(formatCsvRow(ref.ref, propsForQuery));
                         }
                     });
                 }
@@ -200,31 +230,43 @@
             }
             for (let i = 0; i < favoriteGroup.length; ++i) {
                 const ref = favoriteGroup[i];
-                lines.push(resText(ref));
+                lines.push(formatCsvRow(ref, propsForQuery));
             }
         } else {
             // export all
             favoriteAvatars.value.forEach((ref) => {
-                lines.push(resText(ref.ref));
+                lines.push(formatCsvRow(ref.ref, propsForQuery));
             });
             for (let i = 0; i < localAvatarFavoritesList.value.length; ++i) {
                 const avatarId = localAvatarFavoritesList.value[i];
-                const ref = cachedAvatars.value.get(avatarId);
+                const ref = cachedAvatars.get(avatarId);
                 if (typeof ref !== 'undefined') {
-                    lines.push(resText(ref));
+                    lines.push(formatCsvRow(ref, propsForQuery));
                 }
             }
         }
-        avatarExportContent.value = lines.join('\n');
+        avatarExportContent.value = lines.reverse().join('\n');
     }
+    /**
+     *
+     * @param group
+     */
     function selectAvatarExportGroup(group) {
         avatarExportFavoriteGroup.value = group;
         avatarExportLocalFavoriteGroup.value = null;
+        avatarExportFavoriteGroupSelection.value = group?.name ?? AVATAR_EXPORT_ALL_VALUE;
+        avatarExportLocalFavoriteGroupSelection.value = AVATAR_EXPORT_NONE_VALUE;
         updateAvatarExportDialog();
     }
+    /**
+     *
+     * @param group
+     */
     function selectAvatarExportLocalGroup(group) {
         avatarExportLocalFavoriteGroup.value = group;
         avatarExportFavoriteGroup.value = null;
+        avatarExportLocalFavoriteGroupSelection.value = group ?? AVATAR_EXPORT_NONE_VALUE;
+        avatarExportFavoriteGroupSelection.value = AVATAR_EXPORT_ALL_VALUE;
         updateAvatarExportDialog();
     }
 </script>
